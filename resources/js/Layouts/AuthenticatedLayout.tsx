@@ -1,215 +1,240 @@
 import ApplicationLogo from '@/components/ApplicationLogo';
-import Dropdown from '@/components/Dropdown';
-import NavLink from '@/components/NavLink';
-import ResponsiveNavLink from '@/components/ResponsiveNavLink';
 import { Link, usePage } from '@inertiajs/react';
-import { PropsWithChildren, ReactNode, useState } from 'react';
+import { PropsWithChildren, ReactNode, useState, useEffect } from 'react';
+import { Toaster } from 'sonner';
+import { useFlashToasts } from '@/hooks/useFlashToasts';
+import { 
+    LayoutDashboard, 
+    FileText, 
+    Users as UsersIcon, 
+    Activity, 
+    Trash2, 
+    ShieldCheck, 
+    UserCog, 
+    ScrollText, 
+    Monitor, 
+    Menu, 
+    X, 
+    LogOut, 
+    User as UserIcon,
+    ChevronLeft,
+    ChevronRight
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 export default function Authenticated({
     header,
     children,
 }: PropsWithChildren<{ header?: ReactNode }>) {
-    const user = usePage().props.auth.user;
+    useFlashToasts();
+    
+    const { auth } = usePage().props as any;
+    const user = auth.user;
+    const roles = auth.roles || [];
+    const isAdmin = roles.some((r: string) => ['super-admin', 'admin'].includes(r));
 
-    const [showingNavigationDropdown, setShowingNavigationDropdown] =
-        useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    // Close mobile menu on route change (simulated by checking route in usePage)
+    const { url } = usePage();
+    useEffect(() => {
+        setIsMobileMenuOpen(false);
+    }, [url]);
+
+    const NavItem = ({ href, icon: Icon, label, active }: { href: string; icon: any; label: string; active: boolean }) => (
+        <Link
+            href={href}
+            className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group text-sm font-medium",
+                active 
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-900/20" 
+                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+            )}
+        >
+            <Icon className={cn("h-4 w-4 shrink-0", active ? "text-white" : "group-hover:text-indigo-400")} />
+            {(isSidebarOpen || isMobileMenuOpen) && <span>{label}</span>}
+        </Link>
+    );
+
+    const NavGroup = ({ title, children }: { title: string; children: ReactNode }) => (
+        <div className="space-y-1 mb-6">
+            {(isSidebarOpen || isMobileMenuOpen) && (
+                <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">
+                    {title}
+                </h3>
+            )}
+            <div className="flex flex-col gap-1">
+                {children}
+            </div>
+        </div>
+    );
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            <nav className="border-b border-gray-100 bg-white">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-16 justify-between">
-                        <div className="flex">
-                            <div className="flex shrink-0 items-center">
-                                <Link href="/">
-                                    <ApplicationLogo className="block h-9 w-auto fill-current text-gray-800" />
-                                </Link>
-                            </div>
-
-                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink
-                                    href={route('dashboard')}
-                                    active={route().current('dashboard')}
-                                >
-                                    Dashboard
-                                </NavLink>
-                                <NavLink
-                                    href={route('documents.index')}
-                                    active={route().current('documents.index')}
-                                >
-                                    My Vault
-                                </NavLink>
-                                <NavLink
-                                    href={route('shared.index')}
-                                    active={route().current('shared.index')}
-                                >
-                                    Shared with Me
-                                </NavLink>
-                                <NavLink
-                                    href={route('documents.trash')}
-                                    active={route().current('documents.trash')}
-                                >
-                                    Trash
-                                </NavLink>
-                            </div>
-                        </div>
-
-                        <div className="hidden sm:ms-6 sm:flex sm:items-center">
-                            <div className="relative ms-3">
-                                <Dropdown>
-                                    <Dropdown.Trigger>
-                                        <span className="inline-flex rounded-md">
-                                            <button
-                                                type="button"
-                                                className="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-500 transition duration-150 ease-in-out hover:text-gray-700 focus:outline-none"
-                                            >
-                                                {user.name}
-
-                                                <svg
-                                                    className="-me-0.5 ms-2 h-4 w-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fillRule="evenodd"
-                                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                        clipRule="evenodd"
-                                                    />
-                                                </svg>
-                                            </button>
-                                        </span>
-                                    </Dropdown.Trigger>
-
-                                    <Dropdown.Content>
-                                        <Dropdown.Link
-                                            href={route('profile.edit')}
-                                        >
-                                            Profile
-                                        </Dropdown.Link>
-                                        <Dropdown.Link
-                                            href={route('logout')}
-                                            method="post"
-                                            as="button"
-                                        >
-                                            Log Out
-                                        </Dropdown.Link>
-                                    </Dropdown.Content>
-                                </Dropdown>
-                            </div>
-                        </div>
-
-                        <div className="-me-2 flex items-center sm:hidden">
-                            <button
-                                onClick={() =>
-                                    setShowingNavigationDropdown(
-                                        (previousState) => !previousState,
-                                    )
-                                }
-                                className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 transition duration-150 ease-in-out hover:bg-gray-100 hover:text-gray-500 focus:bg-gray-100 focus:text-gray-500 focus:outline-none"
-                            >
-                                <svg
-                                    className="h-6 w-6"
-                                    stroke="currentColor"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        className={
-                                            !showingNavigationDropdown
-                                                ? 'inline-flex'
-                                                : 'hidden'
-                                        }
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M4 6h16M4 12h16M4 18h16"
-                                    />
-                                    <path
-                                        className={
-                                            showingNavigationDropdown
-                                                ? 'inline-flex'
-                                                : 'hidden'
-                                        }
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M6 18L18 6M6 6l12 12"
-                                    />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    className={
-                        (showingNavigationDropdown ? 'block' : 'hidden') +
-                        ' sm:hidden'
-                    }
-                >
-                    <div className="space-y-1 pb-3 pt-2">
-                    <ResponsiveNavLink
-                        href={route('dashboard')}
-                        active={route().current('dashboard')}
-                    >
-                        Dashboard
-                    </ResponsiveNavLink>
-                    <ResponsiveNavLink
-                        href={route('documents.index')}
-                        active={route().current('documents.index')}
-                    >
-                        My Vault
-                    </ResponsiveNavLink>
-                    <ResponsiveNavLink
-                        href={route('shared.index')}
-                        active={route().current('shared.index')}
-                    >
-                        Shared with Me
-                    </ResponsiveNavLink>
-                    <ResponsiveNavLink
-                        href={route('documents.trash')}
-                        active={route().current('documents.trash')}
-                    >
-                        Trash
-                    </ResponsiveNavLink>
-                </div>
-
-                    <div className="border-t border-gray-200 pb-1 pt-4">
-                        <div className="px-4">
-                            <div className="text-base font-medium text-gray-800">
-                                {user.name}
-                            </div>
-                            <div className="text-sm font-medium text-gray-500">
-                                {user.email}
-                            </div>
-                        </div>
-
-                        <div className="mt-3 space-y-1">
-                            <ResponsiveNavLink href={route('profile.edit')}>
-                                Profile
-                            </ResponsiveNavLink>
-                            <ResponsiveNavLink
-                                method="post"
-                                href={route('logout')}
-                                as="button"
-                            >
-                                Log Out
-                            </ResponsiveNavLink>
-                        </div>
-                    </div>
-                </div>
-            </nav>
-
-            {header && (
-                <header className="bg-white shadow">
-                    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                        {header}
-                    </div>
-                </header>
+        <div className="min-h-screen bg-zinc-50 flex">
+            
+            {/* Mobile Menu Overlay */}
+            {isMobileMenuOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                />
             )}
 
-            <main>{children}</main>
+            {/* Sidebar */}
+            <aside 
+                className={cn(
+                    "fixed inset-y-0 left-0 z-50 flex flex-col bg-zinc-950 text-white transition-all duration-300 ease-in-out lg:static lg:z-auto",
+                    isSidebarOpen ? "w-64" : "w-20",
+                    isMobileMenuOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0"
+                )}
+            >
+                {/* Logo Area */}
+                <div className="h-16 flex items-center px-4 border-b border-white/5">
+                    <Link href="/" className="flex items-center gap-3 overflow-hidden">
+                        <ApplicationLogo className={cn("h-8 w-auto shrink-0 transition-all", !isSidebarOpen && !isMobileMenuOpen && "scale-110")} />
+                    </Link>
+                </div>
+
+                {/* Navigation Scroll Area */}
+                <nav className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                    <NavGroup title="Main">
+                        <NavItem 
+                            href={route('dashboard')} 
+                            icon={LayoutDashboard} 
+                            label="Dashboard" 
+                            active={route().current('dashboard')} 
+                        />
+                        <NavItem 
+                            href={route('documents.index')} 
+                            icon={FileText} 
+                            label="My Vault" 
+                            active={route().current('documents.index')} 
+                        />
+                        <NavItem 
+                            href={route('shared.index')} 
+                            icon={UsersIcon} 
+                            label="Shared with Me" 
+                            active={route().current('shared.index')} 
+                        />
+                    </NavGroup>
+
+                    <NavGroup title="System">
+                        <NavItem 
+                            href={route('activity.index')} 
+                            icon={Activity} 
+                            label="Activity" 
+                            active={route().current('activity.index')} 
+                        />
+                        <NavItem 
+                            href={route('documents.trash')} 
+                            icon={Trash2} 
+                            label="Trash" 
+                            active={route().current('documents.trash')} 
+                        />
+                    </NavGroup>
+
+                    {isAdmin && (
+                        <NavGroup title="Admin">
+                            <NavItem 
+                                href={route('admin.dashboard')} 
+                                icon={ShieldCheck} 
+                                label="Admin Dashboard" 
+                                active={route().current('admin.dashboard')} 
+                            />
+                            <NavItem 
+                                href={route('admin.users')} 
+                                icon={UserCog} 
+                                label="Users" 
+                                active={route().current('admin.users')} 
+                            />
+                            <NavItem 
+                                href={route('admin.audit-logs')} 
+                                icon={ScrollText} 
+                                label="Global Logs" 
+                                active={route().current('admin.audit-logs')} 
+                            />
+                            <NavItem 
+                                href={route('admin.sessions')} 
+                                icon={Monitor} 
+                                label="Sessions" 
+                                active={route().current('admin.sessions')} 
+                            />
+                        </NavGroup>
+                    )}
+                </nav>
+
+                {/* Sidebar Footer - User Profile */}
+                <div className="p-4 border-t border-white/5 bg-zinc-900/30">
+                    <div className={cn("flex items-center gap-3 mb-4", !isSidebarOpen && !isMobileMenuOpen && "justify-center")}>
+                        <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+                            {user.name.charAt(0)}
+                        </div>
+                        {(isSidebarOpen || isMobileMenuOpen) && (
+                            <div className="flex flex-col min-w-0">
+                                <p className="text-sm font-semibold truncate">{user.name}</p>
+                                <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="flex flex-col gap-1">
+                        <Link href={route('profile.edit')}>
+                            <Button variant="ghost" className="w-full justify-start text-zinc-400 hover:text-white px-2 h-9">
+                                <UserIcon className="h-4 w-4 mr-2" />
+                                {(isSidebarOpen || isMobileMenuOpen) && "Profile Settings"}
+                            </Button>
+                        </Link>
+                        <Link href={route('logout')} method="post" as="button" className="w-full">
+                            <Button variant="ghost" className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2 h-9">
+                                <LogOut className="h-4 w-4 mr-2" />
+                                {(isSidebarOpen || isMobileMenuOpen) && "Log Out"}
+                            </Button>
+                        </Link>
+                    </div>
+                </div>
+
+                {/* Desktop Collapse Toggle */}
+                <button 
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className="hidden lg:flex absolute bottom-20 -right-3 h-6 w-6 items-center justify-center rounded-full bg-white border border-zinc-200 text-zinc-600 shadow-sm hover:text-indigo-600 transition-colors"
+                >
+                    {isSidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+                </button>
+            </aside>
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col min-w-0">
+                {/* Mobile Top Header */}
+                <header className="h-16 flex items-center justify-between px-4 bg-white border-b border-zinc-200 lg:hidden">
+                    <button 
+                        onClick={() => setIsMobileMenuOpen(true)}
+                        className="p-2 -ml-2 text-zinc-600 hover:text-indigo-600"
+                    >
+                        <Menu size={24} />
+                    </button>
+                    <ApplicationLogo className="h-7 w-auto" />
+                    <div className="w-8" /> {/* Placeholder for balance */}
+                </header>
+
+                {/* Content Header (Optional, breadcrumbs or title) */}
+                {header && (
+                    <header className="bg-white border-b border-zinc-200 py-6">
+                        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                            {header}
+                        </div>
+                    </header>
+                )}
+
+                {/* Main Page Content */}
+                <main className="flex-1 overflow-y-auto bg-zinc-50 custom-scrollbar">
+                    {children}
+                </main>
+            </div>
+            
+            <Toaster richColors position="top-right" />
         </div>
     );
 }
+

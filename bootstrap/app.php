@@ -22,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'two-factor' => \App\Http\Middleware\EnsureTwoFactor::class,
             'account-active' => \App\Http\Middleware\EnsureAccountActive::class,
             'log-action' => \App\Http\Middleware\LogRequest::class,
+            'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
+            'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

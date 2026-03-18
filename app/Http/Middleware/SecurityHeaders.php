@@ -17,9 +17,11 @@ class SecurityHeaders
     {
         $response = $next($request);
 
-        $csp = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:;";
+        if (!app()->environment('local')) {
+            $csp = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com; connect-src 'self';";
+            $response->headers->set('Content-Security-Policy', $csp);
+        }
 
-        $response->headers->set('Content-Security-Policy', $csp);
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-Frame-Options', 'DENY');
         $response->headers->set('X-XSS-Protection', '1; mode=block');

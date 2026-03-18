@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SessionController;
@@ -9,17 +11,18 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+    
+    return redirect()->route('login');
 });
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+use App\Http\Controllers\DashboardController;
+
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -42,6 +45,29 @@ Route::middleware('auth')->group(function () {
     Route::post('/documents/{document}/shares', [ShareController::class, 'store'])->name('shares.store');
     Route::delete('/shares/{share}', [ShareController::class, 'destroy'])->name('shares.destroy');
     Route::get('/shared', [ShareController::class, 'sharedWithMe'])->name('shared.index');
+
+    // Activity
+    Route::get('/activity', [AuditLogController::class, 'index'])->name('activity.index');
+
+    // Administration
+    Route::group([
+        'prefix' => 'admin',
+        'middleware' => ['role:super-admin|admin']
+    ], function () {
+        Route::get('/', [AdminController::class, 'dashboard'])->name('admin.dashboard');
+        
+        // Users
+        Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
+        Route::patch('/users/{user}/toggle-active', [AdminController::class, 'toggleUserActive'])->name('admin.users.toggle-active');
+        Route::patch('/users/{user}/role', [AdminController::class, 'updateUserRole'])->name('admin.users.role');
+        
+        // Audit Logs
+        Route::get('/audit-logs', [AdminController::class, 'auditLogs'])->name('admin.audit-logs');
+        
+        // Sessions
+        Route::get('/sessions', [AdminController::class, 'sessions'])->name('admin.sessions');
+        Route::delete('/sessions/{session}', [AdminController::class, 'destroySession'])->name('admin.sessions.destroy');
+    });
 });
 
 require __DIR__.'/auth.php';
