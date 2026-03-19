@@ -1,5 +1,4 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -45,8 +44,8 @@ export default function Trash({ documents }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Trash Bin
+                <h2 className="text-xl font-semibold leading-tight text-foreground">
+                    Trash
                 </h2>
             }
         >
@@ -54,8 +53,8 @@ export default function Trash({ documents }: Props) {
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
-                    <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-800">
-                        <AlertCircle className="h-4 w-4" />
+                    <Alert className="border-[#3F2E11] bg-[#2A2010] text-primary">
+                        <AlertCircle className="h-4 w-4 text-primary" />
                         <AlertTitle>Notice</AlertTitle>
                         <AlertDescription>
                             Documents in the trash will be permanently deleted after 30 days. No recovery is possible after that.
@@ -63,42 +62,38 @@ export default function Trash({ documents }: Props) {
                     </Alert>
 
                     <Card>
-                        <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-[400px]">Name</TableHead>
-                                        <TableHead>Size</TableHead>
-                                        <TableHead>Deleted On</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {documents.data.length === 0 ? (
+                        {documents.data.length === 0 ? (
+                            <CardContent className="flex h-64 flex-col items-center justify-center text-center text-muted-foreground">
+                                <Trash2 className="mb-4 h-12 w-12 opacity-15" />
+                                <p className="text-lg font-medium">Trash is empty</p>
+                                <p className="text-sm">Great job keeping things tidy!</p>
+                            </CardContent>
+                        ) : (
+                            <CardContent className="p-0">
+                                <Table>
+                                    <TableHeader>
                                         <TableRow>
-                                            <TableCell colSpan={4} className="h-64 text-center">
-                                                <div className="flex flex-col items-center justify-center text-gray-500">
-                                                    <Trash2 className="mb-4 h-12 w-12 opacity-10" />
-                                                    <p className="text-lg font-medium">Trash is empty</p>
-                                                    <p className="text-sm">Great job keeping things tidy!</p>
-                                                </div>
-                                            </TableCell>
+                                            <TableHead className="w-[400px]">Name</TableHead>
+                                            <TableHead>Size</TableHead>
+                                            <TableHead>Deleted On</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
-                                    ) : (
-                                        documents.data.map((doc) => (
+                                    </TableHeader>
+                                    <TableBody>
+                                        {documents.data.map((doc) => (
                                             <TableRow key={doc.id}>
                                                 <TableCell>
                                                     <div className="flex items-center gap-3">
-                                                        <FileIcon className="h-5 w-5 text-gray-400" />
-                                                        <span className="font-medium text-gray-900 truncate max-w-[300px]" title={doc.original_name}>
+                                                        <FileIcon className="h-5 w-5 text-muted-foreground" />
+                                                        <span className="max-w-[300px] truncate font-medium text-foreground" title={doc.original_name}>
                                                             {doc.original_name}
                                                         </span>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-gray-600 text-sm">
+                                                <TableCell className="text-sm text-muted-foreground">
                                                     {formatBytes(doc.file_size)}
                                                 </TableCell>
-                                                <TableCell className="text-gray-600 text-sm">
+                                                <TableCell className="text-sm text-muted-foreground">
                                                     {formatDistanceToNow(new Date(doc.deleted_at), { addSuffix: true })}
                                                 </TableCell>
                                                 <TableCell className="text-right">
@@ -106,7 +101,7 @@ export default function Trash({ documents }: Props) {
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                                            className="border-primary text-primary hover:bg-accent"
                                                             onClick={() => handleRestore(doc.id)}
                                                             disabled={actionId === doc.id}
                                                         >
@@ -116,7 +111,7 @@ export default function Trash({ documents }: Props) {
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                            className="text-[#F87171] hover:bg-[rgba(179,58,58,0.1)] hover:text-[#F87171]"
                                                             onClick={() => handleForceDelete(doc.id)}
                                                             disabled={actionId === doc.id}
                                                         >
@@ -126,11 +121,11 @@ export default function Trash({ documents }: Props) {
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        )}
                     </Card>
                 </div>
             </div>

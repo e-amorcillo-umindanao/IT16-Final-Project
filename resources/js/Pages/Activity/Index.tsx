@@ -63,19 +63,19 @@ export default function ActivityIndex({ logs, filters, actionTypes }: Props) {
 
     const getActionBadge = (action: string) => {
         const variants: Record<string, string> = {
-            'login': 'bg-blue-100 text-blue-700 border-blue-200',
-            'logout': 'bg-gray-100 text-gray-700 border-gray-200',
-            'document_uploaded': 'bg-green-100 text-green-700 border-green-200',
-            'document_downloaded': 'bg-indigo-100 text-indigo-700 border-indigo-200',
-            'document_deleted': 'bg-amber-100 text-amber-700 border-amber-200',
-            'document_shared': 'bg-purple-100 text-purple-700 border-purple-200',
-            'share_revoked': 'bg-rose-100 text-rose-700 border-rose-200',
-            'failed_login': 'bg-red-100 text-red-700 border-red-200',
-            'integrity_violation': 'bg-black text-white border-gray-800',
+            'login': 'bg-[#0F1B2D] text-[#60A5FA] border-[#17304F]',
+            'logout': 'bg-secondary text-muted-foreground border-border',
+            'document_uploaded': 'bg-[#132B1A] text-[#4ADE80] border-[#1E3A24]',
+            'document_downloaded': 'bg-[#0F1B2D] text-[#60A5FA] border-[#17304F]',
+            'document_deleted': 'bg-[#2A2010] text-primary border-[#3F2E11]',
+            'document_shared': 'bg-[#2A2010] text-primary border-[#3F2E11]',
+            'share_revoked': 'bg-[#2D1010] text-[#F87171] border-[#5A2020]',
+            'failed_login': 'bg-[#2D1010] text-[#F87171] border-[#5A2020]',
+            'integrity_violation': 'bg-[#2D1010] text-[#F87171] border-[#5A2020]',
         };
 
         return (
-            <Badge variant="outline" className={variants[action] || 'bg-gray-50 text-gray-600'}>
+            <Badge variant="outline" className={variants[action] || 'bg-secondary text-muted-foreground border-border'}>
                 {action.replace('_', ' ')}
             </Badge>
         );
@@ -91,7 +91,7 @@ export default function ActivityIndex({ logs, filters, actionTypes }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                <h2 className="text-xl font-semibold leading-tight text-foreground">
                     Activity Logs
                 </h2>
             }
@@ -103,7 +103,7 @@ export default function ActivityIndex({ logs, filters, actionTypes }: Props) {
                     {/* Filters */}
                     <Card>
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-500 uppercase tracking-wider">
+                            <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
                                 <Filter className="h-4 w-4" /> Filter Activity
                             </CardTitle>
                         </CardHeader>
@@ -145,7 +145,7 @@ export default function ActivityIndex({ logs, filters, actionTypes }: Props) {
                                     />
                                 </div>
                                 <div className="flex gap-2">
-                                    <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={handleFilter}>
+                                    <Button className="flex-1" onClick={handleFilter}>
                                         <Search className="mr-2 h-4 w-4" /> Apply
                                     </Button>
                                     <Button variant="outline" size="icon" onClick={clearFilters} title="Clear Filters">
@@ -173,7 +173,7 @@ export default function ActivityIndex({ logs, filters, actionTypes }: Props) {
                                 <TableBody>
                                     {logs.data.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="h-64 text-center text-gray-500">
+                                            <TableCell colSpan={6} className="h-64 text-center text-muted-foreground">
                                                 No activity logs found for the selected criteria.
                                             </TableCell>
                                         </TableRow>
@@ -182,16 +182,16 @@ export default function ActivityIndex({ logs, filters, actionTypes }: Props) {
                                             <>
                                                 <TableRow 
                                                     key={log.id} 
-                                                    className="cursor-pointer hover:bg-gray-50/50"
+                                                    className="cursor-pointer"
                                                     onClick={() => toggleRow(log.id)}
                                                 >
                                                     <TableCell>
-                                                        {expandedRows[log.id] ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                                                        {expandedRows[log.id] ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                                                     </TableCell>
                                                     <TableCell className="text-sm font-medium">
                                                         <div className="flex flex-col">
                                                             <span>{format(new Date(log.created_at), 'MMM d, yyyy')}</span>
-                                                            <span className="text-xs text-gray-400 font-normal">{format(new Date(log.created_at), 'HH:mm:ss')}</span>
+                                                            <span className="text-xs font-normal text-muted-foreground">{format(new Date(log.created_at), 'HH:mm:ss')}</span>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
@@ -200,13 +200,13 @@ export default function ActivityIndex({ logs, filters, actionTypes }: Props) {
                                                     <TableCell className="text-sm max-w-[200px] truncate">
                                                         {log.auditable?.original_name || log.metadata?.original_name || log.metadata?.shared_with || '-'}
                                                     </TableCell>
-                                                    <TableCell className="text-xs font-mono text-gray-500">
+                                                    <TableCell className="text-xs font-mono text-muted-foreground">
                                                         <div className="flex items-center gap-1">
                                                             <Globe className="h-3 w-3" />
                                                             {log.ip_address}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className="text-xs text-gray-500">
+                                                    <TableCell className="text-xs text-muted-foreground">
                                                         <div className="flex items-center gap-1">
                                                             <Monitor className="h-3 w-3" />
                                                             {parseUserAgent(log.user_agent)}
@@ -214,18 +214,18 @@ export default function ActivityIndex({ logs, filters, actionTypes }: Props) {
                                                     </TableCell>
                                                 </TableRow>
                                                 {expandedRows[log.id] && (
-                                                    <TableRow className="bg-gray-50/50">
-                                                        <TableCell colSpan={6} className="p-4 border-t">
+                                                    <TableRow className="bg-muted/40">
+                                                        <TableCell colSpan={6} className="border-t border-border p-4">
                                                             <div className="space-y-2">
-                                                                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Detailed Metadata</p>
-                                                                <pre className="text-[10px] font-mono bg-white border rounded p-3 overflow-x-auto">
+                                                                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Detailed Metadata</p>
+                                                                <pre className="overflow-x-auto rounded border border-border bg-card p-3 font-mono text-[10px] text-foreground">
                                                                     {JSON.stringify(log.metadata, null, 2)}
                                                                 </pre>
                                                                 <div className="flex gap-4 pt-2">
-                                                                    <div className="text-[10px] text-gray-400">
+                                                                    <div className="text-[10px] text-muted-foreground">
                                                                         <span className="font-semibold uppercase tracking-tight">Record Hash:</span> {log.hash.substring(0, 16)}...
                                                                     </div>
-                                                                    <div className="text-[10px] text-gray-400">
+                                                                    <div className="text-[10px] text-muted-foreground">
                                                                         <span className="font-semibold uppercase tracking-tight">Chain Verification:</span> {log.previous_hash ? 'Linked' : 'Genesis'}
                                                                     </div>
                                                                 </div>
@@ -249,7 +249,7 @@ export default function ActivityIndex({ logs, filters, actionTypes }: Props) {
                                     key={i}
                                     href={link.url || '#'}
                                     className={`px-3 py-1 rounded border text-sm ${
-                                        link.active ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 hover:bg-gray-50'
+                                        link.active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground'
                                     } ${!link.url && 'opacity-50 cursor-not-allowed'}`}
                                     dangerouslySetInnerHTML={{ __html: link.label }}
                                 />

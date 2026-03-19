@@ -31,8 +31,18 @@ export default function Authenticated({
     
     const { auth } = usePage().props as any;
     const user = auth.user;
-    const roles = auth.roles || [];
-    const isAdmin = roles.some((r: string) => ['super-admin', 'admin'].includes(r));
+    const permissions = auth.permissions || [];
+    const canViewAdminDashboard = permissions.includes('view_admin_dashboard');
+    const canManageUsers = permissions.includes('manage_users');
+    const canViewAllDocuments = permissions.includes('view_all_documents');
+    const canViewAuditLogs = permissions.includes('view_audit_logs');
+    const canManageSessions = permissions.includes('manage_sessions');
+    const showAdminSection =
+        canViewAdminDashboard ||
+        canManageUsers ||
+        canViewAllDocuments ||
+        canViewAuditLogs ||
+        canManageSessions;
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -47,13 +57,13 @@ export default function Authenticated({
         <Link
             href={href}
             className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group text-sm font-medium",
+                "group flex items-center gap-3 rounded-lg border-l-[3px] border-transparent px-3 py-2 text-sm font-medium transition-all duration-200",
                 active 
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-900/20" 
-                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+                    ? "border-l-[#D4A843] text-[#D4A843]"
+                    : "text-muted-foreground hover:bg-[rgba(212,168,67,0.08)] hover:text-foreground"
             )}
         >
-            <Icon className={cn("h-4 w-4 shrink-0", active ? "text-white" : "group-hover:text-indigo-400")} />
+            <Icon className={cn("h-4 w-4 shrink-0", active ? "text-[#D4A843]" : "text-muted-foreground transition-colors group-hover:text-foreground")} />
             {(isSidebarOpen || isMobileMenuOpen) && <span>{label}</span>}
         </Link>
     );
@@ -61,7 +71,7 @@ export default function Authenticated({
     const NavGroup = ({ title, children }: { title: string; children: ReactNode }) => (
         <div className="space-y-1 mb-6">
             {(isSidebarOpen || isMobileMenuOpen) && (
-                <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">
+                <h3 className="mb-2 px-3 text-[9px] font-bold uppercase tracking-[0.32em] text-primary">
                     {title}
                 </h3>
             )}
@@ -72,7 +82,7 @@ export default function Authenticated({
     );
 
     return (
-        <div className="min-h-screen bg-zinc-50 flex">
+        <div className="flex min-h-screen bg-background text-foreground">
             
             {/* Mobile Menu Overlay */}
             {isMobileMenuOpen && (
@@ -85,15 +95,15 @@ export default function Authenticated({
             {/* Sidebar */}
             <aside 
                 className={cn(
-                    "fixed inset-y-0 left-0 z-50 flex flex-col bg-zinc-950 text-white transition-all duration-300 ease-in-out lg:static lg:z-auto",
+                    "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-[rgba(212,168,67,0.08)] bg-[#080808] text-foreground transition-all duration-300 ease-in-out lg:static lg:z-auto",
                     isSidebarOpen ? "w-64" : "w-20",
                     isMobileMenuOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0"
                 )}
             >
                 {/* Logo Area */}
-                <div className="h-16 flex items-center px-4 border-b border-white/5">
+                <div className="flex h-16 items-center border-b border-border px-4">
                     <Link href="/" className="flex items-center gap-3 overflow-hidden">
-                        <ApplicationLogo className={cn("h-8 w-auto shrink-0 transition-all", !isSidebarOpen && !isMobileMenuOpen && "scale-110")} />
+                        <ApplicationLogo className={cn("h-8 w-auto shrink-0 text-primary transition-all", !isSidebarOpen && !isMobileMenuOpen && "scale-110")} />
                     </Link>
                 </div>
 
@@ -135,59 +145,75 @@ export default function Authenticated({
                         />
                     </NavGroup>
 
-                    {isAdmin && (
+                    {showAdminSection && (
                         <NavGroup title="Admin">
-                            <NavItem 
-                                href={route('admin.dashboard')} 
-                                icon={ShieldCheck} 
-                                label="Admin Dashboard" 
-                                active={route().current('admin.dashboard')} 
-                            />
-                            <NavItem 
-                                href={route('admin.users')} 
-                                icon={UserCog} 
-                                label="Users" 
-                                active={route().current('admin.users')} 
-                            />
-                            <NavItem 
-                                href={route('admin.audit-logs')} 
-                                icon={ScrollText} 
-                                label="Global Logs" 
-                                active={route().current('admin.audit-logs')} 
-                            />
-                            <NavItem 
-                                href={route('admin.sessions')} 
-                                icon={Monitor} 
-                                label="Sessions" 
-                                active={route().current('admin.sessions')} 
-                            />
+                            {canViewAdminDashboard && (
+                                <NavItem 
+                                    href={route('admin.dashboard')} 
+                                    icon={ShieldCheck} 
+                                    label="Admin Dashboard" 
+                                    active={route().current('admin.dashboard')} 
+                                />
+                            )}
+                            {canManageUsers && (
+                                <NavItem 
+                                    href={route('admin.users')} 
+                                    icon={UserCog} 
+                                    label="Users" 
+                                    active={route().current('admin.users')} 
+                                />
+                            )}
+                            {canViewAllDocuments && (
+                                <NavItem
+                                    href={route('admin.documents')}
+                                    icon={FileText}
+                                    label="All Documents"
+                                    active={route().current('admin.documents')}
+                                />
+                            )}
+                            {canViewAuditLogs && (
+                                <NavItem 
+                                    href={route('admin.audit-logs')} 
+                                    icon={ScrollText} 
+                                    label="Global Logs" 
+                                    active={route().current('admin.audit-logs')} 
+                                />
+                            )}
+                            {canManageSessions && (
+                                <NavItem 
+                                    href={route('admin.sessions')} 
+                                    icon={Monitor} 
+                                    label="Sessions" 
+                                    active={route().current('admin.sessions')} 
+                                />
+                            )}
                         </NavGroup>
                     )}
                 </nav>
 
                 {/* Sidebar Footer - User Profile */}
-                <div className="p-4 border-t border-white/5 bg-zinc-900/30">
+                <div className="border-t border-border bg-card/40 p-4">
                     <div className={cn("flex items-center gap-3 mb-4", !isSidebarOpen && !isMobileMenuOpen && "justify-center")}>
-                        <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                             {user.name.charAt(0)}
                         </div>
                         {(isSidebarOpen || isMobileMenuOpen) && (
                             <div className="flex flex-col min-w-0">
-                                <p className="text-sm font-semibold truncate">{user.name}</p>
-                                <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+                                <p className="truncate text-sm font-semibold text-foreground">{user.name}</p>
+                                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                             </div>
                         )}
                     </div>
                     
                     <div className="flex flex-col gap-1">
                         <Link href={route('profile.edit')}>
-                            <Button variant="ghost" className="w-full justify-start text-zinc-400 hover:text-white px-2 h-9">
+                            <Button variant="ghost" className="h-9 w-full justify-start px-2 text-muted-foreground hover:bg-[rgba(212,168,67,0.08)] hover:text-foreground">
                                 <UserIcon className="h-4 w-4 mr-2" />
                                 {(isSidebarOpen || isMobileMenuOpen) && "Profile Settings"}
                             </Button>
                         </Link>
                         <Link href={route('logout')} method="post" as="button" className="w-full">
-                            <Button variant="ghost" className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2 h-9">
+                            <Button variant="ghost" className="h-9 w-full justify-start px-2 text-[#B33A3A] hover:bg-[rgba(179,58,58,0.1)] hover:text-[#F87171]">
                                 <LogOut className="h-4 w-4 mr-2" />
                                 {(isSidebarOpen || isMobileMenuOpen) && "Log Out"}
                             </Button>
@@ -198,7 +224,7 @@ export default function Authenticated({
                 {/* Desktop Collapse Toggle */}
                 <button 
                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    className="hidden lg:flex absolute bottom-20 -right-3 h-6 w-6 items-center justify-center rounded-full bg-white border border-zinc-200 text-zinc-600 shadow-sm hover:text-indigo-600 transition-colors"
+                    className="absolute -right-3 bottom-20 hidden h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary lg:flex"
                 >
                     {isSidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
                 </button>
@@ -207,20 +233,20 @@ export default function Authenticated({
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Mobile Top Header */}
-                <header className="h-16 flex items-center justify-between px-4 bg-white border-b border-zinc-200 lg:hidden">
+                <header className="flex h-16 items-center justify-between border-b border-border bg-background px-4 lg:hidden">
                     <button 
                         onClick={() => setIsMobileMenuOpen(true)}
-                        className="p-2 -ml-2 text-zinc-600 hover:text-indigo-600"
+                        className="-ml-2 p-2 text-muted-foreground hover:text-primary"
                     >
                         <Menu size={24} />
                     </button>
-                    <ApplicationLogo className="h-7 w-auto" />
+                    <ApplicationLogo className="h-7 w-auto text-primary" />
                     <div className="w-8" /> {/* Placeholder for balance */}
                 </header>
 
                 {/* Content Header (Optional, breadcrumbs or title) */}
                 {header && (
-                    <header className="bg-white border-b border-zinc-200 py-6">
+                    <header className="border-b border-border bg-background py-6">
                         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                             {header}
                         </div>
@@ -228,13 +254,23 @@ export default function Authenticated({
                 )}
 
                 {/* Main Page Content */}
-                <main className="flex-1 overflow-y-auto bg-zinc-50 custom-scrollbar">
+                <main className="custom-scrollbar flex-1 overflow-y-auto bg-background">
                     {children}
                 </main>
             </div>
             
-            <Toaster richColors position="top-right" />
+            <Toaster
+                position="top-right"
+                toastOptions={{
+                    className: 'border border-border bg-muted text-foreground shadow-none',
+                    style: {
+                        background: '#1A1A1A',
+                        color: '#FAFAF5',
+                        border: '1px solid #222220',
+                    },
+                    descriptionClassName: 'text-[#888880]',
+                }}
+            />
         </div>
     );
 }
-

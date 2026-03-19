@@ -26,9 +26,9 @@ export default function Index({ sessions }: { sessions: Session[] }) {
 
     const getDeviceIcon = (userAgent: string) => {
         if (/mobile|android|iphone|ipad/i.test(userAgent)) {
-            return <Smartphone className="h-4 w-4 mr-2 text-gray-500" />;
+            return <Smartphone className="mr-2 h-4 w-4 text-muted-foreground" />;
         }
-        return <Monitor className="h-4 w-4 mr-2 text-gray-500" />;
+        return <Monitor className="mr-2 h-4 w-4 text-muted-foreground" />;
     };
 
     const getBrowserName = (userAgent: string) => {
@@ -42,7 +42,7 @@ export default function Index({ sessions }: { sessions: Session[] }) {
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                <h2 className="text-xl font-semibold leading-tight text-foreground">
                     Active Sessions
                 </h2>
             }
@@ -76,19 +76,19 @@ export default function Index({ sessions }: { sessions: Session[] }) {
                                                     {getDeviceIcon(session.user_agent)}
                                                     <span>{getBrowserName(session.user_agent)}</span>
                                                     {session.is_current_session && (
-                                                        <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
+                                                        <Badge variant="outline" className="ml-2 border-[#1E3A24] bg-[#132B1A] text-[#4ADE80]">
                                                             This device
                                                         </Badge>
                                                     )}
                                                 </div>
-                                                <div className="mt-1 text-xs text-gray-500 truncate max-w-xs">
+                                                <div className="mt-1 max-w-xs truncate text-xs text-muted-foreground">
                                                     {session.user_agent}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="font-mono text-sm">
                                                 {session.ip_address}
                                             </TableCell>
-                                            <TableCell className="text-sm text-gray-600">
+                                            <TableCell className="text-sm text-muted-foreground">
                                                 {formatDistanceToNow(new Date(session.last_activity * 1000), { addSuffix: true })}
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -96,7 +96,7 @@ export default function Index({ sessions }: { sessions: Session[] }) {
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                        className="text-[#F87171] hover:bg-[rgba(179,58,58,0.1)] hover:text-[#F87171]"
                                                         onClick={() => revokeSession(session.id)}
                                                         disabled={processing}
                                                     >

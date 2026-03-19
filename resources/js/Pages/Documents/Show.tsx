@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router, useForm } from '@inertiajs/react';
 import { format } from 'date-fns';
-import { Clock, Download, FileIcon, History, Info, Lock, Share2, Shield, Trash2, UserPlus } from 'lucide-react';
+import { Download, FileIcon, History, Info, Lock, Share2, Shield, Trash2, UserPlus } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Props {
     document: any;
@@ -37,11 +38,35 @@ export default function Show({ document: doc, auditLogs, authUserId }: Props) {
         }
     };
 
-    const handleShare = (e: React.FormEvent) => {
-        e.preventDefault();
-        // Placeholder for future sharing implementation
-        alert('Sharing feature will be implemented in Phase 5.');
+    const copyHash = async () => {
+        try {
+            await navigator.clipboard.writeText(doc.file_hash);
+            toast.success('Hash copied to clipboard');
+        } catch {
+            toast.error('Unable to copy hash');
+        }
     };
+
+    const getActivityBadgeClass = (action: string) => {
+        const variants: Record<string, string> = {
+            document_uploaded: 'border-[#3F2E11] bg-[#2A2010] text-primary',
+            document_downloaded: 'border-[#1E3A24] bg-[#132B1A] text-[#4ADE80]',
+            document_shared: 'border-[#17304F] bg-[#0F1B2D] text-[#60A5FA]',
+            share_revoked: 'border-[#17304F] bg-[#0F1B2D] text-[#60A5FA]',
+            document_deleted: 'border-[#5A2020] bg-[#2D1010] text-[#F87171]',
+            document_restored: 'border-[#1E3A24] bg-[#132B1A] text-[#4ADE80]',
+            integrity_violation: 'border-[#5A2020] bg-[#2D1010] text-[#F87171]',
+        };
+
+        return variants[action] ?? 'border-border bg-secondary text-muted-foreground';
+    };
+
+    const getActivityLabel = (action: string) =>
+        action
+            .replaceAll('_', ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+
+    const truncatedHash = `${doc.file_hash.slice(0, 16)}...`;
 
     return (
         <AuthenticatedLayout
@@ -51,13 +76,13 @@ export default function Show({ document: doc, auditLogs, authUserId }: Props) {
                         <Button variant="ghost" onClick={() => router.get(route('documents.index'))}>
                             &larr; Back
                         </Button>
-                        <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                        <h2 className="text-xl font-semibold leading-tight text-foreground">
                             Document Details
                         </h2>
                     </div>
                     <div className="flex gap-3">
                         <a href={route('documents.download', doc.id)} download>
-                            <Button className="bg-green-600 hover:bg-green-700">
+                            <Button className="bg-[#D4A843] text-[#0A0A0A] hover:bg-[#E0B84D]">
                                 <Download className="mr-2 h-4 w-4" /> Download
                             </Button>
                         </a>
@@ -78,13 +103,13 @@ export default function Show({ document: doc, auditLogs, authUserId }: Props) {
                             <Card>
                                 <CardHeader className="flex flex-row items-start justify-between space-y-0">
                                     <div className="flex items-center gap-4">
-                                        <div className="rounded-lg bg-indigo-50 p-4">
-                                            <FileIcon className="h-10 w-10 text-indigo-600" />
+                                        <div className="rounded-lg border border-border bg-accent p-4">
+                                            <FileIcon className="h-10 w-10 text-primary" />
                                         </div>
                                         <div>
                                             <CardTitle className="text-2xl">{doc.original_name}</CardTitle>
                                             <CardDescription className="flex items-center gap-2 mt-1">
-                                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                                <Badge variant="outline" className="border-[#1E3A24] bg-[#132B1A] text-[#4ADE80]">
                                                     <Lock className="h-3 w-3 mr-1" /> Fully Encrypted
                                                 </Badge>
                                                 <span>{doc.mime_type}</span>
@@ -92,22 +117,41 @@ export default function Show({ document: doc, auditLogs, authUserId }: Props) {
                                         </div>
                                     </div>
                                 </CardHeader>
-                                <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-6 py-6 border-t font-medium">
+                                <CardContent className="grid grid-cols-2 gap-6 border-t border-border py-6 font-medium lg:grid-cols-4">
                                     <div className="space-y-1">
-                                        <p className="text-xs text-gray-500 uppercase tracking-wider">File Size</p>
+                                        <p className="text-xs text-muted-foreground">File Size</p>
                                         <p className="text-sm">{formatBytes(doc.file_size)}</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-xs text-gray-500 uppercase tracking-wider">Uploaded By</p>
+                                        <p className="text-xs text-muted-foreground">Uploaded By</p>
                                         <p className="text-sm">{doc.user.name}</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-xs text-gray-500 uppercase tracking-wider">Uploaded On</p>
+                                        <p className="text-xs text-muted-foreground">Uploaded On</p>
                                         <p className="text-sm">{format(new Date(doc.created_at), 'PPP')}</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-xs text-gray-500 uppercase tracking-wider">File Hash (integrity)</p>
-                                        <p className="text-sm font-mono text-[10px] truncate" title={doc.file_hash}>{doc.file_hash.substring(0, 16)}...</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-xs text-muted-foreground" title="Used to verify the file has not been altered.">
+                                                Integrity Hash
+                                            </p>
+                                            <span title="Used to verify the file has not been altered.">
+                                                <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 whitespace-nowrap">
+                                            <p className="min-w-0 truncate font-mono text-xs text-foreground" title={doc.file_hash}>
+                                                {truncatedHash}
+                                            </p>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 shrink-0 px-2 text-[11px]"
+                                                onClick={copyHash}
+                                            >
+                                                Copy hash
+                                            </Button>
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -116,11 +160,11 @@ export default function Show({ document: doc, auditLogs, authUserId }: Props) {
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="text-lg flex items-center gap-2">
-                                        <History className="h-5 w-5 text-gray-500" />
+                                        <History className="h-5 w-5 text-primary" />
                                         Recent Activity
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent className="p-0 border-t">
+                                <CardContent className="border-t border-border p-0">
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
@@ -134,18 +178,21 @@ export default function Show({ document: doc, auditLogs, authUserId }: Props) {
                                                 <TableRow key={log.id}>
                                                     <TableCell className="text-sm font-medium">{log.user?.name || 'System'}</TableCell>
                                                     <TableCell>
-                                                        <Badge variant="secondary" className="font-mono text-[10px] uppercase">
-                                                            {log.action.replace('_', ' ')}
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={`text-[11px] ${getActivityBadgeClass(log.action)}`}
+                                                        >
+                                                            {getActivityLabel(log.action)}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell className="text-xs text-gray-500">
-                                                        {format(new Date(log.created_at), 'MMM d, HH:mm')}
+                                                    <TableCell className="text-xs text-muted-foreground">
+                                                        {format(new Date(log.created_at), 'MMM d, h:mm a')}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
                                             {auditLogs.length === 0 && (
                                                 <TableRow>
-                                                    <TableCell colSpan={3} className="h-24 text-center text-gray-500 text-sm">
+                                                    <TableCell colSpan={3} className="h-24 text-center text-sm text-muted-foreground">
                                                         No recent activity recorded.
                                                     </TableCell>
                                                 </TableRow>
@@ -161,8 +208,8 @@ export default function Show({ document: doc, auditLogs, authUserId }: Props) {
                             {(authUserId === doc.user_id || doc.shares.find((s: any) => s.shared_with_id === authUserId && s.permission === 'full_access')) && (
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle className="text-lg flex items-center gap-2">
-                                            <Share2 className="h-5 w-5 text-gray-500" />
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                            <Share2 className="h-5 w-5 text-primary" />
                                             Share Document
                                         </CardTitle>
                                         <CardDescription>Grant access to other registered users.</CardDescription>
@@ -179,7 +226,7 @@ export default function Show({ document: doc, auditLogs, authUserId }: Props) {
                                                     onChange={e => setData('email', e.target.value)}
                                                     required
                                                 />
-                                                {errors.email && <p className="text-xs text-red-500 font-medium">{errors.email}</p>}
+                                                {errors.email && <p className="text-xs font-medium text-[#F87171]">{errors.email}</p>}
                                             </div>
                                             <div className="space-y-2">
                                                 <Label htmlFor="permission">Permission Level</Label>
@@ -204,7 +251,7 @@ export default function Show({ document: doc, auditLogs, authUserId }: Props) {
                                                     min={new Date().toISOString().split('T')[0]}
                                                 />
                                             </div>
-                                            <Button className="w-full bg-indigo-600 hover:bg-indigo-700" type="submit" disabled={processing}>
+                                            <Button className="w-full" type="submit" disabled={processing}>
                                                 <UserPlus className="mr-2 h-4 w-4" /> 
                                                 {processing ? 'Sharing...' : 'Grant Access'}
                                             </Button>
@@ -216,29 +263,29 @@ export default function Show({ document: doc, auditLogs, authUserId }: Props) {
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="text-lg flex items-center gap-2">
-                                        <Shield className="h-5 w-5 text-gray-500" />
+                                        <Shield className="h-5 w-5 text-primary" />
                                         Access Control
                                     </CardTitle>
                                     <CardDescription>Users who have access to this file.</CardDescription>
                                 </CardHeader>
-                                <CardContent className="space-y-4 p-0 border-t">
+                                <CardContent className="space-y-4 border-t border-border p-0">
                                     <div className="divide-y">
                                         {doc.shares.length === 0 ? (
-                                            <div className="p-8 text-center text-sm text-gray-500">
+                                            <div className="p-8 text-center text-sm text-muted-foreground">
                                                 Not shared with anyone yet.
                                             </div>
                                         ) : (
                                             doc.shares.map((share: any) => (
                                                 <div key={share.id} className="p-4 flex items-center justify-between gap-4">
                                                     <div className="min-w-0">
-                                                        <p className="text-sm font-medium text-gray-900 truncate">{share.shared_with.name}</p>
-                                                        <p className="text-xs text-gray-500 truncate">{share.shared_with.email}</p>
+                                                        <p className="truncate text-sm font-medium text-foreground">{share.shared_with.name}</p>
+                                                        <p className="truncate text-xs text-muted-foreground">{share.shared_with.email}</p>
                                                         <div className="flex gap-2 mt-1">
                                                             <Badge variant="outline" className="text-[10px] uppercase py-0 px-1 leading-tight">
                                                                 {share.permission.replace('_', ' ')}
                                                             </Badge>
                                                             {share.expires_at && (
-                                                                <Badge variant="outline" className="text-[10px] border-amber-200 text-amber-700 bg-amber-50 py-0 px-1 leading-tight">
+                                                                <Badge variant="outline" className="border-[#3F2E11] bg-[#2A2010] px-1 py-0 text-[10px] leading-tight text-primary">
                                                                     Expires {format(new Date(share.expires_at), 'MMM d')}
                                                                 </Badge>
                                                             )}
@@ -248,7 +295,7 @@ export default function Show({ document: doc, auditLogs, authUserId }: Props) {
                                                         <Button 
                                                             variant="ghost" 
                                                             size="icon" 
-                                                            className="text-gray-400 hover:text-red-500 h-8 w-8"
+                                                            className="h-8 w-8 text-muted-foreground hover:text-[#F87171]"
                                                             onClick={() => confirm('Revoke access for this user?') && router.delete(route('shares.destroy', share.id))}
                                                         >
                                                             <Trash2 className="h-4 w-4" />

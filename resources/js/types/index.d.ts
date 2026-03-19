@@ -88,6 +88,7 @@ export type PageProps<
     auth: {
         user: User;
         roles?: string[];
+        permissions?: string[];
     };
     flash?: {
         success?: string | null;
@@ -95,4 +96,3 @@ export type PageProps<
     };
     ziggy: Config & { location: string };
 };
-

@@ -21,7 +21,7 @@ export default function TwoFactorChallenge() {
         <GuestLayout>
             <Head title="Two-Factor Verification" />
 
-            <div className="mb-4 text-sm text-gray-600">
+            <div className="mb-4 text-sm text-muted-foreground">
                 Please confirm access to your account by entering the authentication code provided by your authenticator application.
             </div>
 

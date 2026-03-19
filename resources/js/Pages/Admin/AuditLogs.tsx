@@ -57,22 +57,22 @@ export default function AdminAuditLogs({ logs, actionTypes, filters }: Props) {
 
     const getActionBadge = (action: string) => {
         const variants: Record<string, string> = {
-            'login': 'bg-blue-100 text-blue-700',
-            'failed_login': 'bg-red-100 text-red-700',
-            'document_uploaded': 'bg-green-100 text-green-700',
-            'document_deleted': 'bg-amber-100 text-amber-700',
-            'user_status_changed': 'bg-purple-100 text-purple-700',
-            'user_role_changed': 'bg-indigo-100 text-indigo-700',
-            'admin_session_terminated': 'bg-rose-100 text-rose-700',
+            'login': 'bg-[#0F1B2D] text-[#60A5FA] border-[#17304F]',
+            'failed_login': 'bg-[#2D1010] text-[#F87171] border-[#5A2020]',
+            'document_uploaded': 'bg-[#132B1A] text-[#4ADE80] border-[#1E3A24]',
+            'document_deleted': 'bg-[#2A2010] text-primary border-[#3F2E11]',
+            'user_status_changed': 'bg-[#2A2010] text-primary border-[#3F2E11]',
+            'user_role_changed': 'bg-[#0F1B2D] text-[#60A5FA] border-[#17304F]',
+            'admin_session_terminated': 'bg-[#2D1010] text-[#F87171] border-[#5A2020]',
         };
 
-        return <Badge variant="outline" className={variants[action]}>{action.replace('_', ' ')}</Badge>;
+        return <Badge variant="outline" className={variants[action] || 'bg-secondary text-muted-foreground border-border'}>{action.replace('_', ' ')}</Badge>;
     };
 
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                <h2 className="text-xl font-semibold leading-tight text-foreground">
                     System Audit Logs
                 </h2>
             }
@@ -83,7 +83,7 @@ export default function AdminAuditLogs({ logs, actionTypes, filters }: Props) {
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
                     <Card>
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-xs font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest">
+                            <CardTitle className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                                 <Filter className="h-4 w-4" /> Global Log Filter
                             </CardTitle>
                         </CardHeader>
@@ -112,7 +112,7 @@ export default function AdminAuditLogs({ logs, actionTypes, filters }: Props) {
                                     <Input type="date" value={localFilters.date_from} onChange={e => setLocalFilters(f => ({ ...f, date_from: e.target.value }))} />
                                 </div>
                                 <div className="flex gap-2">
-                                    <Button className="flex-1 bg-gray-900" onClick={handleFilter}><Search className="h-4 w-4 mr-2" /> Apply</Button>
+                                    <Button className="flex-1" onClick={handleFilter}><Search className="h-4 w-4 mr-2" /> Apply</Button>
                                     <Button variant="outline" size="icon" onClick={clearFilters}><X className="h-4 w-4" /></Button>
                                 </div>
                             </div>
@@ -134,17 +134,17 @@ export default function AdminAuditLogs({ logs, actionTypes, filters }: Props) {
                                 <TableBody>
                                     {logs.data.map(log => (
                                         <>
-                                            <TableRow key={log.id} className="cursor-pointer hover:bg-gray-50/50" onClick={() => setExpandedRows(e => ({ ...e, [log.id]: !e[log.id] }))}>
+                                            <TableRow key={log.id} className="cursor-pointer" onClick={() => setExpandedRows(e => ({ ...e, [log.id]: !e[log.id] }))}>
                                                 <TableCell>{expandedRows[log.id] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col">
                                                         <span className="font-medium text-sm">{log.user?.name || 'System'}</span>
-                                                        <span className="text-[10px] text-gray-400">{log.user?.email || 'N/A'}</span>
+                                                        <span className="text-[10px] text-muted-foreground">{log.user?.email || 'N/A'}</span>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>{getActionBadge(log.action)}</TableCell>
                                                 <TableCell>
-                                                    <div className="flex flex-col text-[10px] text-gray-500">
+                                                    <div className="flex flex-col text-[10px] text-muted-foreground">
                                                         <span className="flex items-center gap-1 font-mono"><Globe className="h-3 w-3" /> {log.ip_address}</span>
                                                         <span className="flex items-center gap-1 truncate max-w-[150px]"><Monitor className="h-3 w-3" /> {log.user_agent}</span>
                                                     </div>
@@ -152,9 +152,9 @@ export default function AdminAuditLogs({ logs, actionTypes, filters }: Props) {
                                                 <TableCell className="text-xs">{format(new Date(log.created_at), 'MMM d, HH:mm:ss')}</TableCell>
                                             </TableRow>
                                             {expandedRows[log.id] && (
-                                                <TableRow className="bg-gray-50/50">
-                                                    <TableCell colSpan={5} className="p-4 border-t">
-                                                        <pre className="text-[10px] font-mono bg-white border rounded p-3 overflow-x-auto">
+                                                <TableRow className="bg-muted/40">
+                                                    <TableCell colSpan={5} className="border-t border-border p-4">
+                                                        <pre className="overflow-x-auto rounded border border-border bg-card p-3 font-mono text-[10px] text-foreground">
                                                             {JSON.stringify(log.metadata, null, 2)}
                                                         </pre>
                                                     </TableCell>

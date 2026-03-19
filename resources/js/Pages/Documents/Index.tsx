@@ -1,12 +1,35 @@
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { formatDistanceToNow } from 'date-fns';
-import { FileIcon, FileSpreadsheet, FileText, FileVideo, ImageIcon, Lock, MoreVertical, Plus, Search } from 'lucide-react';
+import {
+    FileIcon,
+    FileSpreadsheet,
+    FileText,
+    FileVideo,
+    ImageIcon,
+    MoreVertical,
+    Plus,
+    Search,
+    UploadCloud,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface Document {
@@ -31,6 +54,7 @@ interface Props {
 
 export default function Index({ documents, filters }: Props) {
     const [search, setSearch] = useState(filters.search || '');
+    const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
 
     useEffect(() => {
         const timeout = setTimeout(() => {
@@ -46,12 +70,21 @@ export default function Index({ documents, filters }: Props) {
     }, [search]);
 
     const getFileIcon = (mimeType: string) => {
-        if (mimeType.includes('pdf')) return <FileText className="h-5 w-5 text-red-500" />;
-        if (mimeType.includes('word') || mimeType.includes('officedocument.word') || mimeType.includes('msword')) return <FileText className="h-5 w-5 text-blue-500" />;
-        if (mimeType.includes('sheet') || mimeType.includes('excel')) return <FileSpreadsheet className="h-5 w-5 text-green-500" />;
-        if (mimeType.includes('image')) return <ImageIcon className="h-5 w-5 text-purple-500" />;
-        if (mimeType.includes('video')) return <FileVideo className="h-5 w-5 text-orange-500" />;
-        return <FileIcon className="h-5 w-5 text-gray-500" />;
+        if (mimeType.includes('pdf')) return <FileText className="h-5 w-5 text-[#F87171]" />;
+        if (mimeType.includes('word') || mimeType.includes('officedocument.word') || mimeType.includes('msword')) return <FileText className="h-5 w-5 text-[#60A5FA]" />;
+        if (mimeType.includes('sheet') || mimeType.includes('excel')) return <FileSpreadsheet className="h-5 w-5 text-[#4ADE80]" />;
+        if (mimeType.includes('image')) return <ImageIcon className="h-5 w-5 text-primary" />;
+        if (mimeType.includes('video')) return <FileVideo className="h-5 w-5 text-[#F59E0B]" />;
+        return <FileIcon className="h-5 w-5 text-muted-foreground" />;
+    };
+
+    const getFileTypeLabel = (mimeType: string) => {
+        if (mimeType.includes('pdf')) return 'PDF';
+        if (mimeType.includes('word') || mimeType.includes('officedocument.word') || mimeType.includes('msword')) return 'Word Document';
+        if (mimeType.includes('sheet') || mimeType.includes('excel')) return 'Spreadsheet';
+        if (mimeType.includes('image')) return 'Image';
+        if (mimeType.includes('video')) return 'Video';
+        return 'File';
     };
 
     const formatBytes = (bytes: number) => {
@@ -62,15 +95,32 @@ export default function Index({ documents, filters }: Props) {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
+    const confirmDelete = () => {
+        if (!documentToDelete) return;
+
+        router.delete(route('documents.destroy', documentToDelete.id), {
+            onFinish: () => setDocumentToDelete(null),
+        });
+    };
+
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <h2 className="text-xl font-semibold leading-tight text-foreground">
                         My Vault
                     </h2>
-                    <Link href={route('documents.create')}>
-                        <Button className="bg-indigo-600 hover:bg-indigo-700">
+                    <div className="relative w-full max-w-md sm:mx-4">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Search documents..."
+                            className="pl-10"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+                    <Link href={route('documents.create')} className="shrink-0">
+                        <Button>
                             <Plus className="mr-2 h-4 w-4" /> Upload Document
                         </Button>
                     </Link>
@@ -81,77 +131,86 @@ export default function Index({ documents, filters }: Props) {
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                    <div className="mb-6 flex items-center justify-between gap-4">
-                        <div className="relative w-full max-w-md">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                            <Input
-                                placeholder="Search documents..."
-                                className="pl-10"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
+                    {documents.data.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-card py-32 text-muted-foreground">
+                            <UploadCloud className="mb-6 h-16 w-16 text-primary/60" />
+                            <h3 className="mb-2 text-xl font-bold text-foreground">Your vault is empty</h3>
+                            <p className="mb-6 max-w-sm text-center text-sm">Upload your first document to get started.</p>
+                            <Link href={route('documents.create')}>
+                                <Button className="px-6">
+                                    <Plus className="mr-2 h-4 w-4" /> Upload Document
+                                </Button>
+                            </Link>
                         </div>
-                    </div>
-
-                    <Card>
-                        <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-[400px]">Name</TableHead>
-                                        <TableHead>Size</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Uploaded</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {documents.data.length === 0 ? (
+                    ) : (
+                        <Card className="overflow-hidden">
+                            <CardContent className="p-0">
+                                <Table>
+                                    <TableHeader>
                                         <TableRow>
-                                            <TableCell colSpan={5} className="h-64 text-center">
-                                                <div className="flex flex-col items-center justify-center text-gray-500">
-                                                    <FileIcon className="mb-4 h-12 w-12 opacity-20" />
-                                                    <p className="text-lg font-medium">No documents found</p>
-                                                    <p className="text-sm">Upload your first document to get started.</p>
-                                                </div>
-                                            </TableCell>
+                                            <TableHead className="w-[400px]">Name</TableHead>
+                                            <TableHead>Type</TableHead>
+                                            <TableHead>Size</TableHead>
+                                            <TableHead>Uploaded</TableHead>
+                                            <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
-                                    ) : (
-                                        documents.data.map((doc) => (
-                                            <TableRow key={doc.id} className="cursor-pointer hover:bg-gray-50/50" onClick={() => router.get(route('documents.show', doc.id))}>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {documents.data.map((doc) => (
+                                            <TableRow key={doc.id}>
                                                 <TableCell>
-                                                    <div className="flex items-center gap-3">
+                                                    <Link
+                                                        href={route('documents.show', doc.id)}
+                                                        className="block max-w-[300px] truncate font-medium text-foreground underline-offset-4 hover:text-primary hover:underline"
+                                                        title={doc.original_name}
+                                                    >
+                                                        {doc.original_name}
+                                                    </Link>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
                                                         {getFileIcon(doc.mime_type)}
-                                                        <span className="font-medium text-gray-900 truncate max-w-[300px]" title={doc.original_name}>
-                                                            {doc.original_name}
+                                                        <span className="text-sm text-muted-foreground">
+                                                            {getFileTypeLabel(doc.mime_type)}
                                                         </span>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-gray-600 text-sm">
+                                                <TableCell className="text-sm text-muted-foreground">
                                                     {formatBytes(doc.file_size)}
                                                 </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1 px-2">
-                                                        <Lock className="h-3 w-3" /> Encrypted
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-gray-600 text-sm">
+                                                <TableCell className="text-sm text-muted-foreground">
                                                     {formatDistanceToNow(new Date(doc.created_at), { addSuffix: true })}
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <Link href={route('documents.show', doc.id)} onClick={(e) => e.stopPropagation()}>
-                                                        <Button variant="ghost" size="icon">
-                                                            <MoreVertical className="h-4 w-4" />
-                                                        </Button>
-                                                    </Link>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="text-muted-foreground">
+                                                                <MoreVertical className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem onClick={() => router.get(route('documents.show', doc.id))}>
+                                                                View Details
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => window.location.assign(route('documents.download', doc.id))}>
+                                                                Download
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                className="text-[#F87171] focus:text-[#F87171]"
+                                                                onClick={() => setDocumentToDelete(doc)}
+                                                            >
+                                                                Delete
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </TableCell>
                                             </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {documents.last_page > 1 && (
                         <div className="mt-6 flex items-center justify-center gap-2">
@@ -169,6 +228,27 @@ export default function Index({ documents, filters }: Props) {
                     )}
                 </div>
             </div>
+
+            <Dialog open={documentToDelete !== null} onOpenChange={(open) => !open && setDocumentToDelete(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Document</DialogTitle>
+                        <DialogDescription>
+                            {documentToDelete
+                                ? `Are you sure you want to move "${documentToDelete.original_name}" to trash?`
+                                : 'Are you sure you want to move this document to trash?'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDocumentToDelete(null)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={confirmDelete}>
+                            Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AuthenticatedLayout>
     );
 }

@@ -21,16 +21,21 @@ export default function Edit({
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Profile
-                </h2>
+                <div>
+                    <h2 className="text-xl font-semibold leading-tight text-foreground">
+                        Profile
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Manage your account settings and security preferences
+                    </p>
+                </div>
             }
         >
             <Head title="Profile" />
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                    <div className="noir-card-glow rounded-lg border border-border bg-card p-6 sm:p-8">
                         <UpdateProfileInformationForm
                             mustVerifyEmail={mustVerifyEmail}
                             status={status}
@@ -38,25 +43,25 @@ export default function Edit({
                         />
                     </div>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                    <div className="noir-card-glow rounded-lg border border-border bg-card p-6 sm:p-8">
                         <UpdatePasswordForm className="max-w-xl" />
                     </div>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                    <div className="noir-card-glow rounded-lg border border-border bg-card p-6 sm:p-8">
                         <TwoFactorAuthenticationForm
                             twoFactorEnabled={twoFactorEnabled}
                             className="max-w-xl"
                         />
                     </div>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                    <div className="noir-card-glow rounded-lg border border-border bg-card p-6 sm:p-8">
                         <ActiveSessionsForm
                             sessionCount={sessionCount}
                             className="max-w-xl"
                         />
                     </div>
 
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+                    <div className="rounded-lg border border-[#5A2020] bg-[#2D1010] p-6 sm:p-8">
                         <DeleteUserForm className="max-w-xl" />
                     </div>
                 </div>

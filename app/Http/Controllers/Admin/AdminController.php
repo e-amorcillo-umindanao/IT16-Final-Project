@@ -31,6 +31,7 @@ class AdminController extends Controller
         $stats = [
             'total_users' => User::count(),
             'active_users' => User::where('is_active', true)->count(),
+            'pending_verifications' => User::whereNull('email_verified_at')->count(),
             'total_documents' => Document::count(),
             'total_storage' => (int) Document::sum('file_size'),
             'failed_logins_24h' => AuditLog::where('action', 'login_failed')
@@ -39,8 +40,14 @@ class AdminController extends Controller
             'active_sessions' => DB::table(config('session.table', 'sessions'))->count(),
         ];
 
+        $recentActivity = AuditLog::with('user')
+            ->latest('id')
+            ->take(10)
+            ->get();
+
         return Inertia::render('Admin/Dashboard', [
             'stats' => $stats,
+            'recentActivity' => $recentActivity,
         ]);
     }
 
@@ -155,15 +162,36 @@ class AdminController extends Controller
     }
 
     /**
+     * Display a read-only list of all documents in the system.
+     */
+    public function documents(Request $request): Response
+    {
+        $query = Document::with('user:id,name,email')
+            ->latest();
+
+        if ($request->search) {
+            $search = $request->search;
+
+            $query->where(function ($q) use ($search) {
+                $q->where('original_name', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        return Inertia::render('Admin/Documents', [
+            'documents' => $query->paginate(20)->withQueryString(),
+            'filters' => $request->only(['search']),
+        ]);
+    }
+
+    /**
      * Display all active sessions.
      */
-    public function sessions(): Response
+    public function sessions(Request $request): Response
     {
-        $sessions = DB::table(config('session.table', 'sessions'))
-            ->get();
-
-        // Map session user_id to user names manually or through a join
-        // For simplicity and efficiency in a security app, we'll join
         $sessionsWithUsers = DB::table(config('session.table', 'sessions'))
             ->leftJoin('users', 'sessions.user_id', '=', 'users.id')
             ->select('sessions.*', 'users.name as user_name', 'users.email as user_email')
@@ -172,6 +200,7 @@ class AdminController extends Controller
 
         return Inertia::render('Admin/Sessions', [
             'sessions' => $sessionsWithUsers,
+            'currentSessionId' => $request->session()->getId(),
         ]);
     }
 

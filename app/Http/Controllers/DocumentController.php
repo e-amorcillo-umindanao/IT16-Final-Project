@@ -72,10 +72,9 @@ class DocumentController extends Controller
         ]);
 
         $file = $request->file('file');
-        $originalContent = File::get($file->getRealPath());
         
         // Encrypt content
-        $encryptedData = $this->encryptionService->encrypt($originalContent);
+        $encryptedData = $this->encryptionService->encryptFile($file->getRealPath());
         
         $encryptedName = Str::uuid()->toString() . '.enc';
         $vaultPath = config('securevault.vault_path');
@@ -84,7 +83,7 @@ class DocumentController extends Controller
             File::makeDirectory($vaultPath, 0755, true);
         }
 
-        File::put($vaultPath . '/' . $encryptedName, $encryptedData['content']);
+        File::put($vaultPath . '/' . $encryptedName, $encryptedData['encrypted_content']);
 
         $document = Document::create([
             'user_id' => Auth::id(),
@@ -92,7 +91,7 @@ class DocumentController extends Controller
             'encrypted_name' => $encryptedName,
             'mime_type' => $file->getMimeType(),
             'file_size' => $file->getSize(),
-            'file_hash' => $encryptedData['hash'],
+            'file_hash' => $encryptedData['original_hash'],
             'encryption_iv' => $encryptedData['iv'],
         ]);
 
@@ -143,7 +142,7 @@ class DocumentController extends Controller
         $encryptedContent = File::get($filePath);
         
         try {
-            $decryptedContent = $this->encryptionService->decrypt(
+            $decryptedContent = $this->encryptionService->decryptFile(
                 $encryptedContent,
                 $document->encryption_iv
             );

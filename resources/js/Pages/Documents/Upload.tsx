@@ -62,7 +62,7 @@ export default function UploadPage({ maxSize, allowedMimes }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                <h2 className="text-xl font-semibold leading-tight text-foreground">
                     Upload & Encrypt
                 </h2>
             }
@@ -83,17 +83,17 @@ export default function UploadPage({ maxSize, allowedMimes }: Props) {
                                 {!data.file ? (
                                     <div
                                         className={`relative flex min-h-[300px] cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
-                                            dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400'
+                                            dragActive ? 'border-primary bg-accent' : 'border-border hover:border-primary'
                                         }`}
                                         onDragOver={onDragOver}
                                         onDragLeave={onDragLeave}
                                         onDrop={onDrop}
                                         onClick={() => document.getElementById('file-input')?.click()}
                                     >
-                                        <Upload className={`mb-4 h-12 w-12 ${dragActive ? 'text-indigo-600' : 'text-gray-400'}`} />
+                                        <Upload className={`mb-4 h-12 w-12 ${dragActive ? 'text-primary' : 'text-muted-foreground'}`} />
                                         <div className="text-center">
-                                            <p className="text-lg font-medium text-gray-900">Click or drag file to upload</p>
-                                            <p className="mt-1 text-sm text-gray-500">
+                                            <p className="text-lg font-medium text-foreground">Click or drag file to upload</p>
+                                            <p className="mt-1 text-sm text-muted-foreground">
                                                 PDF, DOCX, XLSX, JPG, or PNG up to {formatBytes(maxSize)}
                                             </p>
                                         </div>
@@ -106,15 +106,15 @@ export default function UploadPage({ maxSize, allowedMimes }: Props) {
                                         />
                                     </div>
                                 ) : (
-                                    <div className="rounded-lg border bg-gray-50 p-6">
+                                    <div className="rounded-lg border border-border bg-card p-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-4">
-                                                <div className="rounded-full bg-indigo-100 p-3">
-                                                    <FileIcon className="h-8 w-8 text-indigo-600" />
+                                                <div className="rounded-full bg-accent p-3">
+                                                    <FileIcon className="h-8 w-8 text-primary" />
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-gray-900">{data.file.name}</p>
-                                                    <p className="text-sm text-gray-500">{formatBytes(data.file.size)} • {data.file.type}</p>
+                                                    <p className="font-semibold text-foreground">{data.file.name}</p>
+                                                    <p className="text-sm text-muted-foreground">{formatBytes(data.file.size)} • {data.file.type}</p>
                                                 </div>
                                             </div>
                                             <Button
@@ -124,19 +124,19 @@ export default function UploadPage({ maxSize, allowedMimes }: Props) {
                                                 onClick={() => setData('file', null)}
                                                 disabled={processing}
                                             >
-                                                <X className="h-5 w-5 text-gray-400" />
+                                                <X className="h-5 w-5 text-muted-foreground" />
                                             </Button>
                                         </div>
 
                                         {progress && (
                                             <div className="mt-6 space-y-2">
-                                                <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                                                <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
                                                     <div
-                                                        className="h-full bg-indigo-600 transition-all duration-300"
+                                                        className="h-full bg-primary transition-all duration-300"
                                                         style={{ width: `${progress.percentage}%` }}
                                                     />
                                                 </div>
-                                                <p className="text-right text-xs font-medium text-gray-500">{progress.percentage}% uploaded</p>
+                                                <p className="text-right text-xs font-medium text-muted-foreground">{progress.percentage}% uploaded</p>
                                             </div>
                                         )}
                                     </div>
@@ -144,14 +144,14 @@ export default function UploadPage({ maxSize, allowedMimes }: Props) {
 
                                 <InputError message={errors.file} className="mt-2" />
 
-                                <div className="flex flex-col items-center justify-center gap-4 pt-4 border-t">
-                                    <div className="flex items-center gap-2 text-sm text-green-700 font-medium">
+                                <div className="flex flex-col items-center justify-center gap-4 border-t border-border pt-4">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-[#4ADE80]">
                                         <ShieldCheck className="h-5 w-5" />
                                         End-to-end encryption active
                                     </div>
                                     <Button
                                         type="submit"
-                                        className="w-full bg-indigo-600 py-6 text-lg hover:bg-indigo-700"
+                                        className="w-full py-6 text-lg"
                                         disabled={!data.file || processing}
                                     >
                                         {processing ? (
@@ -169,7 +169,7 @@ export default function UploadPage({ maxSize, allowedMimes }: Props) {
                                     <Button
                                         type="button"
                                         variant="ghost"
-                                        className="text-gray-500"
+                                        className="text-muted-foreground"
                                         disabled={processing}
                                         onClick={() => router.get(route('documents.index'))}
                                     >

@@ -50,23 +50,35 @@ Route::middleware('auth')->group(function () {
     Route::get('/activity', [AuditLogController::class, 'index'])->name('activity.index');
 
     // Administration
-    Route::group([
-        'prefix' => 'admin',
-        'middleware' => ['role:super-admin|admin']
-    ], function () {
-        Route::get('/', [AdminController::class, 'dashboard'])->name('admin.dashboard');
-        
-        // Users
-        Route::get('/users', [AdminController::class, 'users'])->name('admin.users');
-        Route::patch('/users/{user}/toggle-active', [AdminController::class, 'toggleUserActive'])->name('admin.users.toggle-active');
-        Route::patch('/users/{user}/role', [AdminController::class, 'updateUserRole'])->name('admin.users.role');
-        
-        // Audit Logs
-        Route::get('/audit-logs', [AdminController::class, 'auditLogs'])->name('admin.audit-logs');
-        
-        // Sessions
-        Route::get('/sessions', [AdminController::class, 'sessions'])->name('admin.sessions');
-        Route::delete('/sessions/{session}', [AdminController::class, 'destroySession'])->name('admin.sessions.destroy');
+    Route::prefix('admin')->name('admin.')->group(function () {
+        Route::get('/', [AdminController::class, 'dashboard'])
+            ->middleware('permission:view_admin_dashboard')
+            ->name('dashboard');
+
+        Route::get('/users', [AdminController::class, 'users'])
+            ->middleware('permission:manage_users')
+            ->name('users');
+        Route::patch('/users/{user}/toggle-active', [AdminController::class, 'toggleUserActive'])
+            ->middleware('permission:manage_users')
+            ->name('users.toggle-active');
+        Route::patch('/users/{user}/role', [AdminController::class, 'updateUserRole'])
+            ->middleware('permission:manage_users')
+            ->name('users.role');
+
+        Route::get('/documents', [AdminController::class, 'documents'])
+            ->middleware('permission:view_all_documents')
+            ->name('documents');
+
+        Route::get('/audit-logs', [AdminController::class, 'auditLogs'])
+            ->middleware('permission:view_audit_logs')
+            ->name('audit-logs');
+
+        Route::get('/sessions', [AdminController::class, 'sessions'])
+            ->middleware('permission:manage_sessions')
+            ->name('sessions');
+        Route::delete('/sessions/{session}', [AdminController::class, 'destroySession'])
+            ->middleware('permission:manage_sessions')
+            ->name('sessions.destroy');
     });
 });
 

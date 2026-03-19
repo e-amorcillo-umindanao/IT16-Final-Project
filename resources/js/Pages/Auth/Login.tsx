@@ -33,7 +33,7 @@ export default function Login({
             <Head title="Log in" />
 
             {status && (
-                <div className="mb-4 text-sm font-medium text-green-600">
+                <div className="mb-4 rounded-md border border-[#1E3A24] bg-[#132B1A] px-3 py-2 text-sm font-medium text-[#4ADE80]">
                     {status}
                 </div>
             )}
@@ -72,7 +72,7 @@ export default function Login({
                     <InputError message={errors.password} className="mt-2" />
                 </div>
 
-                <div className="mt-4 block">
+                <div className="mt-4 flex items-center justify-between gap-4">
                     <label className="flex items-center">
                         <Checkbox
                             name="remember"
@@ -84,26 +84,36 @@ export default function Login({
                                 )
                             }
                         />
-                        <span className="ms-2 text-sm text-gray-600">
+                        <span className="ms-2 text-sm text-muted-foreground">
                             Remember me
                         </span>
                     </label>
-                </div>
 
-                <div className="mt-4 flex items-center justify-end">
                     {canResetPassword && (
                         <Link
                             href={route('password.request')}
-                            className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            className="rounded-md text-sm text-primary underline hover:text-[#E0B84D]"
                         >
                             Forgot your password?
                         </Link>
                     )}
+                </div>
 
-                    <PrimaryButton className="ms-4" disabled={processing}>
+                <div className="mt-6">
+                    <PrimaryButton className="w-full justify-center py-3 text-sm" disabled={processing}>
                         Log in
                     </PrimaryButton>
                 </div>
+
+                <p className="mt-6 text-center text-sm text-muted-foreground">
+                    Don&apos;t have an account?{' '}
+                    <Link
+                        href={route('register')}
+                        className="font-medium text-primary hover:text-[#E0B84D]"
+                    >
+                        Sign up
+                    </Link>
+                </p>
             </form>
         </GuestLayout>
     );

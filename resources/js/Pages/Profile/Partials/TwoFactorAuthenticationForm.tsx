@@ -1,7 +1,6 @@
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useForm, Link } from '@inertiajs/react';
-import { ShieldAlert, ShieldCheck } from 'lucide-react';
+import { ShieldCheck, ShieldOff } from 'lucide-react';
 
 export default function TwoFactorAuthenticationForm({
     twoFactorEnabled,
@@ -24,11 +23,11 @@ export default function TwoFactorAuthenticationForm({
     return (
         <section className={className}>
             <header>
-                <h2 className="text-lg font-medium text-gray-900">
+                <h2 className="text-lg font-medium text-foreground">
                     Two-Factor Authentication
                 </h2>
 
-                <p className="mt-1 text-sm text-gray-600">
+                <p className="mt-1 text-sm text-muted-foreground">
                     Add additional security to your account using two-factor authentication.
                 </p>
             </header>
@@ -36,14 +35,21 @@ export default function TwoFactorAuthenticationForm({
             <div className="mt-6 flex items-center justify-between">
                 <div>
                     {twoFactorEnabled ? (
-                        <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
+                        <div className="flex items-center gap-2 text-sm font-medium text-[#4ADE80]">
                             <ShieldCheck className="h-5 w-5" />
                             <span>Two-Factor Authentication is Enabled</span>
                         </div>
                     ) : (
-                        <div className="flex items-center gap-2 text-sm text-amber-600 font-medium">
-                            <ShieldAlert className="h-5 w-5" />
-                            <span>Two-Factor Authentication is Disabled</span>
+                        <div className="flex items-start gap-3 rounded-lg border border-[#3F2E11] bg-[#2A2010] px-4 py-3">
+                            <ShieldOff className="mt-0.5 h-5 w-5 text-primary" />
+                            <div>
+                                <div className="text-sm font-medium text-primary">
+                                    Two-factor authentication is not enabled
+                                </div>
+                                <p className="mt-1 text-sm text-[#C9A664]">
+                                    We recommend enabling 2FA for additional account security.
+                                </p>
+                            </div>
                         </div>
                     )}
                 </div>

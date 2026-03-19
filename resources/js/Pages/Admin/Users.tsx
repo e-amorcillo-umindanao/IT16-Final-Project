@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { formatDistanceToNow } from 'date-fns';
-import { MoreHorizontal, Search, Shield, UserX, UserCheck, ShieldCheck } from 'lucide-react';
+import { MoreHorizontal, Search } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -40,6 +41,19 @@ export default function AdminUsers({ users, roles, filters }: Props) {
     const authUser = usePage().props.auth.user;
     const [search, setSearch] = useState(filters.search || '');
 
+    const getRoleBadgeClass = (roleName?: string) => {
+        switch (roleName) {
+            case 'super-admin':
+                return 'border-[#3F2E11] bg-[#2A2010] text-primary';
+            case 'admin':
+                return 'border-[#17304F] bg-[#0F1B2D] text-[#60A5FA]';
+            case 'user':
+                return 'border-border bg-secondary text-muted-foreground';
+            default:
+                return 'border-border bg-secondary text-muted-foreground';
+        }
+    };
+
     const handleSearch = () => {
         router.get(route('admin.users'), { search }, { preserveState: true });
     };
@@ -63,9 +77,14 @@ export default function AdminUsers({ users, roles, filters }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    User Management
-                </h2>
+                <div>
+                    <h2 className="text-xl font-semibold leading-tight text-foreground">
+                        User Management
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        {users.data.length} {users.data.length === 1 ? 'user' : 'users'}
+                    </p>
+                </div>
             }
         >
             <Head title="User Management" />
@@ -75,9 +94,6 @@ export default function AdminUsers({ users, roles, filters }: Props) {
                     <Card>
                         <CardHeader>
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                                <CardTitle className="text-sm font-medium uppercase tracking-wider text-gray-500">
-                                    Registered Users
-                                </CardTitle>
                                 <div className="flex w-full md:w-auto items-center gap-2">
                                     <Input
                                         placeholder="Search by name or email..."
@@ -105,29 +121,36 @@ export default function AdminUsers({ users, roles, filters }: Props) {
                                 </TableHeader>
                                 <TableBody>
                                     {users.data.map((user) => (
-                                        <TableRow key={user.id} className={user.id === authUser.id ? 'bg-gray-50/50' : ''}>
+                                        <TableRow
+                                            key={user.id}
+                                            className={cn(user.id === authUser.id && 'bg-accent/60')}
+                                        >
                                             <TableCell>
                                                 <div className="flex flex-col">
                                                     <span className="font-medium text-sm">
                                                         {user.name} {user.id === authUser.id && '(You)'}
                                                     </span>
-                                                    <span className="text-xs text-gray-500">{user.email}</span>
+                                                    <span className="text-xs text-muted-foreground">{user.email}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+                                                <Badge variant="outline" className={getRoleBadgeClass(user.roles[0]?.name)}>
                                                     {user.roles[0]?.name || 'No Role'}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
                                                 {user.is_active ? (
-                                                    <Badge className="bg-green-100 text-green-700 border-green-200 border hover:bg-green-100">Active</Badge>
+                                                    <Badge className="border border-[#1E3A24] bg-[#132B1A] text-[#4ADE80] hover:bg-[#132B1A]">Active</Badge>
                                                 ) : (
-                                                    <Badge variant="destructive" className="border-red-200">Inactive</Badge>
+                                                    <Badge variant="destructive" className="border-[#5A2020]">Inactive</Badge>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="text-xs text-gray-500">
-                                                {user.last_login_at ? formatDistanceToNow(new Date(user.last_login_at)) + ' ago' : 'Never'}
+                                            <TableCell className="text-xs text-muted-foreground">
+                                                {user.last_login_at ? (
+                                                    formatDistanceToNow(new Date(user.last_login_at)) + ' ago'
+                                                ) : (
+                                                    <span className="italic text-muted-foreground">No activity</span>
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <DropdownMenu>
@@ -138,25 +161,17 @@ export default function AdminUsers({ users, roles, filters }: Props) {
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuItem onClick={() => toggleStatus(user)}>
-                                                            {user.is_active ? (
-                                                                <div className="flex items-center text-red-600">
-                                                                    <UserX className="mr-2 h-4 w-4" /> Deactivate
-                                                                </div>
-                                                            ) : (
-                                                                <div className="flex items-center text-green-600">
-                                                                    <UserCheck className="mr-2 h-4 w-4" /> Activate
-                                                                </div>
-                                                            )}
+                                                            {user.is_active ? 'Deactivate Account' : 'Activate'}
                                                         </DropdownMenuItem>
-                                                        <div className="h-px bg-gray-100 my-1" />
-                                                        <p className="px-2 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Change Role</p>
+                                                        <div className="my-1 h-px bg-border" />
+                                                        <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-tighter text-muted-foreground">Change Role</p>
                                                         {roles.map(role => (
                                                             <DropdownMenuItem 
                                                                 key={role.id} 
                                                                 onClick={() => updateRole(user, role.name)}
                                                                 disabled={user.roles[0]?.name === role.name}
                                                             >
-                                                                <ShieldCheck className="mr-2 h-4 w-4 text-indigo-500" /> {role.name}
+                                                                Change Role to {role.name}
                                                             </DropdownMenuItem>
                                                         ))}
                                                     </DropdownMenuContent>
