@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Eye, EyeOff, Loader2, Lock, Mail, ShieldAlert } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
+import AppLogo from '@/components/AppLogo';
 
 export default function Register() {
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -66,6 +67,11 @@ export default function Register() {
                 <div className="w-full max-w-md rounded-2xl border border-border bg-card px-8 py-10 shadow-sm">
                     {/* Amber top accent bar */}
                     <div className="mb-8 -mx-8 -mt-10 h-1 rounded-t-2xl bg-primary" />
+
+                    {/* ── Logo mark ── */}
+                    <div className="mb-6 flex justify-center">
+                        <AppLogo size="lg" showText={false} />
+                    </div>
 
                     <h1 className="text-2xl font-bold text-foreground">
                         Create Account

@@ -10,8 +10,8 @@ import {
     Loader2,
     Lock,
     Mail,
-    ShieldCheck,
 } from 'lucide-react';
+import AppLogo from '@/components/AppLogo';
 import { useState } from 'react';
 
 export default function Login({
@@ -55,9 +55,7 @@ export default function Login({
 
                     {/* ── Logo mark ── */}
                     <div className="mb-6 flex justify-center">
-                        <div className="rounded-2xl bg-primary/15 p-4">
-                            <ShieldCheck className="h-10 w-10 text-primary" />
-                        </div>
+                        <AppLogo size="lg" showText={false} />
                     </div>
 
                     {/* ── Title ── */}

@@ -1,4 +1,4 @@
-import ApplicationLogo from '@/components/ApplicationLogo';
+import AppLogo from '@/components/AppLogo';
 import ThemeToggle from '@/components/ThemeToggle';
 import { Toaster } from '@/components/ui/sonner';
 import { Link, usePage } from '@inertiajs/react';
@@ -105,7 +105,7 @@ export default function Authenticated({
                 {/* Logo Area */}
                 <div className="flex h-16 items-center border-b border-border px-4">
                     <Link href="/" className="flex items-center gap-3 overflow-hidden">
-                        <ApplicationLogo className={cn("h-8 w-auto shrink-0 text-primary transition-all", !isSidebarOpen && !isMobileMenuOpen && "scale-110")} />
+                        <AppLogo size="md" showText={isSidebarOpen || isMobileMenuOpen} />
                     </Link>
                 </div>
 
@@ -244,7 +244,7 @@ export default function Authenticated({
                     >
                         <Menu size={24} />
                     </button>
-                    <ApplicationLogo className="h-7 w-auto text-primary" />
+                    <AppLogo size="sm" showText={true} />
                     <ThemeToggle />
                 </header>
 
