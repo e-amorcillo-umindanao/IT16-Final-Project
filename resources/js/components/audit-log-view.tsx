@@ -1,10 +1,11 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { PageProps, PaginatedResponse } from '@/types';
+import { PaginatedResponse } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { format } from 'date-fns';
 import {
@@ -20,7 +21,7 @@ import {
     Trash2,
     Upload,
 } from 'lucide-react';
-import { useState } from 'react';
+import { ReactNode, useMemo, useState } from 'react';
 
 type AuditAction =
     | 'login_success'
@@ -37,10 +38,10 @@ type AuditAction =
     | 'profile_updated'
     | string;
 
-interface AuditLogRow {
+export interface AuditLogRow {
     id: number;
     action: AuditAction;
-    metadata: Record<string, any> | null;
+    metadata: Record<string, unknown> | null;
     ip_address: string | null;
     created_at: string;
     auditable?: {
@@ -52,13 +53,23 @@ interface AuditLogRow {
     } | null;
 }
 
-interface Props extends PageProps {
+interface Filters {
+    action?: string;
+    from_date?: string;
+    to_date?: string;
+    user?: string;
+}
+
+interface Props {
+    pageTitle: string;
+    title: string;
+    breadcrumb: ReactNode;
+    routeName: string;
+    exportRouteName: string;
+    showUserFilter: boolean;
+    showUserColumn: boolean;
     logs: PaginatedResponse<AuditLogRow>;
-    filters: {
-        action?: string;
-        from_date?: string;
-        to_date?: string;
-    };
+    filters: Filters;
 }
 
 const ACTION_OPTIONS = [
@@ -186,59 +197,68 @@ function getStatusBadge(action: AuditAction) {
     }
 }
 
-function getTargetDetails(action: string, metadata: Record<string, any> | null) {
-    switch (action) {
-        case 'login_success':
-            return {
-                primary: 'Secure Login',
-                secondary: `2FA: ${metadata?.two_factor ? 'Enabled' : 'Disabled'}`,
-            };
-        case 'login_failed':
-            return { primary: 'Failed Attempt', secondary: 'Invalid credentials' };
+function getTargetDetails(log: AuditLogRow) {
+    const metadata = log.metadata ?? {};
+    const originalName =
+        (metadata.original_name as string | undefined) ??
+        (log.auditable?.original_name ?? undefined) ??
+        (metadata.shared_with as string | undefined);
+
+    switch (log.action) {
         case 'document_uploaded':
             return {
-                primary: metadata?.document_name ?? 'Document',
-                secondary: 'Encrypted and stored',
+                target: originalName ?? '—',
+                description: originalName ? 'Encrypted and stored' : undefined,
             };
         case 'document_downloaded':
             return {
-                primary: metadata?.document_name ?? 'Document',
-                secondary: 'Decrypted on-the-fly',
+                target: originalName ?? '—',
+                description: originalName ? 'Decrypted on-the-fly' : undefined,
             };
         case 'document_shared':
             return {
-                primary: metadata?.document_name ?? 'Document',
-                secondary: metadata?.shared_with ? `Shared with ${metadata.shared_with}` : 'Shared',
+                target: originalName ?? '—',
+                description: metadata.shared_with
+                    ? `Shared with ${String(metadata.shared_with)}`
+                    : 'Shared',
             };
         case 'document_deleted':
             return {
-                primary: metadata?.document_name ?? 'Document',
-                secondary: 'Moved to trash',
+                target: originalName ?? '—',
+                description: originalName ? 'Moved to trash' : undefined,
+            };
+        case 'login_success':
+            return {
+                target: 'Secure Login',
+                description:
+                    typeof metadata.multi_factor === 'boolean'
+                        ? `Multi-factor: ${metadata.multi_factor ? 'enabled' : 'disabled'}`
+                        : 'Multi-factor: unavailable',
+            };
+        case 'login_failed':
+            return {
+                target: 'Failed Attempt',
+                description: 'Invalid credentials',
             };
         case 'account_locked':
-            return { primary: 'Account Locked', secondary: 'Too many failed attempts' };
+            return {
+                target: 'Account Locked',
+                description: 'Too many failed attempts',
+            };
         case 'integrity_violation':
             return {
-                primary: metadata?.document_name ?? 'Document',
-                secondary: 'Hash mismatch detected',
+                target: originalName ?? '—',
+                description: 'Hash mismatch detected',
             };
-        case 'logout':
-            return { primary: 'Session Ended', secondary: null };
-        case '2fa_enabled':
-        case 'two_factor_enabled':
-            return { primary: '2FA Activated', secondary: 'TOTP configured' };
         default:
-            return { primary: action.replace(/_/g, ' '), secondary: null };
+            return {
+                target: getActionLabel(log.action),
+                description: undefined,
+            };
     }
 }
 
-function Pagination({
-    logs,
-    filters,
-}: {
-    logs: PaginatedResponse<AuditLogRow>;
-    filters: Props['filters'];
-}) {
+function Pagination({ logs, routeName, filters }: { logs: PaginatedResponse<AuditLogRow>; routeName: string; filters: Filters }) {
     const cleanedFilters = Object.fromEntries(
         Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')
     );
@@ -250,7 +270,10 @@ function Pagination({
             </p>
             <div className="flex flex-wrap items-center gap-2">
                 {logs.links.map((link, index) => {
-                    const label = link.label.replace('&laquo;', '').replace('&raquo;', '').trim();
+                    const label = link.label
+                        .replace('&laquo;', '')
+                        .replace('&raquo;', '')
+                        .trim();
 
                     return (
                         <Button
@@ -277,45 +300,60 @@ function Pagination({
     );
 }
 
-export default function ActivityIndex({ logs, filters }: Props) {
-    const [localFilters, setLocalFilters] = useState<Props['filters']>({
+export default function AuditLogView({
+    pageTitle,
+    title,
+    breadcrumb,
+    routeName,
+    exportRouteName,
+    showUserFilter,
+    showUserColumn,
+    logs,
+    filters,
+}: Props) {
+    const [localFilters, setLocalFilters] = useState<Filters>({
         action: filters.action ?? '',
         from_date: filters.from_date ?? '',
         to_date: filters.to_date ?? '',
+        user: filters.user ?? '',
     });
 
-    const exportQuery = Object.fromEntries(
-        Object.entries(localFilters).filter(([, value]) => value !== undefined && value !== '')
+    const exportQuery = useMemo(
+        () =>
+            Object.fromEntries(
+                Object.entries(localFilters).filter(([, value]) => value !== undefined && value !== '')
+            ),
+        [localFilters]
     );
 
     const applyFilters = () => {
-        router.get(route('activity.index'), exportQuery, {
+        router.get(route(routeName), exportQuery, {
             preserveState: true,
             replace: true,
         });
     };
 
     const resetFilters = () => {
-        const reset = { action: '', from_date: '', to_date: '' };
+        const reset = { action: '', from_date: '', to_date: '', user: '' };
         setLocalFilters(reset);
-        router.get(route('activity.index'), {});
+        router.get(route(routeName), {});
     };
 
     return (
         <AuthenticatedLayout
             header={
                 <div className="space-y-1">
-                    <h2 className="text-xl font-semibold leading-tight text-foreground">Activity Log</h2>
-                    <p className="text-sm text-muted-foreground">Main {'›'} Activity</p>
+                    <h2 className="text-xl font-semibold leading-tight text-foreground">{title}</h2>
+                    <p className="text-sm text-muted-foreground">{breadcrumb}</p>
                 </div>
             }
         >
-            <Head title="Activity Log" />
+            <Head title={pageTitle} />
 
             <div className="py-10">
-                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
                     <div className="rounded-lg border border-border bg-card p-4">
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+                        <div className={`grid grid-cols-1 gap-4 ${showUserFilter ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
                             <div className="space-y-2">
                                 <Label htmlFor="action">Action Type</Label>
                                 <Select
@@ -372,6 +410,24 @@ export default function ActivityIndex({ logs, filters }: Props) {
                                 />
                             </div>
 
+                            {showUserFilter && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="user">User</Label>
+                                    <Input
+                                        id="user"
+                                        value={localFilters.user ?? ''}
+                                        onChange={(event) =>
+                                            setLocalFilters((current) => ({
+                                                ...current,
+                                                user: event.target.value,
+                                            }))
+                                        }
+                                        placeholder="Name or email"
+                                        className="bg-background"
+                                    />
+                                </div>
+                            )}
+
                             <div className="flex items-end justify-start gap-3 lg:justify-end">
                                 <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={applyFilters}>
                                     <SlidersHorizontal className="h-4 w-4" />
@@ -395,7 +451,7 @@ export default function ActivityIndex({ logs, filters }: Props) {
                                 <h3 className="font-semibold text-foreground">Security Audit Trail</h3>
                             </div>
                             <Button variant="outline" asChild>
-                                <a href={route('activity.export', exportQuery)}>
+                                <a href={route(exportRouteName, exportQuery)}>
                                     <Download className="h-4 w-4" />
                                     Export CSV
                                 </a>
@@ -406,6 +462,7 @@ export default function ActivityIndex({ logs, filters }: Props) {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Timestamp</TableHead>
+                                    {showUserColumn && <TableHead>User</TableHead>}
                                     <TableHead>Action</TableHead>
                                     <TableHead>Target / Details</TableHead>
                                     <TableHead>IP Address</TableHead>
@@ -415,7 +472,7 @@ export default function ActivityIndex({ logs, filters }: Props) {
                             <TableBody>
                                 {logs.data.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-40 text-center text-muted-foreground">
+                                        <TableCell colSpan={showUserColumn ? 6 : 5} className="h-40 text-center text-muted-foreground">
                                             No logs found for the selected filters.
                                         </TableCell>
                                     </TableRow>
@@ -423,7 +480,7 @@ export default function ActivityIndex({ logs, filters }: Props) {
                                     logs.data.map((log) => {
                                         const actionPresentation = getActionPresentation(log.action);
                                         const status = getStatusBadge(log.action);
-                                        const details = getTargetDetails(log.action, log.metadata);
+                                        const details = getTargetDetails(log);
                                         const ActionIcon = actionPresentation.icon;
 
                                         return (
@@ -438,31 +495,33 @@ export default function ActivityIndex({ logs, filters }: Props) {
                                                         </span>
                                                     </div>
                                                 </TableCell>
+                                                {showUserColumn && (
+                                                    <TableCell>
+                                                        {log.user ? (
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm text-foreground">{log.user.name}</span>
+                                                                <span className="text-xs text-muted-foreground">{log.user.email}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-sm italic text-muted-foreground">System</span>
+                                                        )}
+                                                    </TableCell>
+                                                )}
                                                 <TableCell>
                                                     <div className="flex items-center gap-3">
                                                         <div className={`rounded-full p-1.5 ${actionPresentation.circleClass}`}>
                                                             <ActionIcon className="h-4 w-4" />
                                                         </div>
-                                                        <span className="font-medium text-foreground">
-                                                            {getActionLabel(log.action)}
-                                                        </span>
+                                                        <span className="font-medium text-foreground">{getActionLabel(log.action)}</span>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {details.primary || details.secondary ? (
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm text-foreground">
-                                                                {details.primary}
-                                                            </span>
-                                                            {details.secondary && (
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    {details.secondary}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-muted-foreground">—</span>
-                                                    )}
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm text-foreground">{details.target}</span>
+                                                        {details.description && (
+                                                            <span className="text-xs text-muted-foreground">{details.description}</span>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-foreground">
@@ -470,9 +529,7 @@ export default function ActivityIndex({ logs, filters }: Props) {
                                                     </span>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge
-                                                        className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${status.className}`}
-                                                    >
+                                                    <Badge className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${status.className}`}>
                                                         {status.label}
                                                     </Badge>
                                                 </TableCell>
@@ -484,7 +541,7 @@ export default function ActivityIndex({ logs, filters }: Props) {
                         </Table>
                     </div>
 
-                    {logs.last_page > 1 && <Pagination logs={logs} filters={filters} />}
+                    {logs.last_page > 1 && <Pagination logs={logs} routeName={routeName} filters={filters} />}
                 </div>
             </div>
         </AuthenticatedLayout>

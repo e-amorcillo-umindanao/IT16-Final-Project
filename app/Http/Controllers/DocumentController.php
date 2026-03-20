@@ -11,11 +11,10 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class DocumentController extends Controller
 {
@@ -35,14 +34,20 @@ class DocumentController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = Document::ownedBy(Auth::id())
-            ->when($request->search, function ($q, $search) {
-                $q->where('original_name', 'like', "%{$search}%");
-            });
+        $user = Auth::user();
 
         return Inertia::render('Documents/Index', [
-            'documents' => $query->latest()->paginate(15)->withQueryString(),
-            'filters' => $request->only(['search']),
+            'documents' => $user->documents()
+                ->whereNull('deleted_at')
+                ->orderByDesc('created_at')
+                ->paginate(15)
+                ->through(fn ($doc) => [
+                    'id' => $doc->id,
+                    'original_name' => $doc->original_name,
+                    'mime_type' => $doc->mime_type,
+                    'file_size' => $doc->file_size,
+                    'created_at' => $doc->created_at,
+                ]),
         ]);
     }
 
@@ -51,7 +56,7 @@ class DocumentController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('Documents/Upload', [
+        return Inertia::render('Documents/Create', [
             'maxSize' => config('securevault.max_upload_size'),
             'allowedMimes' => config('securevault.allowed_mimes'),
         ]);
@@ -63,15 +68,16 @@ class DocumentController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'file' => [
+            'document' => [
                 'required',
                 'file',
                 'max:' . (config('securevault.max_upload_size') / 1024),
                 'mimetypes:' . implode(',', config('securevault.allowed_mimes')),
             ],
+            'description' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $file = $request->file('file');
+        $file = $request->file('document');
         
         // Encrypt content
         $encryptedData = $this->encryptionService->encryptFile($file->getRealPath());
@@ -93,6 +99,7 @@ class DocumentController extends Controller
             'file_size' => $file->getSize(),
             'file_hash' => $encryptedData['original_hash'],
             'encryption_iv' => $encryptedData['iv'],
+            'description' => $request->description,
         ]);
 
         $this->auditService->log('document_uploaded', $document);
@@ -107,22 +114,52 @@ class DocumentController extends Controller
     {
         $this->authorize('view', $document);
 
-        $document->load([
-            'shares.sharedWith:id,name,email',
-            'user:id,name',
-        ]);
+        $document->load('user:id,name');
 
-        $auditLogs = AuditLog::where('auditable_type', Document::class)
+        $auditTrail = AuditLog::where('auditable_type', Document::class)
             ->where('auditable_id', $document->id)
-            ->with('user:id,name')
-            ->latest()
-            ->limit(20)
-            ->get();
+            ->with('user')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get()
+            ->map(fn ($log) => [
+                'action' => $log->action,
+                'created_at' => $log->created_at,
+                'user' => $log->user ? [
+                    'name' => $log->user->name,
+                    'email' => $log->user->email,
+                ] : null,
+            ]);
+
+        $shares = $document->shares()
+            ->with('sharedWith')
+            ->active()
+            ->get()
+            ->map(fn ($share) => [
+                'id' => $share->id,
+                'permission' => $share->permission,
+                'expires_at' => $share->expires_at,
+                'user' => [
+                    'name' => $share->sharedWith->name,
+                    'email' => $share->sharedWith->email,
+                ],
+            ]);
 
         return Inertia::render('Documents/Show', [
-            'document' => $document,
-            'auditLogs' => $auditLogs,
-            'authUserId' => Auth::id(),
+            'document' => [
+                'id' => $document->id,
+                'original_name' => $document->original_name,
+                'mime_type' => $document->mime_type,
+                'file_size' => $document->file_size,
+                'file_hash' => $document->file_hash,
+                'description' => $document->description,
+                'created_at' => $document->created_at,
+                'user_id' => $document->user_id,
+                'owner_name' => $document->user->name,
+            ],
+            'auditTrail' => $auditTrail,
+            'shares' => $shares,
+            'userPermission' => $this->getUserPermission($document),
         ]);
     }
 
@@ -165,7 +202,17 @@ class DocumentController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            abort(500, 'Decryption failed: ' . $e->getMessage());
+            Log::error('Document decryption failed', [
+                'document_id' => $document->id,
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->auditService->log('integrity_violation', $document, [
+                'reason' => 'decryption_exception',
+            ]);
+
+            abort(500, 'Document download failed. Please contact your administrator.');
         }
     }
 
@@ -188,13 +235,13 @@ class DocumentController extends Controller
      */
     public function trash(Request $request): Response
     {
-        $documents = Document::onlyTrashed()
-            ->ownedBy(Auth::id())
-            ->latest()
-            ->paginate(15);
+        $user = Auth::user();
 
-        return Inertia::render('Documents/Trash', [
-            'documents' => $documents,
+        return Inertia::render('Trash/Index', [
+            'documents' => $user->documents()
+                ->onlyTrashed()
+                ->orderByDesc('deleted_at')
+                ->get(['id', 'original_name', 'mime_type', 'file_size', 'deleted_at']),
         ]);
     }
 
@@ -203,15 +250,37 @@ class DocumentController extends Controller
      */
     public function restore(int $id): RedirectResponse
     {
-        $document = Document::onlyTrashed()->findOrFail($id);
-        
-        $this->authorize('restore', $document);
+        $user = Auth::user();
+        $document = $user->documents()->onlyTrashed()->findOrFail($id);
 
         $document->restore();
 
         $this->auditService->log('document_restored', $document);
 
-        return back()->with('success', 'Document restored successfully.');
+        return back()->with('success', 'Document restored to My Vault.');
+    }
+
+    public function restoreSelected(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $user = Auth::user();
+        $documents = $user->documents()
+            ->onlyTrashed()
+            ->whereIn('id', $request->ids)
+            ->get();
+
+        foreach ($documents as $document) {
+            $document->restore();
+            $this->auditService->log('document_restored', $document);
+        }
+
+        $count = $documents->count();
+
+        return back()->with('success', $count === 1 ? 'Document restored to My Vault.' : "{$count} documents restored to My Vault.");
     }
 
     /**
@@ -219,15 +288,10 @@ class DocumentController extends Controller
      */
     public function forceDelete(int $id): RedirectResponse
     {
-        $document = Document::onlyTrashed()->findOrFail($id);
-        
-        $this->authorize('forceDelete', $document);
+        $user = Auth::user();
+        $document = $user->documents()->onlyTrashed()->findOrFail($id);
 
-        // Delete file from disk
-        $filePath = config('securevault.vault_path') . '/' . $document->encrypted_name;
-        if (File::exists($filePath)) {
-            File::delete($filePath);
-        }
+        $this->deleteEncryptedFile($document);
 
         $document->forceDelete();
 
@@ -237,5 +301,52 @@ class DocumentController extends Controller
         ]);
 
         return back()->with('success', 'Document permanently deleted.');
+    }
+
+    public function emptyTrash(): RedirectResponse
+    {
+        $user = Auth::user();
+        $documents = $user->documents()->onlyTrashed()->get();
+
+        foreach ($documents as $document) {
+            $this->deleteEncryptedFile($document);
+            $document->forceDelete();
+        }
+
+        $this->auditService->log('trash_emptied', null, [
+            'count' => $documents->count(),
+        ]);
+
+        return back()->with('success', 'Trash emptied successfully.');
+    }
+
+    private function deleteEncryptedFile(Document $document): void
+    {
+        $filePath = config('securevault.vault_path') . '/' . $document->encrypted_name;
+
+        if (File::exists($filePath)) {
+            File::delete($filePath);
+        }
+    }
+
+    private function getUserPermission(Document $document): string
+    {
+        if (Auth::id() === $document->user_id) {
+            return 'owner';
+        }
+
+        if (Auth::user()?->can('view_all_documents')) {
+            return 'admin_viewer';
+        }
+
+        $share = $document->shares()
+            ->where('shared_with_id', Auth::id())
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->first();
+
+        return $share?->permission ?? 'none';
     }
 }

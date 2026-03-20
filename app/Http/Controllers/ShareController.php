@@ -96,16 +96,40 @@ class ShareController extends Controller
     /**
      * Display a listing of documents shared with the current user.
      */
-    public function sharedWithMe(): Response
+    public function sharedWithMe(Request $request): Response
     {
-        $shares = DocumentShare::where('shared_with_id', Auth::id())
-            ->active() // Non-expired
-            ->with(['document.user:id,name', 'sharedBy:id,name,email'])
-            ->latest()
-            ->paginate(15);
+        $user = Auth::user();
+        $includeExpired = $request->boolean('include_expired');
+        $query = DocumentShare::with(['document', 'sharedBy'])
+            ->where('shared_with_id', $user->id)
+            ->when(!$includeExpired, function ($query) {
+                $query->where(function ($q) {
+                    $q->whereNull('expires_at')
+                        ->orWhere('expires_at', '>', now());
+                });
+            })
+            ->orderByDesc('created_at');
 
         return Inertia::render('Shared/Index', [
-            'shares' => $shares,
+            'shares' => $query->paginate(12)->withQueryString()->through(fn ($share) => [
+                'id' => $share->id,
+                'permission' => $share->permission,
+                'expires_at' => $share->expires_at,
+                'created_at' => $share->created_at,
+                'document' => [
+                    'id' => $share->document->id,
+                    'original_name' => $share->document->original_name,
+                    'mime_type' => $share->document->mime_type,
+                    'file_size' => $share->document->file_size,
+                ],
+                'shared_by' => [
+                    'name' => $share->sharedBy->name,
+                    'email' => $share->sharedBy->email,
+                ],
+            ]),
+            'filters' => [
+                'include_expired' => $includeExpired,
+            ],
         ]);
     }
 }

@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
-use App\Models\Document;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AuditLogController extends Controller
 {
@@ -16,36 +16,73 @@ class AuditLogController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = AuditLog::where('user_id', Auth::id())
-            ->with(['auditable' => function ($query) {
-                // Morph to document to get the name/metadata
-                $query->withTrashed();
-            }])
-            ->latest('id');
+        $user = Auth::user();
+        $query = $this->personalLogsQuery($request, $user->id);
 
-        // Apply filters
-        if ($request->action) {
+        return Inertia::render('Activity/Index', [
+            'logs' => $query
+                ->paginate(15)
+                ->withQueryString()
+                ->through(fn (AuditLog $log) => [
+                    'id' => $log->id,
+                    'action' => $log->action,
+                    'metadata' => $log->metadata,
+                    'ip_address' => $log->ip_address,
+                    'created_at' => $log->created_at,
+                    'auditable' => $log->auditable ? [
+                        'original_name' => $log->auditable->original_name ?? null,
+                    ] : null,
+                ]),
+            'filters' => $request->only(['action', 'from_date', 'to_date']),
+        ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $logs = $this->personalLogsQuery($request, Auth::id())->get([
+            'action',
+            'ip_address',
+            'metadata',
+            'created_at',
+        ]);
+
+        return response()->streamDownload(function () use ($logs) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Timestamp', 'Action', 'IP Address', 'Details']);
+
+            foreach ($logs as $log) {
+                fputcsv($handle, [
+                    $log->created_at->toIso8601String(),
+                    $log->action,
+                    $log->ip_address,
+                    json_encode($log->metadata),
+                ]);
+            }
+
+            fclose($handle);
+        }, 'activity-log.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    private function personalLogsQuery(Request $request, int $userId)
+    {
+        $query = AuditLog::where('user_id', $userId)
+            ->with(['auditable' => fn ($query) => $query->withTrashed()])
+            ->orderByDesc('created_at');
+
+        if ($request->filled('action')) {
             $query->where('action', $request->action);
         }
 
-        if ($request->date_from) {
-            $query->where('created_at', '>=', $request->date_from . ' 00:00:00');
+        if ($request->filled('from_date')) {
+            $query->whereDate('created_at', '>=', $request->from_date);
         }
 
-        if ($request->date_to) {
-            $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+        if ($request->filled('to_date')) {
+            $query->whereDate('created_at', '<=', $request->to_date);
         }
 
-        // Get distinct actions for the filter dropdown
-        $actionTypes = AuditLog::where('user_id', Auth::id())
-            ->distinct()
-            ->pluck('action')
-            ->toArray();
-
-        return Inertia::render('Activity/Index', [
-            'logs' => $query->paginate(25)->withQueryString(),
-            'filters' => $request->only(['action', 'date_from', 'date_to']),
-            'actionTypes' => $actionTypes,
-        ]);
+        return $query;
     }
 }

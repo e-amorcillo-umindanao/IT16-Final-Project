@@ -35,18 +35,18 @@ export default function TwoFactorAuthenticationForm({
             <div className="mt-6 flex items-center justify-between">
                 <div>
                     {twoFactorEnabled ? (
-                        <div className="flex items-center gap-2 text-sm font-medium text-[#4ADE80]">
+                        <div className="flex items-center gap-2 text-sm font-medium text-status-success">
                             <ShieldCheck className="h-5 w-5" />
                             <span>Two-Factor Authentication is Enabled</span>
                         </div>
                     ) : (
-                        <div className="flex items-start gap-3 rounded-lg border border-[#3F2E11] bg-[#2A2010] px-4 py-3">
+                        <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/15 px-4 py-3">
                             <ShieldOff className="mt-0.5 h-5 w-5 text-primary" />
                             <div>
                                 <div className="text-sm font-medium text-primary">
                                     Two-factor authentication is not enabled
                                 </div>
-                                <p className="mt-1 text-sm text-[#C9A664]">
+                                <p className="mt-1 text-sm text-primary/80">
                                     We recommend enabling 2FA for additional account security.
                                 </p>
                             </div>

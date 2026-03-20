@@ -143,7 +143,7 @@ export default function AdminDocuments({ documents, filters }: Props) {
                                                     {format(new Date(document.created_at), 'MMM d, yyyy')}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant="outline" className="border-[#1E3A24] bg-[#132B1A] text-[#4ADE80]">
+                                                    <Badge variant="outline" className="border-status-success/30 bg-status-success/15 text-status-success">
                                                         <Lock className="mr-1 h-3 w-3" />
                                                         {document.encryption_iv ? 'Encrypted' : 'Unknown'}
                                                     </Badge>

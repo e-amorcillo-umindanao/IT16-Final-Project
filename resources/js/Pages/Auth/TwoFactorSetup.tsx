@@ -4,18 +4,38 @@ import PrimaryButton from '@/components/PrimaryButton';
 import TextInput from '@/components/TextInput';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm } from '@inertiajs/react';
-import { FormEventHandler } from 'react';
+import QRCode from 'qrcode';
+import { FormEventHandler, useEffect, useState } from 'react';
 
 export default function TwoFactorSetup({
-    qrCodeUrl,
+    otpauthUrl,
     secret,
 }: {
-    qrCodeUrl: string;
+    otpauthUrl: string;
     secret: string;
 }) {
     const { data, setData, post, processing, errors } = useForm({
         code: '',
     });
+    const [qrDataUrl, setQrDataUrl] = useState('');
+
+    useEffect(() => {
+        if (!otpauthUrl) {
+            setQrDataUrl('');
+            return;
+        }
+
+        QRCode.toDataURL(otpauthUrl, {
+            width: 200,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#FFFFFF',
+            },
+        })
+            .then(setQrDataUrl)
+            .catch(() => setQrDataUrl(''));
+    }, [otpauthUrl]);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -46,9 +66,21 @@ export default function TwoFactorSetup({
                         </div>
 
                         <div className="flex flex-col items-center justify-center space-y-6">
-                            <div className="rounded-lg border border-border bg-[#161616] p-4">
-                                <img src={qrCodeUrl} alt="2FA QR Code" className="h-64 w-64" />
-                            </div>
+                            {qrDataUrl ? (
+                                <div className="inline-block rounded-lg border border-border bg-white p-3 shadow-sm">
+                                    <img
+                                        src={qrDataUrl}
+                                        alt="Scan this QR code with your authenticator app"
+                                        width={200}
+                                        height={200}
+                                        className="block"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="inline-flex h-[224px] w-[224px] items-center justify-center rounded-lg border border-border bg-white p-3 shadow-sm">
+                                    <span className="text-xs text-muted-foreground">Generating...</span>
+                                </div>
+                            )}
 
                             <div className="text-center">
                                 <p className="text-sm font-medium text-muted-foreground">Manual Entry Key:</p>

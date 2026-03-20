@@ -39,14 +39,14 @@ class TwoFactorController extends Controller
         $secret = $this->google2fa->generateSecretKey();
         $request->session()->put('2fa_setup_secret', $secret);
 
-        $qrCodeUrl = $this->google2fa->getQRCodeUrl(
+        $otpauthUrl = $this->google2fa->getQRCodeUrl(
             config('app.name'),
             $user->email,
             $secret
         );
 
         return Inertia::render('Auth/TwoFactorSetup', [
-            'qrCodeUrl' => $qrCodeUrl,
+            'otpauthUrl' => $otpauthUrl,
             'secret' => $secret,
         ]);
     }

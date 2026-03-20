@@ -18,9 +18,16 @@ class DocumentPolicy
             return true;
         }
 
+        if ($user->can('view_all_documents')) {
+            return true;
+        }
+
         return $document->shares()
             ->where('shared_with_id', $user->id)
-            ->active()
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
             ->exists();
     }
 

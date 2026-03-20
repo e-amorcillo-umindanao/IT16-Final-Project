@@ -33,7 +33,7 @@ export default function Login({
             <Head title="Log in" />
 
             {status && (
-                <div className="mb-4 rounded-md border border-[#1E3A24] bg-[#132B1A] px-3 py-2 text-sm font-medium text-[#4ADE80]">
+                <div className="mb-4 rounded-md border border-status-success/30 bg-status-success/15 px-3 py-2 text-sm font-medium text-status-success">
                     {status}
                 </div>
             )}
@@ -92,7 +92,7 @@ export default function Login({
                     {canResetPassword && (
                         <Link
                             href={route('password.request')}
-                            className="rounded-md text-sm text-primary underline hover:text-[#E0B84D]"
+                            className="rounded-md text-sm text-primary underline hover:text-primary/80"
                         >
                             Forgot your password?
                         </Link>
@@ -109,7 +109,7 @@ export default function Login({
                     Don&apos;t have an account?{' '}
                     <Link
                         href={route('register')}
-                        className="font-medium text-primary hover:text-[#E0B84D]"
+                        className="font-medium text-primary hover:text-primary/80"
                     >
                         Sign up
                     </Link>

@@ -1,7 +1,8 @@
 import ApplicationLogo from '@/components/ApplicationLogo';
+import ThemeToggle from '@/components/ThemeToggle';
+import { Toaster } from '@/components/ui/sonner';
 import { Link, usePage } from '@inertiajs/react';
 import { PropsWithChildren, ReactNode, useState, useEffect } from 'react';
-import { Toaster } from 'sonner';
 import { useFlashToasts } from '@/hooks/useFlashToasts';
 import { 
     LayoutDashboard, 
@@ -59,11 +60,11 @@ export default function Authenticated({
             className={cn(
                 "group flex items-center gap-3 rounded-lg border-l-[3px] border-transparent px-3 py-2 text-sm font-medium transition-all duration-200",
                 active 
-                    ? "border-l-[#D4A843] text-[#D4A843]"
-                    : "text-muted-foreground hover:bg-[rgba(212,168,67,0.08)] hover:text-foreground"
+                    ? "border-l-primary bg-muted text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
         >
-            <Icon className={cn("h-4 w-4 shrink-0", active ? "text-[#D4A843]" : "text-muted-foreground transition-colors group-hover:text-foreground")} />
+            <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-muted-foreground transition-colors group-hover:text-foreground")} />
             {(isSidebarOpen || isMobileMenuOpen) && <span>{label}</span>}
         </Link>
     );
@@ -95,7 +96,7 @@ export default function Authenticated({
             {/* Sidebar */}
             <aside 
                 className={cn(
-                    "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-[rgba(212,168,67,0.08)] bg-[#080808] text-foreground transition-all duration-300 ease-in-out lg:static lg:z-auto",
+                    "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-border bg-card text-foreground transition-all duration-300 ease-in-out lg:static lg:z-auto",
                     isSidebarOpen ? "w-64" : "w-20",
                     isMobileMenuOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0"
                 )}
@@ -207,13 +208,13 @@ export default function Authenticated({
                     
                     <div className="flex flex-col gap-1">
                         <Link href={route('profile.edit')}>
-                            <Button variant="ghost" className="h-9 w-full justify-start px-2 text-muted-foreground hover:bg-[rgba(212,168,67,0.08)] hover:text-foreground">
+                            <Button variant="ghost" className="h-9 w-full justify-start px-2 text-muted-foreground hover:bg-muted hover:text-foreground">
                                 <UserIcon className="h-4 w-4 mr-2" />
                                 {(isSidebarOpen || isMobileMenuOpen) && "Profile Settings"}
                             </Button>
                         </Link>
                         <Link href={route('logout')} method="post" as="button" className="w-full">
-                            <Button variant="ghost" className="h-9 w-full justify-start px-2 text-[#B33A3A] hover:bg-[rgba(179,58,58,0.1)] hover:text-[#F87171]">
+                            <Button variant="ghost" className="h-9 w-full justify-start px-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                                 <LogOut className="h-4 w-4 mr-2" />
                                 {(isSidebarOpen || isMobileMenuOpen) && "Log Out"}
                             </Button>
@@ -241,16 +242,24 @@ export default function Authenticated({
                         <Menu size={24} />
                     </button>
                     <ApplicationLogo className="h-7 w-auto text-primary" />
-                    <div className="w-8" /> {/* Placeholder for balance */}
+                    <ThemeToggle />
                 </header>
 
                 {/* Content Header (Optional, breadcrumbs or title) */}
                 {header && (
                     <header className="border-b border-border bg-background py-6">
-                        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                        <div className="mx-auto flex max-w-7xl items-start justify-between gap-4 px-4 sm:px-6 lg:px-8">
                             {header}
+                            <div className="hidden shrink-0 lg:flex">
+                                <ThemeToggle />
+                            </div>
                         </div>
                     </header>
+                )}
+                {!header && (
+                    <div className="hidden justify-end border-b border-border bg-background px-4 py-3 lg:flex">
+                        <ThemeToggle />
+                    </div>
                 )}
 
                 {/* Main Page Content */}
@@ -262,13 +271,7 @@ export default function Authenticated({
             <Toaster
                 position="top-right"
                 toastOptions={{
-                    className: 'border border-border bg-muted text-foreground shadow-none',
-                    style: {
-                        background: '#1A1A1A',
-                        color: '#FAFAF5',
-                        border: '1px solid #222220',
-                    },
-                    descriptionClassName: 'text-[#888880]',
+                    className: 'shadow-none',
                 }}
             />
         </div>

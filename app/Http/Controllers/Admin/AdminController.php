@@ -12,7 +12,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
-use Spatie\Permission\Models\Role;
 
 class AdminController extends Controller
 {
@@ -28,26 +27,33 @@ class AdminController extends Controller
      */
     public function dashboard(): Response
     {
-        $stats = [
-            'total_users' => User::count(),
-            'active_users' => User::where('is_active', true)->count(),
-            'pending_verifications' => User::whereNull('email_verified_at')->count(),
-            'total_documents' => Document::count(),
-            'total_storage' => (int) Document::sum('file_size'),
-            'failed_logins_24h' => AuditLog::where('action', 'login_failed')
-                ->where('created_at', '>', now()->subDay())
-                ->count(),
-            'active_sessions' => DB::table(config('session.table', 'sessions'))->count(),
-        ];
-
-        $recentActivity = AuditLog::with('user')
-            ->latest('id')
-            ->take(10)
-            ->get();
-
         return Inertia::render('Admin/Dashboard', [
-            'stats' => $stats,
-            'recentActivity' => $recentActivity,
+            'stats' => [
+                'total_users' => User::count(),
+                'active_users' => User::where('is_active', true)->count(),
+                'active_sessions' => DB::table(config('session.table', 'sessions'))
+                    ->whereNotNull('user_id')
+                    ->count(),
+                'total_documents' => Document::whereNull('deleted_at')->count(),
+                'vault_storage' => Document::whereNull('deleted_at')->sum('file_size'),
+                'failed_logins_24h' => AuditLog::where('action', 'login_failed')
+                    ->where('created_at', '>=', now()->subHours(24))
+                    ->count(),
+                'pending_verifications' => User::whereNull('email_verified_at')->count(),
+            ],
+            'recent_activity' => AuditLog::with('user')
+                ->orderByDesc('created_at')
+                ->limit(10)
+                ->get()
+                ->map(fn ($log) => [
+                    'action' => $log->action,
+                    'ip_address' => $log->ip_address,
+                    'created_at' => $log->created_at,
+                    'user' => $log->user ? [
+                        'name' => $log->user->name,
+                        'email' => $log->user->email,
+                    ] : null,
+                ]),
         ]);
     }
 
@@ -59,67 +65,110 @@ class AdminController extends Controller
         $query = User::with('roles')
             ->orderBy('name');
 
-        if ($request->search) {
+        if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', "%{$request->search}%")
                   ->orWhere('email', 'like', "%{$request->search}%");
             });
         }
 
-        return Inertia::render('Admin/Users', [
-            'users' => $query->paginate(20)->withQueryString(),
-            'roles' => Role::all(),
-            'filters' => $request->only(['search']),
+        if ($request->filled('role') && $request->role !== 'all') {
+            $query->whereHas('roles', fn ($q) => $q->where('name', $request->role));
+        }
+
+        if ($request->filled('status')) {
+            $query->where('is_active', $request->status === 'active');
+        }
+
+        return Inertia::render('Admin/Users/Index', [
+            'users' => $query->paginate(15)->withQueryString()
+                ->through(fn ($user) => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'is_active' => $user->is_active,
+                    'last_login_at' => $user->last_login_at,
+                    'last_login_ip' => $user->last_login_ip,
+                    'role' => $user->roles->first()?->name ?? 'user',
+                ]),
+            'filters' => $request->only(['search', 'role', 'status']),
         ]);
     }
 
     /**
-     * Toggle a user's active status.
+     * Activate a user account.
      */
-    public function toggleUserActive(User $user): RedirectResponse
+    public function activateUser(User $user): RedirectResponse
+    {
+        $user->update(['is_active' => true]);
+
+        $this->auditService->log('user_activated', $user);
+
+        return back()->with('success', 'User activated successfully.');
+    }
+
+    /**
+     * Deactivate a user account.
+     */
+    public function deactivateUser(User $user): RedirectResponse
     {
         if ($user->id === auth()->id()) {
             return back()->withErrors(['error' => 'You cannot deactivate your own account.']);
         }
 
-        $user->update(['is_active' => !$user->is_active]);
+        DB::table(config('session.table', 'sessions'))
+            ->where('user_id', $user->id)
+            ->delete();
 
-        // If deactivating, purge sessions
-        if (!$user->is_active) {
-            DB::table(config('session.table', 'sessions'))
-                ->where('user_id', $user->id)
-                ->delete();
-        }
+        $user->update(['is_active' => false]);
 
-        $this->auditService->log('user_status_changed', $user, [
-            'new_status' => $user->is_active ? 'active' : 'inactive',
-        ]);
+        $this->auditService->log('user_deactivated', $user);
 
-        return back()->with('status', 'user-status-updated');
+        return back()->with('success', 'User deactivated successfully.');
     }
 
     /**
      * Update a user's role.
      */
-    public function updateUserRole(Request $request, User $user): RedirectResponse
+    public function changeUserRole(Request $request, User $user): RedirectResponse
     {
         $request->validate([
-            'role' => 'required|exists:roles,name',
+            'role' => 'required|in:super-admin,admin,user',
         ]);
 
         if ($user->id === auth()->id()) {
             return back()->withErrors(['error' => 'You cannot change your own role.']);
         }
 
-        $oldRoles = $user->getRoleNames()->toArray();
         $user->syncRoles([$request->role]);
 
         $this->auditService->log('user_role_changed', $user, [
-            'old_roles' => $oldRoles,
             'new_role' => $request->role,
         ]);
 
-        return back()->with('status', 'user-role-updated');
+        return back()->with('success', 'User role updated successfully.');
+    }
+
+    public function exportUsers()
+    {
+        $users = User::with('roles')->orderBy('name')->get();
+        $csv = "Name,Email,Role,Status,Last Login,Registered\n";
+
+        foreach ($users as $user) {
+            $csv .= implode(',', [
+                '"' . str_replace('"', '""', $user->name) . '"',
+                $user->email,
+                $user->roles->first()?->name ?? 'user',
+                $user->is_active ? 'Active' : 'Inactive',
+                $user->last_login_at?->toIso8601String() ?? 'Never',
+                $user->created_at->toIso8601String(),
+            ]) . "\n";
+        }
+
+        return response($csv, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="users.csv"',
+        ]);
     }
 
     /**
@@ -127,38 +176,85 @@ class AdminController extends Controller
      */
     public function auditLogs(Request $request): Response
     {
-        $query = AuditLog::with(['user', 'auditable' => fn($q) => $q->withTrashed()])
-            ->latest('id');
+        $query = $this->auditLogsQuery($request);
 
-        // Advanced Filters
-        if ($request->search_user) {
-            $query->whereHas('user', function ($q) use ($request) {
-                $q->where('name', 'like', "%{$request->search_user}%")
-                  ->orWhere('email', 'like', "%{$request->search_user}%");
-            });
-        }
+        return Inertia::render('Admin/AuditLogs/Index', [
+            'logs' => $query
+                ->paginate(15)
+                ->withQueryString()
+                ->through(fn (AuditLog $log) => [
+                    'id' => $log->id,
+                    'action' => $log->action,
+                    'metadata' => $log->metadata,
+                    'ip_address' => $log->ip_address,
+                    'created_at' => $log->created_at,
+                    'auditable' => $log->auditable ? [
+                        'original_name' => $log->auditable->original_name ?? null,
+                    ] : null,
+                    'user' => $log->user ? [
+                        'name' => $log->user->name,
+                        'email' => $log->user->email,
+                    ] : null,
+                ]),
+            'filters' => $request->only(['action', 'from_date', 'to_date', 'user']),
+        ]);
+    }
 
-        if ($request->action) {
+    public function exportAuditLogs(Request $request)
+    {
+        $logs = $this->auditLogsQuery($request)->get([
+            'action',
+            'ip_address',
+            'metadata',
+            'created_at',
+            'user_id',
+        ]);
+
+        return response()->streamDownload(function () use ($logs) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Timestamp', 'Action', 'User ID', 'IP Address', 'Details']);
+
+            foreach ($logs as $log) {
+                fputcsv($handle, [
+                    $log->created_at->toIso8601String(),
+                    $log->action,
+                    $log->user_id,
+                    $log->ip_address,
+                    json_encode($log->metadata),
+                ]);
+            }
+
+            fclose($handle);
+        }, 'audit-log.csv', [
+            'Content-Type' => 'text/csv',
+        ]);
+    }
+
+    private function auditLogsQuery(Request $request)
+    {
+        $query = AuditLog::with(['user', 'auditable' => fn ($query) => $query->withTrashed()])
+            ->orderByDesc('created_at');
+
+        if ($request->filled('action')) {
             $query->where('action', $request->action);
         }
 
-        if ($request->date_from) {
-            $query->where('created_at', '>=', $request->date_from . ' 00:00:00');
+        if ($request->filled('from_date')) {
+            $query->whereDate('created_at', '>=', $request->from_date);
         }
 
-        if ($request->date_to) {
-            $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+        if ($request->filled('to_date')) {
+            $query->whereDate('created_at', '<=', $request->to_date);
         }
 
-        if ($request->ip_address) {
-            $query->where('ip_address', 'like', "%{$request->ip_address}%");
+        if ($request->filled('user')) {
+            $query->whereHas('user', function ($query) use ($request) {
+                $query->where('name', 'like', '%' . $request->user . '%')
+                    ->orWhere('email', 'like', '%' . $request->user . '%');
+            });
         }
 
-        return Inertia::render('Admin/AuditLogs', [
-            'logs' => $query->paginate(50)->withQueryString(),
-            'actionTypes' => AuditLog::distinct()->pluck('action')->toArray(),
-            'filters' => $request->only(['search_user', 'action', 'date_from', 'date_to', 'ip_address']),
-        ]);
+        return $query;
     }
 
     /**
@@ -194,12 +290,26 @@ class AdminController extends Controller
     {
         $sessionsWithUsers = DB::table(config('session.table', 'sessions'))
             ->leftJoin('users', 'sessions.user_id', '=', 'users.id')
-            ->select('sessions.*', 'users.name as user_name', 'users.email as user_email')
-            ->orderBy('last_activity', 'desc')
-            ->get();
+            ->whereNotNull('sessions.user_id')
+            ->orderByDesc('sessions.last_activity')
+            ->get([
+                'sessions.id',
+                'sessions.ip_address',
+                'sessions.last_activity',
+                'sessions.user_agent',
+                'users.name as user_name',
+                'users.email as user_email',
+            ]);
 
-        return Inertia::render('Admin/Sessions', [
-            'sessions' => $sessionsWithUsers,
+        return Inertia::render('Admin/Sessions/Index', [
+            'sessions' => $sessionsWithUsers->map(fn ($session) => [
+                'id' => $session->id,
+                'ip_address' => $session->ip_address,
+                'last_activity' => $session->last_activity,
+                'user_agent' => $session->user_agent,
+                'user_name' => $session->user_name,
+                'user_email' => $session->user_email,
+            ]),
             'currentSessionId' => $request->session()->getId(),
         ]);
     }
@@ -209,23 +319,39 @@ class AdminController extends Controller
      */
     public function destroySession(string $sessionId): RedirectResponse
     {
-        /** @var \stdClass|null $session */
-        $session = DB::table(config('session.table', 'sessions'))
-            ->where('id', $sessionId)
-            ->first();
-
-        if ($session) {
-            DB::table(config('session.table', 'sessions'))
-                ->where('id', $sessionId)
-                ->delete();
-
-            $this->auditService->log('admin_session_terminated', null, [
-                'session_id' => $sessionId,
-                'target_user_id' => $session->user_id,
-                'ip_address' => $session->ip_address,
+        if ($sessionId === session()->getId()) {
+            return redirect()->back()->withErrors([
+                'session' => 'Cannot terminate your own session.',
             ]);
         }
 
-        return back()->with('status', 'session-terminated');
+        DB::table(config('session.table', 'sessions'))
+            ->where('id', $sessionId)
+            ->delete();
+
+        $this->auditService->log('session_terminated', null, [
+            'session_id' => substr($sessionId, 0, 8),
+        ]);
+
+        return redirect()->back();
+    }
+
+    public function destroyAllSessions(Request $request): RedirectResponse
+    {
+        $count = DB::table(config('session.table', 'sessions'))
+            ->whereNotNull('user_id')
+            ->where('id', '!=', $request->session()->getId())
+            ->count();
+
+        DB::table(config('session.table', 'sessions'))
+            ->whereNotNull('user_id')
+            ->where('id', '!=', $request->session()->getId())
+            ->delete();
+
+        $this->auditService->log('all_sessions_terminated', null, [
+            'count' => $count,
+        ]);
+
+        return redirect()->back();
     }
 }

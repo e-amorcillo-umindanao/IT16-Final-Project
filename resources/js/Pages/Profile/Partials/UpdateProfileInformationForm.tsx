@@ -82,14 +82,14 @@ export default function UpdateProfileInformation({
                                 href={route('verification.send')}
                                 method="post"
                                 as="button"
-                                className="rounded-md text-sm text-primary underline hover:text-[#E0B84D]"
+                                className="rounded-md text-sm text-primary underline hover:text-primary/80"
                             >
                                 Click here to re-send the verification email.
                             </Link>
                         </p>
 
                         {status === 'verification-link-sent' && (
-                            <div className="mt-2 text-sm font-medium text-[#4ADE80]">
+                            <div className="mt-2 text-sm font-medium text-status-success">
                                 A new verification link has been sent to your
                                 email address.
                             </div>

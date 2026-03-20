@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\AdminDocumentController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProfileController;
@@ -41,7 +42,9 @@ Route::middleware('auth')->group(function () {
     // Trash
     Route::get('/trash', [DocumentController::class, 'trash'])->name('documents.trash');
     Route::post('/trash/{id}/restore', [DocumentController::class, 'restore'])->name('documents.restore');
-    Route::delete('/trash/{id}/force', [DocumentController::class, 'forceDelete'])->name('documents.force-delete');
+    Route::post('/trash/restore-selected', [DocumentController::class, 'restoreSelected'])->name('documents.restore-selected');
+    Route::delete('/trash/{id}', [DocumentController::class, 'forceDelete'])->name('documents.force-delete');
+    Route::delete('/trash', [DocumentController::class, 'emptyTrash'])->name('documents.empty-trash');
 
     // Sharing
     Route::post('/documents/{document}/shares', [ShareController::class, 'store'])->name('shares.store');
@@ -50,6 +53,7 @@ Route::middleware('auth')->group(function () {
 
     // Activity
     Route::get('/activity', [AuditLogController::class, 'index'])->name('activity.index');
+    Route::get('/activity/export', [AuditLogController::class, 'export'])->name('activity.export');
 
     // Administration
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -60,24 +64,39 @@ Route::middleware('auth')->group(function () {
         Route::get('/users', [AdminController::class, 'users'])
             ->middleware('permission:manage_users')
             ->name('users');
-        Route::patch('/users/{user}/toggle-active', [AdminController::class, 'toggleUserActive'])
+        Route::get('/users/export', [AdminController::class, 'exportUsers'])
             ->middleware('permission:manage_users')
-            ->name('users.toggle-active');
-        Route::patch('/users/{user}/role', [AdminController::class, 'updateUserRole'])
+            ->name('users.export');
+        Route::patch('/users/{user}/activate', [AdminController::class, 'activateUser'])
+            ->middleware('permission:manage_users')
+            ->name('users.activate');
+        Route::patch('/users/{user}/deactivate', [AdminController::class, 'deactivateUser'])
+            ->middleware('permission:manage_users')
+            ->name('users.deactivate');
+        Route::patch('/users/{user}/role', [AdminController::class, 'changeUserRole'])
             ->middleware('permission:manage_users')
             ->name('users.role');
 
-        Route::get('/documents', [AdminController::class, 'documents'])
+        Route::get('/documents', [AdminDocumentController::class, 'index'])
             ->middleware('permission:view_all_documents')
             ->name('documents');
+        Route::get('/documents/export', [AdminDocumentController::class, 'export'])
+            ->middleware('permission:view_all_documents')
+            ->name('documents.export');
 
         Route::get('/audit-logs', [AdminController::class, 'auditLogs'])
             ->middleware('permission:view_audit_logs')
             ->name('audit-logs');
+        Route::get('/audit-logs/export', [AdminController::class, 'exportAuditLogs'])
+            ->middleware('permission:view_audit_logs')
+            ->name('audit-logs.export');
 
         Route::get('/sessions', [AdminController::class, 'sessions'])
             ->middleware('permission:manage_sessions')
             ->name('sessions');
+        Route::delete('/sessions', [AdminController::class, 'destroyAllSessions'])
+            ->middleware('permission:manage_sessions')
+            ->name('sessions.destroy-all');
         Route::delete('/sessions/{session}', [AdminController::class, 'destroySession'])
             ->middleware('permission:manage_sessions')
             ->name('sessions.destroy');

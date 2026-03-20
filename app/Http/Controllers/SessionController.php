@@ -26,19 +26,17 @@ class SessionController extends Controller
         $sessions = DB::connection(config('session.connection'))
             ->table(config('session.table', 'sessions'))
             ->where('user_id', $request->user()->id)
-            ->orderBy('last_activity', 'desc')
-            ->get();
+            ->orderByDesc('last_activity')
+            ->get(['id', 'ip_address', 'last_activity', 'user_agent']);
 
         return Inertia::render('Sessions/Index', [
-            'sessions' => $sessions->map(function ($session) use ($request) {
-                return [
-                    'id' => $session->id,
-                    'ip_address' => $session->ip_address,
-                    'user_agent' => $session->user_agent,
-                    'last_activity' => $session->last_activity,
-                    'is_current_session' => $session->id === $request->session()->getId(),
-                ];
-            }),
+            'sessions' => $sessions->map(fn ($session) => [
+                'id' => $session->id,
+                'ip_address' => $session->ip_address,
+                'last_activity' => $session->last_activity,
+                'user_agent' => $session->user_agent,
+            ]),
+            'currentSessionId' => $request->session()->getId(),
         ]);
     }
 
@@ -47,25 +45,22 @@ class SessionController extends Controller
      */
     public function destroy(Request $request, string $sessionId): RedirectResponse
     {
-        /** @var \stdClass|null $session */
-        $session = DB::connection(config('session.connection'))
-            ->table(config('session.table', 'sessions'))
-            ->where('user_id', $request->user()->id)
-            ->where('id', $sessionId)
-            ->first();
-
-        if ($session) {
-            DB::connection(config('session.connection'))
-                ->table(config('session.table', 'sessions'))
-                ->where('id', $sessionId)
-                ->delete();
-
-            $this->auditService->log('session_revoked', $request->user(), [
-                'session_id' => $sessionId,
-                'ip_address' => $session->ip_address,
+        if ($sessionId === $request->session()->getId()) {
+            return redirect()->back()->withErrors([
+                'session' => 'Cannot revoke current session.',
             ]);
         }
 
-        return back()->with('status', 'session-revoked');
+        DB::connection(config('session.connection'))
+            ->table(config('session.table', 'sessions'))
+            ->where('id', $sessionId)
+            ->where('user_id', $request->user()->id)
+            ->delete();
+
+        $this->auditService->log('session_revoked', null, [
+            'session_id' => substr($sessionId, 0, 8),
+        ]);
+
+        return redirect()->back();
     }
 }

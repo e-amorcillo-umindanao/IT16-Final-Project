@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,10 +14,11 @@ import {
     Lock,
     LogIn,
     LogOut,
+    Share2,
     ShieldAlert,
     ShieldCheck,
-    Share2,
     SlidersHorizontal,
+    Terminal,
     Trash2,
     Upload,
 } from 'lucide-react';
@@ -58,6 +60,7 @@ interface Props extends PageProps {
         action?: string;
         from_date?: string;
         to_date?: string;
+        user?: string;
     };
 }
 
@@ -75,7 +78,27 @@ const ACTION_OPTIONS = [
     { value: 'integrity_violation', label: 'Integrity Violation' },
 ];
 
-function getActionLabel(action: AuditAction): string {
+const avatarColors = [
+    'bg-amber-500',
+    'bg-blue-500',
+    'bg-green-500',
+    'bg-purple-500',
+    'bg-red-500',
+    'bg-pink-500',
+];
+
+const getAvatarColor = (name: string) =>
+    avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
+
+const getInitials = (name: string) =>
+    name
+        .split(' ')
+        .map((part) => part[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
+
+function getActionLabel(action: AuditAction) {
     switch (action) {
         case 'login_success':
             return 'Login';
@@ -103,64 +126,31 @@ function getActionLabel(action: AuditAction): string {
     }
 }
 
-function getActionPresentation(action: AuditAction) {
+function getActionBadge(action: AuditAction) {
     switch (action) {
         case 'login_success':
-            return {
-                icon: LogIn,
-                circleClass: 'bg-green-500/20 text-green-600',
-            };
+            return { icon: LogIn, className: 'bg-green-500/15 text-green-700 dark:text-green-400' };
         case 'login_failed':
-            return {
-                icon: LogIn,
-                circleClass: 'bg-destructive/20 text-destructive',
-            };
+            return { icon: LogIn, className: 'bg-destructive/15 text-destructive' };
         case 'logout':
-            return {
-                icon: LogOut,
-                circleClass: 'bg-muted text-muted-foreground',
-            };
+            return { icon: LogOut, className: 'bg-muted text-muted-foreground' };
         case 'document_uploaded':
-            return {
-                icon: Upload,
-                circleClass: 'bg-primary/20 text-primary',
-            };
+            return { icon: Upload, className: 'bg-primary/15 text-primary' };
         case 'document_downloaded':
-            return {
-                icon: Download,
-                circleClass: 'bg-primary/20 text-primary',
-            };
+            return { icon: Download, className: 'bg-primary/15 text-primary' };
         case 'document_shared':
-            return {
-                icon: Share2,
-                circleClass: 'bg-blue-500/20 text-blue-600',
-            };
+            return { icon: Share2, className: 'bg-blue-500/15 text-blue-600 dark:text-blue-400' };
         case 'document_deleted':
-            return {
-                icon: Trash2,
-                circleClass: 'bg-destructive/20 text-destructive',
-            };
+            return { icon: Trash2, className: 'bg-destructive/15 text-destructive' };
         case '2fa_enabled':
         case 'two_factor_enabled':
-            return {
-                icon: ShieldCheck,
-                circleClass: 'bg-green-500/20 text-green-600',
-            };
+            return { icon: ShieldCheck, className: 'bg-green-500/15 text-green-700 dark:text-green-400' };
         case 'account_locked':
-            return {
-                icon: Lock,
-                circleClass: 'bg-destructive/20 text-destructive',
-            };
+            return { icon: Lock, className: 'bg-destructive/15 text-destructive' };
         case 'integrity_violation':
-            return {
-                icon: ShieldAlert,
-                circleClass: 'bg-destructive/20 text-destructive',
-            };
+            return { icon: ShieldAlert, className: 'bg-destructive/15 text-destructive' };
         default:
-            return {
-                icon: Activity,
-                circleClass: 'bg-muted text-muted-foreground',
-            };
+            return { icon: Activity, className: 'bg-muted text-muted-foreground' };
     }
 }
 
@@ -277,11 +267,12 @@ function Pagination({
     );
 }
 
-export default function ActivityIndex({ logs, filters }: Props) {
+export default function AdminAuditLogsIndex({ logs, filters }: Props) {
     const [localFilters, setLocalFilters] = useState<Props['filters']>({
         action: filters.action ?? '',
         from_date: filters.from_date ?? '',
         to_date: filters.to_date ?? '',
+        user: filters.user ?? '',
     });
 
     const exportQuery = Object.fromEntries(
@@ -289,33 +280,33 @@ export default function ActivityIndex({ logs, filters }: Props) {
     );
 
     const applyFilters = () => {
-        router.get(route('activity.index'), exportQuery, {
+        router.get(route('admin.audit-logs'), exportQuery, {
             preserveState: true,
             replace: true,
         });
     };
 
     const resetFilters = () => {
-        const reset = { action: '', from_date: '', to_date: '' };
+        const reset = { action: '', from_date: '', to_date: '', user: '' };
         setLocalFilters(reset);
-        router.get(route('activity.index'), {});
+        router.get(route('admin.audit-logs'), {});
     };
 
     return (
         <AuthenticatedLayout
             header={
                 <div className="space-y-1">
-                    <h2 className="text-xl font-semibold leading-tight text-foreground">Activity Log</h2>
-                    <p className="text-sm text-muted-foreground">Main {'›'} Activity</p>
+                    <h2 className="text-xl font-semibold leading-tight text-foreground">Global Audit Log</h2>
+                    <p className="text-sm text-muted-foreground">Admin {'›'} Audit Logs</p>
                 </div>
             }
         >
-            <Head title="Activity Log" />
+            <Head title="Global Audit Log" />
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
                     <div className="rounded-lg border border-border bg-card p-4">
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
                             <div className="space-y-2">
                                 <Label htmlFor="action">Action Type</Label>
                                 <Select
@@ -372,6 +363,22 @@ export default function ActivityIndex({ logs, filters }: Props) {
                                 />
                             </div>
 
+                            <div className="space-y-2">
+                                <Label htmlFor="user">User</Label>
+                                <Input
+                                    id="user"
+                                    value={localFilters.user ?? ''}
+                                    onChange={(event) =>
+                                        setLocalFilters((current) => ({
+                                            ...current,
+                                            user: event.target.value,
+                                        }))
+                                    }
+                                    placeholder="Name or email"
+                                    className="bg-background"
+                                />
+                            </div>
+
                             <div className="flex items-end justify-start gap-3 lg:justify-end">
                                 <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={applyFilters}>
                                     <SlidersHorizontal className="h-4 w-4" />
@@ -395,7 +402,7 @@ export default function ActivityIndex({ logs, filters }: Props) {
                                 <h3 className="font-semibold text-foreground">Security Audit Trail</h3>
                             </div>
                             <Button variant="outline" asChild>
-                                <a href={route('activity.export', exportQuery)}>
+                                <a href={route('admin.audit-logs.export', exportQuery)}>
                                     <Download className="h-4 w-4" />
                                     Export CSV
                                 </a>
@@ -406,6 +413,7 @@ export default function ActivityIndex({ logs, filters }: Props) {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Timestamp</TableHead>
+                                    <TableHead>User</TableHead>
                                     <TableHead>Action</TableHead>
                                     <TableHead>Target / Details</TableHead>
                                     <TableHead>IP Address</TableHead>
@@ -415,16 +423,16 @@ export default function ActivityIndex({ logs, filters }: Props) {
                             <TableBody>
                                 {logs.data.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-40 text-center text-muted-foreground">
+                                        <TableCell colSpan={6} className="h-40 text-center text-muted-foreground">
                                             No logs found for the selected filters.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     logs.data.map((log) => {
-                                        const actionPresentation = getActionPresentation(log.action);
+                                        const actionBadge = getActionBadge(log.action);
                                         const status = getStatusBadge(log.action);
                                         const details = getTargetDetails(log.action, log.metadata);
-                                        const ActionIcon = actionPresentation.icon;
+                                        const ActionIcon = actionBadge.icon;
 
                                         return (
                                             <TableRow key={log.id} className="hover:bg-muted/50">
@@ -439,14 +447,45 @@ export default function ActivityIndex({ logs, filters }: Props) {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`rounded-full p-1.5 ${actionPresentation.circleClass}`}>
-                                                            <ActionIcon className="h-4 w-4" />
+                                                    {log.user ? (
+                                                        <div className="flex items-center gap-2.5">
+                                                            <div
+                                                                className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${getAvatarColor(
+                                                                    log.user.name
+                                                                )}`}
+                                                            >
+                                                                {getInitials(log.user.name)}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <div className="truncate text-sm font-medium text-foreground">
+                                                                    {log.user.name}
+                                                                </div>
+                                                                <div className="truncate text-xs text-muted-foreground">
+                                                                    {log.user.email}
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        <span className="font-medium text-foreground">
-                                                            {getActionLabel(log.action)}
-                                                        </span>
-                                                    </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2.5">
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                                                                <Terminal className="h-3.5 w-3.5" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <div className="text-sm font-medium text-foreground">System</div>
+                                                                <div className="text-xs text-muted-foreground">
+                                                                    Automated event
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span
+                                                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${actionBadge.className}`}
+                                                    >
+                                                        <ActionIcon className="h-3 w-3" />
+                                                        {getActionLabel(log.action)}
+                                                    </span>
                                                 </TableCell>
                                                 <TableCell>
                                                     {details.primary || details.secondary ? (

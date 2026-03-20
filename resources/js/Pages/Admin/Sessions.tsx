@@ -138,7 +138,7 @@ export default function AdminSessions({ sessions, currentSessionId }: Props) {
                                                                     {session.user_name || 'Guest'}
                                                                 </span>
                                                                 {isCurrentSession && (
-                                                                    <Badge className="border border-[#1E3A24] bg-[#132B1A] text-[#4ADE80] hover:bg-[#132B1A]">
+                                                                    <Badge className="border border-status-success/30 bg-status-success/15 text-status-success hover:bg-status-success/15">
                                                                         Current
                                                                     </Badge>
                                                                 )}
@@ -169,7 +169,7 @@ export default function AdminSessions({ sessions, currentSessionId }: Props) {
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            className="text-[#F87171] hover:bg-[rgba(179,58,58,0.1)] hover:text-[#F87171] disabled:text-muted-foreground disabled:hover:bg-transparent"
+                                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive disabled:text-muted-foreground disabled:hover:bg-transparent"
                                                             disabled={isCurrentSession}
                                                             onClick={() => setSessionToTerminate(session)}
                                                         >

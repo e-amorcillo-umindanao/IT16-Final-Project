@@ -1,237 +1,466 @@
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router, useForm } from '@inertiajs/react';
-import { format } from 'date-fns';
-import { Download, FileIcon, History, Info, Lock, Share2, Shield, Trash2, UserPlus } from 'lucide-react';
+import { PageProps } from '@/types';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { format, formatDistanceToNow } from 'date-fns';
+import {
+    ArrowLeft,
+    Check,
+    Copy,
+    Download,
+    File,
+    FileText,
+    FileType,
+    Image as ImageIcon,
+    Lock,
+    Sheet,
+    ShieldCheck,
+    Trash2,
+    X,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-interface Props {
-    document: any;
-    auditLogs: any[];
-    authUserId: number;
+type SharePermission = 'view_only' | 'download' | 'full_access';
+type UserPermission = 'owner' | 'admin_viewer' | SharePermission | 'none';
+
+interface DocumentDetails {
+    id: number;
+    original_name: string;
+    mime_type: string;
+    file_size: number;
+    file_hash: string;
+    description: string | null;
+    created_at: string;
+    user_id: number;
+    owner_name: string;
 }
 
-export default function Show({ document: doc, auditLogs, authUserId }: Props) {
+interface AuditTrailEntry {
+    action: string;
+    created_at: string;
+    user: {
+        name: string;
+        email: string;
+    } | null;
+}
+
+interface ShareItem {
+    id: number;
+    permission: SharePermission;
+    expires_at: string | null;
+    user: {
+        name: string;
+        email: string;
+    };
+}
+
+interface Props extends PageProps {
+    document: DocumentDetails;
+    auditTrail: AuditTrailEntry[];
+    shares: ShareItem[];
+    userPermission: UserPermission;
+}
+
+const avatarColors = [
+    'bg-amber-500',
+    'bg-blue-500',
+    'bg-green-500',
+    'bg-purple-500',
+    'bg-red-500',
+    'bg-pink-500',
+];
+
+const getAvatarColor = (name: string) =>
+    avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
+
+function getInitials(name: string) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] ?? '';
+    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
+    return `${first}${last}`.toUpperCase();
+}
+
+function formatBytes(bytes: number) {
+    if (bytes < 1024) {
+        return `${bytes} B`;
+    }
+
+    if (bytes < 1024 * 1024) {
+        return `${(bytes / 1024).toFixed(2)} KB`;
+    }
+
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function getFileIcon(mimeType: string) {
+    const normalized = mimeType.toLowerCase();
+
+    if (normalized.includes('pdf')) return FileText;
+    if (normalized.includes('word') || normalized.includes('officedocument.wordprocessingml.document')) return FileType;
+    if (normalized.includes('sheet') || normalized.includes('excel') || normalized.includes('spreadsheetml')) return Sheet;
+    if (normalized.includes('image/png') || normalized.includes('image/jpeg') || normalized.includes('image/jpg')) return ImageIcon;
+    return File;
+}
+
+function getActivityBadge(action: string) {
+    switch (action) {
+        case 'document_uploaded':
+            return { label: 'Uploaded', className: 'bg-primary/15 text-primary' };
+        case 'document_downloaded':
+            return { label: 'Downloaded', className: 'bg-green-500/15 text-green-600 dark:text-green-400' };
+        case 'document_shared':
+            return { label: 'Shared', className: 'bg-blue-500/15 text-blue-600 dark:text-blue-400' };
+        case 'document_deleted':
+            return { label: 'Deleted', className: 'bg-destructive/15 text-destructive' };
+        case 'integrity_violation':
+            return { label: 'Integrity Alert', className: 'bg-destructive/15 text-destructive' };
+        default:
+            return {
+                label: action.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+                className: 'bg-muted text-muted-foreground',
+            };
+    }
+}
+
+function getPermissionLabel(permission: SharePermission) {
+    switch (permission) {
+        case 'view_only':
+            return 'View Only';
+        case 'download':
+            return 'Download';
+        case 'full_access':
+            return 'Full Access';
+    }
+}
+
+function getPermissionClass(permission: SharePermission) {
+    switch (permission) {
+        case 'view_only':
+            return 'text-xs text-muted-foreground';
+        case 'download':
+            return 'text-xs font-medium text-primary';
+        case 'full_access':
+            return 'text-xs font-semibold text-primary';
+    }
+}
+
+export default function Show({ auth, document, auditTrail, shares, userPermission }: Props) {
+    const [copied, setCopied] = useState(false);
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [shareToRevoke, setShareToRevoke] = useState<ShareItem | null>(null);
+
     const { data, setData, post, processing, errors, reset } = useForm({
         email: '',
-        permission: 'view_only' as 'view_only' | 'download' | 'full_access',
+        permission: 'view_only' as SharePermission,
         expires_at: '',
     });
 
-    const formatBytes = (bytes: number) => {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    useEffect(() => {
+        if (!copied) {
+            return;
+        }
+
+        const timeout = window.setTimeout(() => setCopied(false), 2000);
+        return () => window.clearTimeout(timeout);
+    }, [copied]);
+
+    const canManageShares = userPermission === 'owner' || userPermission === 'full_access';
+    const canDelete = userPermission === 'owner';
+    const canDownload = userPermission === 'owner' || userPermission === 'download' || userPermission === 'full_access';
+    const FileIcon = getFileIcon(document.mime_type);
+    const truncatedHash = `sha256:${document.file_hash.slice(0, 8)}...${document.file_hash.slice(-4)}`;
+
+    const handleDownload = () => {
+        window.location.assign(route('documents.download', document.id));
     };
 
     const handleDelete = () => {
-        if (confirm('Are you sure you want to move this document to trash?')) {
-            router.delete(route('documents.destroy', doc.id));
-        }
+        router.delete(route('documents.destroy', document.id), {
+            preserveScroll: true,
+            onFinish: () => setShowDeleteDialog(false),
+        });
     };
 
-    const copyHash = async () => {
+    const handleCopyHash = async () => {
         try {
-            await navigator.clipboard.writeText(doc.file_hash);
-            toast.success('Hash copied to clipboard');
+            await navigator.clipboard.writeText(document.file_hash);
+            setCopied(true);
         } catch {
-            toast.error('Unable to copy hash');
+            toast.error('Unable to copy hash.');
         }
     };
 
-    const getActivityBadgeClass = (action: string) => {
-        const variants: Record<string, string> = {
-            document_uploaded: 'border-[#3F2E11] bg-[#2A2010] text-primary',
-            document_downloaded: 'border-[#1E3A24] bg-[#132B1A] text-[#4ADE80]',
-            document_shared: 'border-[#17304F] bg-[#0F1B2D] text-[#60A5FA]',
-            share_revoked: 'border-[#17304F] bg-[#0F1B2D] text-[#60A5FA]',
-            document_deleted: 'border-[#5A2020] bg-[#2D1010] text-[#F87171]',
-            document_restored: 'border-[#1E3A24] bg-[#132B1A] text-[#4ADE80]',
-            integrity_violation: 'border-[#5A2020] bg-[#2D1010] text-[#F87171]',
-        };
+    const handleShareSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
 
-        return variants[action] ?? 'border-border bg-secondary text-muted-foreground';
+        post(route('shares.store', document.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Access granted successfully.');
+                reset();
+            },
+        });
     };
 
-    const getActivityLabel = (action: string) =>
-        action
-            .replaceAll('_', ' ')
-            .replace(/\b\w/g, (char) => char.toUpperCase());
+    const handleRevokeShare = () => {
+        if (!shareToRevoke) {
+            return;
+        }
 
-    const truncatedHash = `${doc.file_hash.slice(0, 16)}...`;
+        router.delete(route('shares.destroy', shareToRevoke.id), {
+            preserveScroll: true,
+            onFinish: () => setShareToRevoke(null),
+        });
+    };
 
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button variant="ghost" onClick={() => router.get(route('documents.index'))}>
-                            &larr; Back
-                        </Button>
-                        <h2 className="text-xl font-semibold leading-tight text-foreground">
-                            Document Details
-                        </h2>
-                    </div>
-                    <div className="flex gap-3">
-                        <a href={route('documents.download', doc.id)} download>
-                            <Button className="bg-[#D4A843] text-[#0A0A0A] hover:bg-[#E0B84D]">
-                                <Download className="mr-2 h-4 w-4" /> Download
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-3">
+                            <Button variant="ghost" size="icon" asChild>
+                                <Link href={route('documents.index')}>
+                                    <ArrowLeft className="h-4 w-4" />
+                                    <span className="sr-only">Back to documents</span>
+                                </Link>
                             </Button>
-                        </a>
-                        <Button variant="destructive" onClick={handleDelete}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </Button>
+                            <h2 className="text-2xl font-semibold text-foreground">Document Details</h2>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Main &#8250; My Vault &#8250; Document Details</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                        {canDownload && (
+                            <Button
+                                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                                onClick={handleDownload}
+                            >
+                                <Download className="h-4 w-4" />
+                                Download
+                            </Button>
+                        )}
+                        {canDelete && (
+                            <Button
+                                variant="outline"
+                                className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => setShowDeleteDialog(true)}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                Move to Trash
+                            </Button>
+                        )}
                     </div>
                 </div>
             }
         >
-            <Head title={`View - ${doc.original_name}`} />
+            <Head title={`Document Details - ${document.original_name}`} />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Meta Info */}
-                        <div className="md:col-span-2 space-y-6">
-                            <Card>
-                                <CardHeader className="flex flex-row items-start justify-between space-y-0">
+            <div className="py-10">
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                        <div className="space-y-6 lg:col-span-2">
+                            {userPermission === 'admin_viewer' && (
+                                <Alert className="mb-4 border-l-4 border-l-primary">
+                                    <ShieldCheck className="h-4 w-4" />
+                                    <AlertDescription>
+                                        You are viewing this document as an administrator (read-only).
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
+                            <div className="rounded-lg border border-border bg-card p-5">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className="rounded-lg border border-border bg-accent p-4">
-                                            <FileIcon className="h-10 w-10 text-primary" />
+                                        <div className="rounded-lg bg-muted p-3">
+                                            <FileIcon className="h-12 w-12 text-primary" />
                                         </div>
-                                        <div>
-                                            <CardTitle className="text-2xl">{doc.original_name}</CardTitle>
-                                            <CardDescription className="flex items-center gap-2 mt-1">
-                                                <Badge variant="outline" className="border-[#1E3A24] bg-[#132B1A] text-[#4ADE80]">
-                                                    <Lock className="h-3 w-3 mr-1" /> Fully Encrypted
-                                                </Badge>
-                                                <span>{doc.mime_type}</span>
-                                            </CardDescription>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="grid grid-cols-2 gap-6 border-t border-border py-6 font-medium lg:grid-cols-4">
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-muted-foreground">File Size</p>
-                                        <p className="text-sm">{formatBytes(doc.file_size)}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-muted-foreground">Uploaded By</p>
-                                        <p className="text-sm">{doc.user.name}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-xs text-muted-foreground">Uploaded On</p>
-                                        <p className="text-sm">{format(new Date(doc.created_at), 'PPP')}</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-xs text-muted-foreground" title="Used to verify the file has not been altered.">
-                                                Integrity Hash
-                                            </p>
-                                            <span title="Used to verify the file has not been altered.">
-                                                <Info className="h-3.5 w-3.5 text-muted-foreground" />
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-2 whitespace-nowrap">
-                                            <p className="min-w-0 truncate font-mono text-xs text-foreground" title={doc.file_hash}>
-                                                {truncatedHash}
-                                            </p>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-7 shrink-0 px-2 text-[11px]"
-                                                onClick={copyHash}
-                                            >
-                                                Copy hash
-                                            </Button>
+                                        <div className="space-y-1">
+                                            <h3 className="text-xl font-semibold text-foreground">
+                                                {document.original_name}
+                                            </h3>
+                                            <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                                                <Lock className="h-3.5 w-3.5" />
+                                                Fully Encrypted (AES-256)
+                                            </div>
                                         </div>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                            </div>
 
-                            {/* Recent Activity */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                        <History className="h-5 w-5 text-primary" />
-                                        Recent Activity
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="border-t border-border p-0">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>User</TableHead>
-                                                <TableHead>Action</TableHead>
-                                                <TableHead>Time</TableHead>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div className="rounded-lg border border-border bg-card p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                        File Size
+                                    </p>
+                                    <p className="mt-2 text-sm font-medium text-foreground">
+                                        {formatBytes(document.file_size)}
+                                    </p>
+                                </div>
+
+                                <div className="rounded-lg border border-border bg-card p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                        Uploaded By
+                                    </p>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <div
+                                            className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold text-white ${getAvatarColor(
+                                                document.owner_name
+                                            )}`}
+                                        >
+                                            {getInitials(document.owner_name)}
+                                        </div>
+                                        <p className="text-sm font-medium text-foreground">{document.owner_name}</p>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg border border-border bg-card p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                        Uploaded On
+                                    </p>
+                                    <p className="mt-2 text-sm font-medium text-foreground">
+                                        {format(new Date(document.created_at), 'MMMM do, yyyy')}
+                                    </p>
+                                </div>
+
+                                <div className="rounded-lg border border-border bg-card p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                        Integrity Hash
+                                    </p>
+                                    <div className="mt-2 flex items-center justify-between gap-3">
+                                        <p className="min-w-0 truncate font-mono text-sm text-foreground" title={document.file_hash}>
+                                            {truncatedHash}
+                                        </p>
+                                        <Button variant="ghost" size="sm" onClick={handleCopyHash}>
+                                            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                                            {copied ? 'Copied!' : 'Copy'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {document.description && document.description.trim() !== '' && (
+                                <div className="rounded-lg border border-border bg-card p-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                        Description
+                                    </p>
+                                    <p className="mt-2 text-sm text-foreground">{document.description}</p>
+                                </div>
+                            )}
+
+                            <div className="rounded-lg border border-border bg-card">
+                                <div className="border-b border-border px-5 py-4">
+                                    <h3 className="font-semibold text-foreground">Audit Trail / Recent Activity</h3>
+                                </div>
+                                <Table>
+                                    <TableHeader className="bg-muted [&_tr]:border-border">
+                                        <TableRow className="border-border hover:bg-transparent">
+                                            <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
+                                                User
+                                            </TableHead>
+                                            <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
+                                                Action
+                                            </TableHead>
+                                            <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
+                                                Time
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {auditTrail.length === 0 ? (
+                                            <TableRow className="border-border hover:bg-transparent">
+                                                <TableCell colSpan={3} className="h-24 text-center text-sm text-muted-foreground">
+                                                    No activity recorded yet.
+                                                </TableCell>
                                             </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {auditLogs.map((log) => (
-                                                <TableRow key={log.id}>
-                                                    <TableCell className="text-sm font-medium">{log.user?.name || 'System'}</TableCell>
-                                                    <TableCell>
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={`text-[11px] ${getActivityBadgeClass(log.action)}`}
-                                                        >
-                                                            {getActivityLabel(log.action)}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-xs text-muted-foreground">
-                                                        {format(new Date(log.created_at), 'MMM d, h:mm a')}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                            {auditLogs.length === 0 && (
-                                                <TableRow>
-                                                    <TableCell colSpan={3} className="h-24 text-center text-sm text-muted-foreground">
-                                                        No recent activity recorded.
-                                                    </TableCell>
-                                                </TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </CardContent>
-                            </Card>
+                                        ) : (
+                                            auditTrail.map((entry, index) => {
+                                                const badge = getActivityBadge(entry.action);
+                                                const userName = entry.user?.name ?? 'System';
+
+                                                return (
+                                                    <TableRow key={`${entry.action}-${entry.created_at}-${index}`} className="hover:bg-muted/50">
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-3">
+                                                                <div
+                                                                    className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white ${getAvatarColor(
+                                                                        userName
+                                                                    )}`}
+                                                                >
+                                                                    {getInitials(userName)}
+                                                                </div>
+                                                                <p className="text-sm font-medium text-foreground">
+                                                                    {userName}
+                                                                </p>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <span
+                                                                className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge.className}`}
+                                                            >
+                                                                {badge.label}
+                                                            </span>
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-muted-foreground">
+                                                            {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         </div>
 
-                        {/* Sharing Sidebar */}
-                        <div className="space-y-6">
-                            {(authUserId === doc.user_id || doc.shares.find((s: any) => s.shared_with_id === authUserId && s.permission === 'full_access')) && (
-                                <Card>
-                                    <CardHeader>
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                            <Share2 className="h-5 w-5 text-primary" />
-                                            Share Document
-                                        </CardTitle>
-                                        <CardDescription>Grant access to other registered users.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <form onSubmit={(e) => { e.preventDefault(); post(route('shares.store', doc.id), { onSuccess: () => reset() }); }} className="space-y-4">
+                        <div className="space-y-6 lg:col-span-1">
+                            {canManageShares && (
+                                <>
+                                    <div className="rounded-lg border border-border bg-card p-5">
+                                        <div className="space-y-1">
+                                            <h3 className="font-semibold text-foreground">Share Document</h3>
+                                            <p className="text-xs text-muted-foreground">Add secure collaborators.</p>
+                                        </div>
+
+                                        <form onSubmit={handleShareSubmit} className="mt-5 space-y-4">
                                             <div className="space-y-2">
-                                                <Label htmlFor="email">User Email</Label>
-                                                <Input 
-                                                    id="email" 
-                                                    type="email" 
-                                                    placeholder="colleague@university.edu" 
+                                                <Label htmlFor="email">Email Address</Label>
+                                                <Input
+                                                    id="email"
+                                                    type="email"
+                                                    placeholder="collaborator@company.com"
                                                     value={data.email}
-                                                    onChange={e => setData('email', e.target.value)}
+                                                    onChange={(event) => setData('email', event.target.value)}
+                                                    className="bg-background"
                                                     required
                                                 />
-                                                {errors.email && <p className="text-xs font-medium text-[#F87171]">{errors.email}</p>}
+                                                {errors.email && (
+                                                    <p className="text-sm text-destructive">{errors.email}</p>
+                                                )}
                                             </div>
+
                                             <div className="space-y-2">
                                                 <Label htmlFor="permission">Permission Level</Label>
-                                                <Select value={data.permission} onValueChange={val => setData('permission', val as any)}>
-                                                    <SelectTrigger id="permission">
+                                                <Select
+                                                    value={data.permission}
+                                                    onValueChange={(value) => setData('permission', value as SharePermission)}
+                                                >
+                                                    <SelectTrigger id="permission" className="bg-background">
                                                         <SelectValue />
                                                     </SelectTrigger>
                                                     <SelectContent>
@@ -241,76 +470,133 @@ export default function Show({ document: doc, auditLogs, authUserId }: Props) {
                                                     </SelectContent>
                                                 </Select>
                                             </div>
+
                                             <div className="space-y-2">
-                                                <Label htmlFor="expires_at">Expiry (Optional)</Label>
-                                                <Input 
-                                                    id="expires_at" 
-                                                    type="date" 
+                                                <Label htmlFor="expires_at">
+                                                    Expiry Date <span className="text-muted-foreground">(optional)</span>
+                                                </Label>
+                                                <input
+                                                    id="expires_at"
+                                                    type="date"
                                                     value={data.expires_at}
-                                                    onChange={e => setData('expires_at', e.target.value)}
+                                                    onChange={(event) => setData('expires_at', event.target.value)}
                                                     min={new Date().toISOString().split('T')[0]}
+                                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
                                                 />
                                             </div>
-                                            <Button className="w-full" type="submit" disabled={processing}>
-                                                <UserPlus className="mr-2 h-4 w-4" /> 
-                                                {processing ? 'Sharing...' : 'Grant Access'}
+
+                                            {errors.permission && (
+                                                <p className="text-sm text-destructive">{errors.permission}</p>
+                                            )}
+                                            {errors.expires_at && (
+                                                <p className="text-sm text-destructive">{errors.expires_at}</p>
+                                            )}
+
+                                            <Button
+                                                type="submit"
+                                                disabled={processing}
+                                                className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                                            >
+                                                Grant Access
                                             </Button>
                                         </form>
-                                    </CardContent>
-                                </Card>
-                            )}
-
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                        <Shield className="h-5 w-5 text-primary" />
-                                        Access Control
-                                    </CardTitle>
-                                    <CardDescription>Users who have access to this file.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4 border-t border-border p-0">
-                                    <div className="divide-y">
-                                        {doc.shares.length === 0 ? (
-                                            <div className="p-8 text-center text-sm text-muted-foreground">
-                                                Not shared with anyone yet.
-                                            </div>
-                                        ) : (
-                                            doc.shares.map((share: any) => (
-                                                <div key={share.id} className="p-4 flex items-center justify-between gap-4">
-                                                    <div className="min-w-0">
-                                                        <p className="truncate text-sm font-medium text-foreground">{share.shared_with.name}</p>
-                                                        <p className="truncate text-xs text-muted-foreground">{share.shared_with.email}</p>
-                                                        <div className="flex gap-2 mt-1">
-                                                            <Badge variant="outline" className="text-[10px] uppercase py-0 px-1 leading-tight">
-                                                                {share.permission.replace('_', ' ')}
-                                                            </Badge>
-                                                            {share.expires_at && (
-                                                                <Badge variant="outline" className="border-[#3F2E11] bg-[#2A2010] px-1 py-0 text-[10px] leading-tight text-primary">
-                                                                    Expires {format(new Date(share.expires_at), 'MMM d')}
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    {(authUserId === doc.user_id || authUserId === share.shared_by_id) && (
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className="h-8 w-8 text-muted-foreground hover:text-[#F87171]"
-                                                            onClick={() => confirm('Revoke access for this user?') && router.delete(route('shares.destroy', share.id))}
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            ))
-                                        )}
                                     </div>
-                                </CardContent>
-                            </Card>
+
+                                    <div className="rounded-lg border border-border bg-card p-5">
+                                        <h3 className="font-semibold text-foreground">Access Control</h3>
+
+                                        <div className="mt-4 space-y-4">
+                                            {shares.length === 0 ? (
+                                                <p className="text-sm text-muted-foreground">No collaborators yet.</p>
+                                            ) : (
+                                                shares.map((share) => (
+                                                    <div key={share.id} className="flex items-start justify-between gap-3">
+                                                        <div className="flex min-w-0 items-start gap-3">
+                                                            <div
+                                                                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${getAvatarColor(
+                                                                    share.user.name
+                                                                )}`}
+                                                            >
+                                                                {getInitials(share.user.name)}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="truncate text-sm font-medium text-foreground">
+                                                                    {share.user.name}
+                                                                </p>
+                                                                <p className={getPermissionClass(share.permission)}>
+                                                                    {getPermissionLabel(share.permission)}
+                                                                </p>
+                                                                {share.expires_at && (
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        Expires{' '}
+                                                                        {formatDistanceToNow(new Date(share.expires_at), {
+                                                                            addSuffix: true,
+                                                                        })}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                            onClick={() => setShareToRevoke(share)}
+                                                        >
+                                                            <X className="h-4 w-4" />
+                                                            <span className="sr-only">Revoke access</span>
+                                                        </Button>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
+
+            <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Move to Trash</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to move this document to trash?
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                            Cancel
+                        </Button>
+                        <Button type="button" variant="destructive" onClick={handleDelete}>
+                            Move to Trash
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={shareToRevoke !== null} onOpenChange={(open) => !open && setShareToRevoke(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Remove Access</DialogTitle>
+                        <DialogDescription>
+                            {shareToRevoke
+                                ? `Remove access for ${shareToRevoke.user.name}?`
+                                : 'Remove access for this collaborator?'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setShareToRevoke(null)}>
+                            Cancel
+                        </Button>
+                        <Button type="button" variant="destructive" onClick={handleRevokeShare}>
+                            Remove Access
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AuthenticatedLayout>
     );
 }

@@ -5,6 +5,16 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        <script>
+            (function () {
+                const stored = localStorage.getItem('securevault_theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const shouldUseDark = stored === 'dark' || ((stored === null || stored === 'system') && prefersDark);
+
+                document.documentElement.classList.toggle('dark', shouldUseDark);
+                document.documentElement.style.colorScheme = shouldUseDark ? 'dark' : 'light';
+            })();
+        </script>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">

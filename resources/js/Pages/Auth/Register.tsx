@@ -113,7 +113,7 @@ export default function Register() {
                     Already have an account?{' '}
                     <Link
                         href={route('login')}
-                        className="font-medium text-primary hover:text-[#E0B84D]"
+                        className="font-medium text-primary hover:text-primary/80"
                     >
                         Log in
                     </Link>

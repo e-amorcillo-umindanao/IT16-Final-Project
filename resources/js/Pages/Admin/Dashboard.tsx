@@ -1,25 +1,31 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
 import { format } from 'date-fns';
-import { AlertTriangle, Clock3, Database, FileText, Shield, UserCheck, Users } from 'lucide-react';
+import {
+    AlertTriangle,
+    Clock,
+    Database,
+    FileText,
+    ShieldCheck,
+    UserCheck,
+    Users,
+} from 'lucide-react';
 
 interface Stats {
     total_users: number;
     active_users: number;
-    pending_verifications: number;
-    total_documents: number;
-    total_storage: number;
-    failed_logins_24h: number;
     active_sessions: number;
+    total_documents: number;
+    vault_storage: number;
+    failed_logins_24h: number;
+    pending_verifications: number;
 }
 
-interface ActivityLog {
-    id: number;
+interface ActivityItem {
     action: string;
     ip_address: string | null;
     created_at: string;
@@ -31,222 +37,221 @@ interface ActivityLog {
 
 interface Props {
     stats: Stats;
-    recentActivity: ActivityLog[];
+    recent_activity: ActivityItem[];
 }
 
-export default function AdminDashboard({ stats, recentActivity }: Props) {
-    const formatStorage = (bytes: number) => {
-        if (bytes === 0) return '—';
+function formatStorage(bytes: number) {
+    if (!bytes) return '0 B';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
 
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        const value = bytes / Math.pow(k, i);
+function getActionBadge(action: string) {
+    switch (action) {
+        case 'login_success':
+            return { label: 'LOGIN SUCCESS', className: 'bg-green-500/15 text-green-700 dark:text-green-400' };
+        case 'login_failed':
+            return { label: 'LOGIN FAILED', className: 'bg-destructive/15 text-destructive' };
+        case 'logout':
+            return { label: 'LOGOUT', className: 'border border-border bg-muted text-muted-foreground' };
+        case 'document_uploaded':
+            return { label: 'DOCUMENT UPLOADED', className: 'bg-primary/15 text-primary' };
+        case 'document_downloaded':
+            return { label: 'DOCUMENT DOWNLOADED', className: 'bg-primary/15 text-primary' };
+        case 'document_shared':
+            return { label: 'DOCUMENT SHARED', className: 'bg-blue-500/15 text-blue-600 dark:text-blue-400' };
+        case 'document_deleted':
+            return { label: 'DOCUMENT DELETED', className: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' };
+        case 'two_factor_enabled':
+        case '2fa_enabled':
+            return { label: '2FA ENABLED', className: 'bg-green-500/15 text-green-700 dark:text-green-400' };
+        case 'account_locked':
+            return { label: 'ACCOUNT LOCKED', className: 'bg-destructive/15 text-destructive' };
+        case 'integrity_violation':
+            return { label: 'INTEGRITY VIOLATION', className: 'bg-destructive/15 text-destructive' };
+        default:
+            return { label: action.toUpperCase(), className: 'bg-muted text-muted-foreground' };
+    }
+}
 
-        return `${value >= 10 ? value.toFixed(0) : value.toFixed(2)} ${sizes[i]}`;
-    };
+function StatCard({
+    href,
+    label,
+    value,
+    subLabel,
+    icon,
+    warning = false,
+}: {
+    href: string;
+    label: string;
+    value: string | number;
+    subLabel: string;
+    icon: React.ReactNode;
+    warning?: boolean;
+}) {
+    return (
+        <Link href={href}>
+            <Card
+                className={`transition-colors hover:border-primary/50 ${
+                    warning ? 'border-amber-500/30 bg-amber-500/5' : ''
+                }`}
+            >
+                <CardContent className="p-6">
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-3">
+                            <p
+                                className={`text-xs font-semibold uppercase tracking-wider ${
+                                    warning ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'
+                                }`}
+                            >
+                                {label}
+                            </p>
+                            <p className="text-3xl font-bold text-foreground">{value}</p>
+                            <p className="text-xs text-muted-foreground">{subLabel}</p>
+                        </div>
+                        <div
+                            className={`rounded-lg p-2 ${
+                                warning
+                                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                                    : 'bg-muted text-muted-foreground'
+                            }`}
+                        >
+                            {icon}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </Link>
+    );
+}
 
-    const getFailedLoginStyles = () => {
-        if (stats.failed_logins_24h >= 10) {
-            return {
-                card: 'border-[#5A2020] bg-[#2D1010]',
-                icon: 'text-[#F87171]',
-                value: 'text-[#F87171] font-extrabold',
-            };
-        }
-
-        if (stats.failed_logins_24h >= 1) {
-            return {
-                card: 'border-[#3F2E11] bg-[#2A2010]',
-                icon: 'text-primary',
-                value: 'text-primary',
-            };
-        }
-
-        return {
-            card: '',
-            icon: 'text-muted-foreground',
-            value: '',
-        };
-    };
-
-    const getActionBadgeClass = (action: string) => {
-        const variants: Record<string, string> = {
-            login: 'bg-[#0F1B2D] text-[#60A5FA] border-[#17304F]',
-            login_failed: 'bg-[#2D1010] text-[#F87171] border-[#5A2020]',
-            failed_login: 'bg-[#2D1010] text-[#F87171] border-[#5A2020]',
-            document_uploaded: 'bg-[#132B1A] text-[#4ADE80] border-[#1E3A24]',
-            document_deleted: 'bg-[#2A2010] text-primary border-[#3F2E11]',
-            user_status_changed: 'bg-[#2A2010] text-primary border-[#3F2E11]',
-            user_role_changed: 'bg-[#0F1B2D] text-[#60A5FA] border-[#17304F]',
-            admin_session_terminated: 'bg-[#2D1010] text-[#F87171] border-[#5A2020]',
-        };
-
-        return variants[action] ?? 'bg-secondary text-muted-foreground border-border';
-    };
-
-    const failedLoginStyles = getFailedLoginStyles();
-
+export default function AdminDashboard({ stats, recent_activity }: Props) {
     return (
         <AuthenticatedLayout
             header={
                 <div>
-                    <h2 className="text-xl font-semibold leading-tight text-foreground">
-                        Admin Dashboard
-                    </h2>
+                    <h2 className="text-2xl font-semibold text-foreground">Admin Dashboard</h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        System overview and security monitoring
+                        System overview and security monitoring.
                     </p>
                 </div>
             }
         >
             <Head title="Admin Dashboard" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                                <Users className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{stats.total_users}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    {stats.active_users} active accounts
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Active Sessions</CardTitle>
-                                <Shield className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{stats.active_sessions}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    System-wide active logins
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{stats.total_documents}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    Encrypted files in vault
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Vault Storage</CardTitle>
-                                <Database className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{formatStorage(stats.total_storage)}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    Cumulative encrypted size
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card className={failedLoginStyles.card}>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Failed Logins (24h)</CardTitle>
-                                <AlertTriangle className={cn('h-4 w-4', failedLoginStyles.icon)} />
-                            </CardHeader>
-                            <CardContent>
-                                <div className={cn('text-2xl font-bold', failedLoginStyles.value)}>
-                                    {stats.failed_logins_24h}
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Security authentication attempts
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Pending Verifications</CardTitle>
-                                <UserCheck className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{stats.pending_verifications}</div>
-                                <p className="text-xs text-muted-foreground">
-                                    Users without verified email
-                                </p>
-                            </CardContent>
-                        </Card>
+            <div className="py-10">
+                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <StatCard
+                            href={route('admin.users')}
+                            label="Total Users"
+                            value={stats.total_users}
+                            subLabel={`${stats.active_users} active accounts`}
+                            icon={<Users className="h-5 w-5" />}
+                        />
+                        <StatCard
+                            href={route('admin.sessions')}
+                            label="Active Sessions"
+                            value={stats.active_sessions}
+                            subLabel="System-wide active logins"
+                            icon={<ShieldCheck className="h-5 w-5" />}
+                        />
+                        <StatCard
+                            href={route('admin.documents')}
+                            label="Total Documents"
+                            value={stats.total_documents}
+                            subLabel="Encrypted files in vault"
+                            icon={<FileText className="h-5 w-5" />}
+                        />
+                        <StatCard
+                            href={route('admin.documents')}
+                            label="Vault Storage"
+                            value={formatStorage(stats.vault_storage)}
+                            subLabel="Cumulative encrypted size"
+                            icon={<Database className="h-5 w-5" />}
+                        />
+                        <StatCard
+                            href={route('admin.audit-logs')}
+                            label="Failed Logins (24h)"
+                            value={stats.failed_logins_24h}
+                            subLabel="Security authentication attempts"
+                            icon={<AlertTriangle className="h-5 w-5" />}
+                            warning={stats.failed_logins_24h > 0}
+                        />
+                        <StatCard
+                            href={route('admin.users')}
+                            label="Pending Verifications"
+                            value={stats.pending_verifications}
+                            subLabel="Users without verified email"
+                            icon={<UserCheck className="h-5 w-5" />}
+                        />
                     </div>
 
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between gap-4">
-                            <div>
-                                    <CardTitle className="flex items-center gap-2 text-lg">
-                                    <Clock3 className="h-5 w-5 text-primary" />
-                                    Recent System Activity
-                                </CardTitle>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    Last 10 audit log entries across the system
-                                </p>
-                            </div>
-                            <Button variant="outline" asChild>
-                                <Link href={route('admin.audit-logs')}>View all logs</Link>
-                            </Button>
-                        </CardHeader>
                         <CardContent className="p-0">
+                            <div className="flex flex-col gap-4 border-b border-border px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="h-5 w-5 text-primary" />
+                                        <h3 className="font-semibold text-foreground">Recent System Activity</h3>
+                                    </div>
+                                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                                        Last 10 audit log entries across the system
+                                    </p>
+                                </div>
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link href={route('admin.audit-logs')}>View All Logs</Link>
+                                </Button>
+                            </div>
+
                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Timestamp</TableHead>
-                                        <TableHead>User</TableHead>
-                                        <TableHead>Action</TableHead>
-                                        <TableHead>IP Address</TableHead>
+                                <TableHeader className="bg-muted [&_tr]:border-border">
+                                    <TableRow className="border-border hover:bg-transparent">
+                                        <TableHead className="bg-muted text-muted-foreground">Timestamp</TableHead>
+                                        <TableHead className="bg-muted text-muted-foreground">User</TableHead>
+                                        <TableHead className="bg-muted text-muted-foreground">Action</TableHead>
+                                        <TableHead className="bg-muted text-muted-foreground">IP Address</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {recentActivity.length === 0 ? (
-                                        <TableRow>
+                                    {recent_activity.length === 0 ? (
+                                        <TableRow className="border-border hover:bg-transparent">
                                             <TableCell colSpan={4} className="h-24 text-center text-sm text-muted-foreground">
                                                 No recent system activity recorded.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        recentActivity.map((log) => (
-                                            <TableRow key={log.id}>
-                                                <TableCell className="text-sm text-muted-foreground">
-                                                    {format(new Date(log.created_at), 'MMM d, yyyy HH:mm')}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-sm font-medium">
-                                                            {log.user?.name || 'System'}
-                                                        </span>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {log.user?.email || 'N/A'}
-                                                        </span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge
-                                                        variant="outline"
-                                                        className={cn('capitalize', getActionBadgeClass(log.action))}
-                                                    >
-                                                        {log.action.replaceAll('_', ' ')}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="font-mono text-xs text-muted-foreground">
-                                                    {log.ip_address || 'N/A'}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
+                                        recent_activity.map((log, index) => {
+                                            const badge = getActionBadge(log.action);
+
+                                            return (
+                                                <TableRow key={`${log.action}-${log.created_at}-${index}`} className="border-border hover:bg-muted/50">
+                                                    <TableCell className="text-sm text-muted-foreground">
+                                                        {format(new Date(log.created_at), 'MMM dd, yyyy HH:mm')}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {log.user ? (
+                                                            <div className="flex flex-col">
+                                                                <span className="font-medium text-foreground">{log.user.name}</span>
+                                                                <span className="text-xs text-muted-foreground">{log.user.email}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-sm italic text-muted-foreground">System</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge className={`rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${badge.className}`}>
+                                                            {badge.label}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="font-mono text-xs text-muted-foreground">
+                                                        {log.ip_address || '—'}
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })
                                     )}
                                 </TableBody>
                             </Table>
