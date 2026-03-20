@@ -18,17 +18,17 @@ class PasswordUpdateTest extends TestCase
         $response = $this
             ->actingAs($user)
             ->from('/profile')
-            ->put('/password', [
+            ->put('/profile/password', [
                 'current_password' => 'password',
-                'password' => 'new-password',
-                'password_confirmation' => 'new-password',
+                'password' => 'StrongPass1!',
+                'password_confirmation' => 'StrongPass1!',
             ]);
 
         $response
             ->assertSessionHasNoErrors()
             ->assertRedirect('/profile');
 
-        $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
+        $this->assertTrue(Hash::check('StrongPass1!', $user->refresh()->password));
     }
 
     public function test_correct_password_must_be_provided_to_update_password(): void
@@ -38,14 +38,32 @@ class PasswordUpdateTest extends TestCase
         $response = $this
             ->actingAs($user)
             ->from('/profile')
-            ->put('/password', [
+            ->put('/profile/password', [
                 'current_password' => 'wrong-password',
-                'password' => 'new-password',
-                'password_confirmation' => 'new-password',
+                'password' => 'StrongPass1!',
+                'password_confirmation' => 'StrongPass1!',
             ]);
 
         $response
             ->assertSessionHasErrors('current_password')
+            ->assertRedirect('/profile');
+    }
+
+    public function test_password_confirmation_errors_are_attached_to_the_confirmation_field(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->from('/profile')
+            ->put('/profile/password', [
+                'current_password' => 'password',
+                'password' => 'StrongPass1!',
+                'password_confirmation' => 'Mismatch1!',
+            ]);
+
+        $response
+            ->assertSessionHasErrors('password_confirmation')
             ->assertRedirect('/profile');
     }
 }

@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Tests\TestCase;
 
 class ProfileTest extends TestCase
@@ -23,6 +25,8 @@ class ProfileTest extends TestCase
 
     public function test_profile_information_can_be_updated(): void
     {
+        Notification::fake();
+
         $user = User::factory()->create();
 
         $response = $this
@@ -41,10 +45,13 @@ class ProfileTest extends TestCase
         $this->assertSame('Test User', $user->name);
         $this->assertSame('test@example.com', $user->email);
         $this->assertNull($user->email_verified_at);
+        Notification::assertSentTo($user, VerifyEmail::class);
     }
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void
     {
+        Notification::fake();
+
         $user = User::factory()->create();
 
         $response = $this
@@ -59,6 +66,28 @@ class ProfileTest extends TestCase
             ->assertRedirect('/profile');
 
         $this->assertNotNull($user->refresh()->email_verified_at);
+        Notification::assertNothingSent();
+    }
+
+    public function test_two_factor_can_be_disabled_from_the_profile_page(): void
+    {
+        $user = User::factory()->create([
+            'two_factor_enabled' => true,
+            'two_factor_secret' => 'SECRET123',
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->delete('/two-factor');
+
+        $response
+            ->assertSessionHasNoErrors()
+            ->assertRedirect('/profile');
+
+        $user->refresh();
+
+        $this->assertFalse($user->two_factor_enabled);
+        $this->assertNull($user->two_factor_secret);
     }
 
     public function test_user_can_delete_their_account(): void
