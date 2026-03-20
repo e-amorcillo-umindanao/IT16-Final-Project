@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
+import GravatarAvatar from '@/components/GravatarAvatar';
 import { format } from 'date-fns';
 import {
     AlertTriangle,
@@ -32,6 +33,7 @@ interface ActivityItem {
     user: {
         name: string;
         email: string;
+        avatar_url: string | null;
     } | null;
 }
 
@@ -233,12 +235,24 @@ export default function AdminDashboard({ stats, recent_activity }: Props) {
                                                     </TableCell>
                                                     <TableCell>
                                                         {log.user ? (
-                                                            <div className="flex flex-col">
-                                                                <span className="font-medium text-foreground">{log.user.name}</span>
-                                                                <span className="text-xs text-muted-foreground">{log.user.email}</span>
+                                                            <div className="flex items-center gap-3">
+                                                                <GravatarAvatar 
+                                                                    name={log.user.name} 
+                                                                    avatarUrl={log.user.avatar_url} 
+                                                                    size="sm" 
+                                                                />
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-medium text-foreground">{log.user.name}</span>
+                                                                    <span className="text-xs text-muted-foreground">{log.user.email}</span>
+                                                                </div>
                                                             </div>
                                                         ) : (
-                                                            <span className="text-sm italic text-muted-foreground">System</span>
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                                                                    <Users className="h-4 w-4" />
+                                                                </div>
+                                                                <span className="text-sm italic text-muted-foreground">System</span>
+                                                            </div>
                                                         )}
                                                     </TableCell>
                                                     <TableCell>

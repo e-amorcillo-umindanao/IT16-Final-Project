@@ -19,10 +19,11 @@ import {
     LogOut, 
     User as UserIcon,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import GravatarAvatar from '@/components/GravatarAvatar';
 
 export default function Authenticated({
     header,
@@ -195,9 +196,11 @@ export default function Authenticated({
                 {/* Sidebar Footer - User Profile */}
                 <div className="border-t border-border bg-card/40 p-4">
                     <div className={cn("flex items-center gap-3 mb-4", !isSidebarOpen && !isMobileMenuOpen && "justify-center")}>
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                            {user.name.charAt(0)}
-                        </div>
+                        <GravatarAvatar 
+                            name={user.name} 
+                            avatarUrl={user.avatar_url} 
+                            size={isSidebarOpen || isMobileMenuOpen ? "md" : "sm"} 
+                        />
                         {(isSidebarOpen || isMobileMenuOpen) && (
                             <div className="flex flex-col min-w-0">
                                 <p className="truncate text-sm font-semibold text-foreground">{user.name}</p>

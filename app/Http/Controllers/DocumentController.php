@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Services\VirusTotalService;
 
 class DocumentController extends Controller
 {
@@ -78,6 +79,19 @@ class DocumentController extends Controller
         ]);
 
         $file = $request->file('document');
+
+        // VirusTotal Scan
+        $scan = app(VirusTotalService::class)->scan($file);
+        if ($scan['malicious'] > 0 || $scan['suspicious'] > 0) {
+            $this->auditService->log('document_scan_blocked', null, [
+                'filename'  => $file->getClientOriginalName(),
+                'malicious' => $scan['malicious'],
+                'suspicious'=> $scan['suspicious'],
+            ]);
+            return back()->withErrors([
+                'document' => "Upload blocked: VirusTotal flagged this file ({$scan['malicious']} malicious, {$scan['suspicious']} suspicious detections).",
+            ]);
+        }
         
         // Encrypt content
         $encryptedData = $this->encryptionService->encryptFile($file->getRealPath());
@@ -100,6 +114,7 @@ class DocumentController extends Controller
             'file_hash' => $encryptedData['original_hash'],
             'encryption_iv' => $encryptedData['iv'],
             'description' => $request->description,
+            'scan_result' => $scan['status'] === 'completed' ? $scan : null,
         ]);
 
         $this->auditService->log('document_uploaded', $document);
@@ -128,6 +143,7 @@ class DocumentController extends Controller
                 'user' => $log->user ? [
                     'name' => $log->user->name,
                     'email' => $log->user->email,
+                    'avatar_url' => $log->user->avatar_url,
                 ] : null,
             ]);
 
@@ -142,6 +158,7 @@ class DocumentController extends Controller
                 'user' => [
                     'name' => $share->sharedWith->name,
                     'email' => $share->sharedWith->email,
+                    'avatar_url' => $share->sharedWith->avatar_url,
                 ],
             ]);
 
@@ -156,6 +173,8 @@ class DocumentController extends Controller
                 'created_at' => $document->created_at,
                 'user_id' => $document->user_id,
                 'owner_name' => $document->user->name,
+                'owner_avatar_url' => $document->user->avatar_url,
+                'scan_result' => $document->scan_result,
             ],
             'auditTrail' => $auditTrail,
             'shares' => $shares,

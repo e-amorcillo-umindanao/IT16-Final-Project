@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
+import GravatarAvatar from '@/components/GravatarAvatar';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
     ArrowLeft,
@@ -31,6 +32,9 @@ import {
     ShieldCheck,
     Trash2,
     X,
+    ShieldAlert,
+    AlertCircle,
+    CheckCircle2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -48,6 +52,8 @@ interface DocumentDetails {
     created_at: string;
     user_id: number;
     owner_name: string;
+    owner_avatar_url: string | null;
+    scan_result: any;
 }
 
 interface AuditTrailEntry {
@@ -56,6 +62,7 @@ interface AuditTrailEntry {
     user: {
         name: string;
         email: string;
+        avatar_url: string | null;
     } | null;
 }
 
@@ -66,6 +73,7 @@ interface ShareItem {
     user: {
         name: string;
         email: string;
+        avatar_url: string | null;
     };
 }
 
@@ -76,24 +84,7 @@ interface Props extends PageProps {
     userPermission: UserPermission;
 }
 
-const avatarColors = [
-    'bg-amber-500',
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-red-500',
-    'bg-pink-500',
-];
 
-const getAvatarColor = (name: string) =>
-    avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
-
-function getInitials(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    const first = parts[0]?.[0] ?? '';
-    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
-    return `${first}${last}`.toUpperCase();
-}
 
 function formatBytes(bytes: number) {
     if (bytes < 1024) {
@@ -318,13 +309,11 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
                                         Uploaded By
                                     </p>
                                     <div className="mt-2 flex items-center gap-2">
-                                        <div
-                                            className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold text-white ${getAvatarColor(
-                                                document.owner_name
-                                            )}`}
-                                        >
-                                            {getInitials(document.owner_name)}
-                                        </div>
+                                        <GravatarAvatar 
+                                            name={document.owner_name} 
+                                            avatarUrl={document.owner_avatar_url} 
+                                            size="xs" 
+                                        />
                                         <p className="text-sm font-medium text-foreground">{document.owner_name}</p>
                                     </div>
                                 </div>
@@ -397,13 +386,11 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
                                                     <TableRow key={`${entry.action}-${entry.created_at}-${index}`} className="hover:bg-muted/50">
                                                         <TableCell>
                                                             <div className="flex items-center gap-3">
-                                                                <div
-                                                                    className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white ${getAvatarColor(
-                                                                        userName
-                                                                    )}`}
-                                                                >
-                                                                    {getInitials(userName)}
-                                                                </div>
+                                                                <GravatarAvatar 
+                                                                    name={userName} 
+                                                                    avatarUrl={entry.user?.avatar_url ?? null} 
+                                                                    size="xs" 
+                                                                />
                                                                 <p className="text-sm font-medium text-foreground">
                                                                     {userName}
                                                                 </p>
@@ -512,13 +499,11 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
                                                 shares.map((share) => (
                                                     <div key={share.id} className="flex items-start justify-between gap-3">
                                                         <div className="flex min-w-0 items-start gap-3">
-                                                            <div
-                                                                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${getAvatarColor(
-                                                                    share.user.name
-                                                                )}`}
-                                                            >
-                                                                {getInitials(share.user.name)}
-                                                            </div>
+                                                            <GravatarAvatar 
+                                                                name={share.user.name} 
+                                                                avatarUrl={share.user.avatar_url} 
+                                                                size="sm" 
+                                                            />
                                                             <div className="min-w-0">
                                                                 <p className="truncate text-sm font-medium text-foreground">
                                                                     {share.user.name}

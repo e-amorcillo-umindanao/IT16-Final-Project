@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Rules\NotPwnedPassword;
 
 class ProfileController extends Controller
 {
@@ -86,6 +87,7 @@ class ProfileController extends Controller
                 'regex:/[a-z]/',
                 'regex:/[0-9]/',
                 'regex:/[@$!%*?&#^()_+]/',
+                new NotPwnedPassword(),
             ],
         ]);
 

@@ -52,6 +52,7 @@ class AdminController extends Controller
                     'user' => $log->user ? [
                         'name' => $log->user->name,
                         'email' => $log->user->email,
+                        'avatar_url' => $log->user->avatar_url,
                     ] : null,
                 ]),
         ]);
@@ -90,6 +91,7 @@ class AdminController extends Controller
                     'last_login_at' => $user->last_login_at,
                     'last_login_ip' => $user->last_login_ip,
                     'role' => $user->roles->first()?->name ?? 'user',
+                    'avatar_url' => $user->avatar_url,
                 ]),
             'filters' => $request->only(['search', 'role', 'status']),
         ]);
@@ -194,6 +196,7 @@ class AdminController extends Controller
                     'user' => $log->user ? [
                         'name' => $log->user->name,
                         'email' => $log->user->email,
+                        'avatar_url' => $log->user->avatar_url,
                     ] : null,
                 ]),
             'filters' => $request->only(['action', 'from_date', 'to_date', 'user']),
@@ -278,7 +281,20 @@ class AdminController extends Controller
         }
 
         return Inertia::render('Admin/Documents', [
-            'documents' => $query->paginate(20)->withQueryString(),
+            'documents' => $query->paginate(20)->withQueryString()
+                ->through(fn ($document) => [
+                    'id' => $document->id,
+                    'original_name' => $document->original_name,
+                    'mime_type' => $document->mime_type,
+                    'file_size' => $document->file_size,
+                    'created_at' => $document->created_at,
+                    'encryption_iv' => $document->encryption_iv,
+                    'user' => [
+                        'name' => $document->user->name,
+                        'email' => $document->user->email,
+                        'avatar_url' => $document->user->avatar_url,
+                    ],
+                ]),
             'filters' => $request->only(['search']),
         ]);
     }
@@ -309,6 +325,7 @@ class AdminController extends Controller
                 'user_agent' => $session->user_agent,
                 'user_name' => $session->user_name,
                 'user_email' => $session->user_email,
+                'user_avatar_url' => 'https://www.gravatar.com/avatar/' . md5(strtolower(trim($session->user_email))) . '?s=80&d=404',
             ]),
             'currentSessionId' => $request->session()->getId(),
         ]);

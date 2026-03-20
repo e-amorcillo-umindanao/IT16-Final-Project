@@ -14,6 +14,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
 import { Monitor, ShieldOff, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import GravatarAvatar from '@/components/GravatarAvatar';
 
 interface SessionRow {
     id: string;
@@ -22,6 +23,7 @@ interface SessionRow {
     user_agent: string | null;
     user_name: string | null;
     user_email: string | null;
+    user_avatar_url: string | null;
 }
 
 interface Props {
@@ -29,24 +31,7 @@ interface Props {
     currentSessionId: string;
 }
 
-const avatarColors = [
-    'bg-amber-500',
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-red-500',
-    'bg-pink-500',
-];
 
-const getAvatarColor = (name: string) =>
-    avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
-
-function getInitials(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    const first = parts[0]?.[0] ?? '';
-    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
-    return `${first}${last}`.toUpperCase();
-}
 
 function formatLastActivity(unixTimestamp: number): string {
     const seconds = Math.floor(Date.now() / 1000) - unixTimestamp;
@@ -199,13 +184,11 @@ export default function AdminSessionsIndex({ sessions, currentSessionId }: Props
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-3">
-                                                        <div
-                                                            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${getAvatarColor(
-                                                                userName
-                                                            )}`}
-                                                        >
-                                                            {getInitials(userName)}
-                                                        </div>
+                                                        <GravatarAvatar 
+                                                            name={userName} 
+                                                            avatarUrl={session.user_avatar_url} 
+                                                            size="sm" 
+                                                        />
                                                         <div className="min-w-0">
                                                             <p className="truncate text-sm font-medium text-foreground">
                                                                 {userName}

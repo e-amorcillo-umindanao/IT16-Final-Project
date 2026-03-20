@@ -33,7 +33,10 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->user() ? [
+                    ...$request->user()->toArray(),
+                    'avatar_url' => $this->gravatarUrl($request->user()->email),
+                ] : null,
                 'roles' => $request->user()?->getRoleNames() ?? [],
                 'permissions' => $request->user()?->getAllPermissions()->pluck('name')->values() ?? [],
             ],
@@ -46,5 +49,10 @@ class HandleInertiaRequests extends Middleware
                 'location' => $request->url(),
             ],
         ];
+    }
+    private function gravatarUrl(string $email): string
+    {
+        $hash = md5(strtolower(trim($email)));
+        return "https://www.gravatar.com/avatar/{$hash}?s=80&d=404";
     }
 }

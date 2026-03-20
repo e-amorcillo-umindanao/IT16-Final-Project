@@ -8,6 +8,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { format } from 'date-fns';
+import GravatarAvatar from '@/components/GravatarAvatar';
 import {
     Activity,
     Download,
@@ -51,6 +52,7 @@ interface AuditLogRow {
     user?: {
         name: string;
         email: string;
+        avatar_url: string | null;
     } | null;
 }
 
@@ -78,25 +80,7 @@ const ACTION_OPTIONS = [
     { value: 'integrity_violation', label: 'Integrity Violation' },
 ];
 
-const avatarColors = [
-    'bg-amber-500',
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-red-500',
-    'bg-pink-500',
-];
 
-const getAvatarColor = (name: string) =>
-    avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
-
-const getInitials = (name: string) =>
-    name
-        .split(' ')
-        .map((part) => part[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase();
 
 function getActionLabel(action: AuditAction) {
     switch (action) {
@@ -449,13 +433,11 @@ export default function AdminAuditLogsIndex({ logs, filters }: Props) {
                                                 <TableCell>
                                                     {log.user ? (
                                                         <div className="flex items-center gap-2.5">
-                                                            <div
-                                                                className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${getAvatarColor(
-                                                                    log.user.name
-                                                                )}`}
-                                                            >
-                                                                {getInitials(log.user.name)}
-                                                            </div>
+                                                            <GravatarAvatar 
+                                                                name={log.user.name} 
+                                                                avatarUrl={log.user.avatar_url} 
+                                                                size="sm" 
+                                                            />
                                                             <div className="min-w-0">
                                                                 <div className="truncate text-sm font-medium text-foreground">
                                                                     {log.user.name}

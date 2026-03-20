@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
+import GravatarAvatar from '@/components/GravatarAvatar';
 import { formatDistanceToNow } from 'date-fns';
 import {
     Clock,
@@ -41,6 +42,7 @@ interface ShareItem {
     shared_by: {
         name: string;
         email: string;
+        avatar_url: string | null;
     };
 }
 
@@ -395,7 +397,11 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                                         </p>
                                                         <p className="text-xs text-muted-foreground">{formatBytes(share.document.file_size)}</p>
                                                         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                                                            <User className="h-3 w-3" />
+                                                            <GravatarAvatar 
+                                                                name={share.shared_by.name} 
+                                                                avatarUrl={share.shared_by.avatar_url} 
+                                                                size="xs" 
+                                                            />
                                                             <span className="truncate">Shared by {share.shared_by.name}</span>
                                                         </div>
                                                     </div>

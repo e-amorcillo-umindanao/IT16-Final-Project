@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'ipinfo' => [
+        'token' => env('IPINFO_TOKEN'),
+    ],
+
+    'virustotal' => [
+        'api_key' => env('VIRUSTOTAL_API_KEY'),
+    ],
+
 ];

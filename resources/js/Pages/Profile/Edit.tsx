@@ -323,9 +323,17 @@ export default function Edit({
                                             </p>
                                         </div>
                                         {passwordFieldError && (
-                                            <p className="text-sm text-destructive">
-                                                {passwordFieldError}
-                                            </p>
+                                            <div className={`rounded-lg p-3 ${passwordFieldError.includes('data breach') ? 'bg-destructive/10 border border-destructive/20' : ''}`}>
+                                                {passwordFieldError.includes('data breach') && (
+                                                    <div className="flex items-center gap-2 mb-1 text-destructive font-bold text-xs uppercase tracking-wider">
+                                                        <ShieldAlert className="h-4 w-4" />
+                                                        Security Alert
+                                                    </div>
+                                                )}
+                                                <p className="text-sm text-destructive font-medium">
+                                                    {passwordFieldError}
+                                                </p>
+                                            </div>
                                         )}
                                     </div>
 

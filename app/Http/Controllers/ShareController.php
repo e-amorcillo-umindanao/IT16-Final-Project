@@ -125,6 +125,7 @@ class ShareController extends Controller
                 'shared_by' => [
                     'name' => $share->sharedBy->name,
                     'email' => $share->sharedBy->email,
+                    'avatar_url' => $share->sharedBy->avatar_url,
                 ],
             ]),
             'filters' => [

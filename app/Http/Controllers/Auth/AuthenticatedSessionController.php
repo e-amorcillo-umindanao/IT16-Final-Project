@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Services\IpInfoService;
+use App\Services\AuditService;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -34,6 +36,22 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         $user = Auth::user();
+
+        // Enrich with IP location
+        $ipData = app(IpInfoService::class)->lookup($request->ip());
+        $location = $ipData['location'];
+
+        app(AuditService::class)->log('login_success', $user, [
+            'location'   => $location,
+            'two_factor' => $user->two_factor_enabled,
+        ]);
+
+        $user->update([
+            'last_login_at'       => now(),
+            'last_login_ip'       => $request->ip(),
+            'last_login_location' => $location,
+        ]);
+
         if ($user && $user->two_factor_enabled) {
             $request->session()->put('auth.intended_url', redirect()->intended()->getTargetUrl());
             return redirect()->route('two-factor.challenge');

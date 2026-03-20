@@ -2,7 +2,7 @@ import GuestLayout from '@/Layouts/GuestLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Lock, Mail, ShieldAlert } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
 export default function Register() {
@@ -225,9 +225,17 @@ export default function Register() {
 
                         {/* Errors for password (shared across both if validation returns them) */}
                         {errors.password && (
-                            <p className="text-sm text-destructive">
-                                {errors.password}
-                            </p>
+                            <div className={`rounded-lg p-3 ${errors.password.includes('data breach') ? 'bg-destructive/10 border border-destructive/20' : ''}`}>
+                                {errors.password.includes('data breach') && (
+                                    <div className="flex items-center gap-2 mb-1 text-destructive font-bold text-xs uppercase tracking-wider">
+                                        <ShieldAlert className="h-4 w-4" />
+                                        Security Alert
+                                    </div>
+                                )}
+                                <p className="text-sm text-destructive font-medium">
+                                    {errors.password}
+                                </p>
+                            </div>
                         )}
                         {errors.password_confirmation && (
                             <p className="text-sm text-destructive">

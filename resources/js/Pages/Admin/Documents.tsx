@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, router } from '@inertiajs/react';
+import GravatarAvatar from '@/components/GravatarAvatar';
 import { format } from 'date-fns';
 import { Lock, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -18,6 +19,7 @@ interface AdminDocument {
     user: {
         name: string;
         email: string;
+        avatar_url: string | null;
     };
 }
 

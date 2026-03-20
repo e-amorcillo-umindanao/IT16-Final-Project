@@ -29,7 +29,17 @@ class User extends Authenticatable
         'locked_until',
         'last_login_at',
         'last_login_ip',
+        'last_login_location',
         'is_active',
+    ];
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'avatar_url',
     ];
 
     /**
@@ -122,5 +132,14 @@ class User extends Authenticatable
         $this->update([
             'locked_until' => now()->addMinutes($minutes),
         ]);
+    }
+
+    /**
+     * Get the user's Gravatar URL.
+     */
+    public function getAvatarUrlAttribute(): string
+    {
+        $hash = md5(strtolower(trim($this->email)));
+        return "https://www.gravatar.com/avatar/{$hash}?s=80&d=404";
     }
 }

@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import GravatarAvatar from '@/components/GravatarAvatar';
 import { formatDistanceToNow } from 'date-fns';
 import {
     Download,
@@ -45,6 +46,7 @@ interface UserRow {
     last_login_at: string | null;
     last_login_ip: string | null;
     role: UserRole;
+    avatar_url: string | null;
 }
 
 interface Props extends PageProps {
@@ -56,23 +58,7 @@ interface Props extends PageProps {
     };
 }
 
-const avatarColors = [
-    'bg-amber-500',
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-red-500',
-    'bg-pink-500',
-];
 
-const getAvatarColor = (name: string) => avatarColors[name.charCodeAt(0) % avatarColors.length];
-
-function getInitials(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    const first = parts[0]?.[0] ?? '';
-    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
-    return `${first}${last}`.toUpperCase();
-}
 
 function getRoleBadge(role: UserRole) {
     switch (role) {
@@ -313,13 +299,11 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                                             <TableRow key={user.id} className="border-border hover:bg-muted/50">
                                                 <TableCell>
                                                     <div className="flex items-center gap-3">
-                                                        <div
-                                                            className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold text-white ${getAvatarColor(
-                                                                user.name
-                                                            )}`}
-                                                        >
-                                                            {getInitials(user.name)}
-                                                        </div>
+                                                        <GravatarAvatar 
+                                                            name={user.name} 
+                                                            avatarUrl={user.avatar_url} 
+                                                            size="md" 
+                                                        />
                                                         <div className="min-w-0">
                                                             <p className="font-medium text-foreground">{user.name}</p>
                                                             <p className="truncate text-sm text-muted-foreground">{user.email}</p>
