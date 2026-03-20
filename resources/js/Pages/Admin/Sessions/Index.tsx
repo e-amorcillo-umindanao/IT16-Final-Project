@@ -163,7 +163,7 @@ export default function AdminSessionsIndex({ sessions, currentSessionId }: Props
                                     <TableHead className="bg-muted text-right text-xs uppercase tracking-wider text-muted-foreground">
                                         Actions
                                     </TableHead>
-                                        const userEmail = session.user_email ?? 'Ã¢â‚¬â€';
+                                </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredSessions.length === 0 ? (
