@@ -103,13 +103,13 @@ export default function Authenticated({
         <Link
             href={href}
             className={cn(
-                "group flex items-center gap-3 rounded-lg border-l-[3px] border-transparent px-3 py-2 text-sm font-medium transition-all duration-200",
+                "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 active 
-                    ? "border-l-primary bg-muted text-foreground"
+                    ? "bg-foreground text-background"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
         >
-            <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-muted-foreground transition-colors group-hover:text-foreground")} />
+            <Icon className={cn("h-4 w-4 shrink-0 transition-colors", active ? "text-background" : "text-muted-foreground group-hover:text-foreground")} />
             {(isSidebarOpen || isMobileMenuOpen) && <span>{label}</span>}
         </Link>
     );

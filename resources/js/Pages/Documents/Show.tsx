@@ -30,6 +30,8 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { FileTypeBadge } from '@/components/FileTypeBadge';
+import { ScanBadge, type ScanResult } from '@/components/ScanBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
@@ -75,7 +77,7 @@ interface DocumentDetails {
     is_starred: boolean;
     owner_name: string;
     owner_avatar_url: string | null;
-    scan_result: any;
+    scan_result: ScanResult;
 }
 
 interface AuditTrailEntry {
@@ -108,12 +110,12 @@ interface Props extends PageProps {
 }
 
 const avatarColors = [
-    'bg-amber-500',
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-red-500',
-    'bg-pink-500',
+    'bg-amber-600',
+    'bg-blue-600',
+    'bg-emerald-600',
+    'bg-violet-600',
+    'bg-orange-600',
+    'bg-teal-600',
 ];
 
 function getAvatarColor(name: string) {
@@ -235,6 +237,8 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
     const [linkExpiry, setLinkExpiry] = useState('24');
     const [copyingLink, setCopyingLink] = useState(false);
     const [linkCopied, setLinkCopied] = useState(false);
+    const [shareExpiryDate, setShareExpiryDate] = useState<Date | undefined>(undefined);
+    const [shareExpiryOpen, setShareExpiryOpen] = useState(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         email: '',
@@ -292,6 +296,8 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
             preserveScroll: true,
             onSuccess: () => {
                 toast.success('Access granted successfully.');
+                setShareExpiryDate(undefined);
+                setShareExpiryOpen(false);
                 reset();
             },
         });
@@ -450,15 +456,8 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
                                                 <Lock className="h-3 w-3" />
                                                 Fully Encrypted (AES-256)
                                             </Badge>
-                                            {document.scan_result === 'clean' && (
-                                                <Badge
-                                                    variant="outline"
-                                                    className="gap-1 border-green-500/20 bg-green-500/10 text-xs text-green-700 dark:text-green-400"
-                                                >
-                                                    <ShieldCheck className="h-3 w-3" />
-                                                    Clean
-                                                </Badge>
-                                            )}
+                                            <FileTypeBadge mimeType={document.mime_type} />
+                                            <ScanBadge result={document.scan_result} />
                                         </div>
                                     </div>
                                 </CardContent>
@@ -668,25 +667,29 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
                                                         Expiry Date{' '}
                                                         <span className="text-xs font-normal text-muted-foreground">(optional)</span>
                                                     </Label>
-                                                    <Popover>
+                                                    <Popover open={shareExpiryOpen} onOpenChange={setShareExpiryOpen}>
                                                         <PopoverTrigger asChild>
                                                             <Button
                                                                 id="expires_at"
                                                                 type="button"
                                                                 variant="outline"
-                                                                className="w-full justify-start text-left font-normal"
+                                                                className={`w-full justify-start text-left font-normal ${!shareExpiryDate ? 'text-muted-foreground' : ''}`}
                                                             >
-                                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                {data.expires_at
-                                                                    ? format(parseDateValue(data.expires_at) ?? new Date(), 'PPP')
+                                                                <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                                                                {shareExpiryDate
+                                                                    ? format(shareExpiryDate, 'PPP')
                                                                     : 'No expiry'}
                                                             </Button>
                                                         </PopoverTrigger>
                                                         <PopoverContent className="w-auto p-0" align="start">
                                                             <Calendar
                                                                 mode="single"
-                                                                selected={parseDateValue(data.expires_at)}
-                                                                onSelect={(date) => setData('expires_at', formatDateValue(date))}
+                                                                selected={shareExpiryDate}
+                                                                onSelect={(date) => {
+                                                                    setShareExpiryDate(date);
+                                                                    setData('expires_at', formatDateValue(date));
+                                                                    setShareExpiryOpen(false);
+                                                                }}
                                                                 disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                                                                 initialFocus
                                                             />

@@ -25,6 +25,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { FileTypeBadge } from '@/components/FileTypeBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -141,7 +142,7 @@ function getPermissionBadge(permission: Permission) {
     }
 }
 
-const avatarColors = ['bg-amber-500', 'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-red-500', 'bg-pink-500'];
+const avatarColors = ['bg-amber-600', 'bg-blue-600', 'bg-emerald-600', 'bg-violet-600', 'bg-orange-600', 'bg-teal-600'];
 
 function getAvatarColor(name: string) {
     return avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
@@ -464,7 +465,10 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                                                 <p className="truncate text-sm font-medium text-foreground">
                                                                     {share.document.original_name}
                                                                 </p>
-                                                                <p className="text-xs text-muted-foreground">{formatBytes(share.document.file_size)}</p>
+                                                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                                    <p className="text-xs text-muted-foreground">{formatBytes(share.document.file_size)}</p>
+                                                                    <FileTypeBadge mimeType={share.document.mime_type} />
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         {getPermissionBadge(share.permission)}

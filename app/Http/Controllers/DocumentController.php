@@ -50,6 +50,7 @@ class DocumentController extends Controller
                     'original_name' => $doc->original_name,
                     'mime_type' => $doc->mime_type,
                     'file_size' => $doc->file_size,
+                    'scan_result' => $this->normalizeScanResult($doc->scan_result),
                     'is_starred' => (bool) $doc->is_starred,
                     'created_at' => $doc->created_at,
                 ]),
@@ -122,7 +123,7 @@ class DocumentController extends Controller
             'file_hash' => $encryptedData['original_hash'],
             'encryption_iv' => $encryptedData['iv'],
             'description' => $request->description,
-            'scan_result' => $scan['status'] === 'completed' ? $scan : null,
+            'scan_result' => $this->normalizeScanResult($scan),
         ]);
 
         $this->auditService->log('document_uploaded', $document);
@@ -183,7 +184,7 @@ class DocumentController extends Controller
                 'is_starred' => (bool) $document->is_starred,
                 'owner_name' => $document->user->name,
                 'owner_avatar_url' => $document->user->avatar_url,
-                'scan_result' => $document->scan_result,
+                'scan_result' => $this->normalizeScanResult($document->scan_result),
             ],
             'auditTrail' => $auditTrail,
             'shares' => $shares,
@@ -541,5 +542,28 @@ class DocumentController extends Controller
             ->first();
 
         return $share?->permission ?? 'none';
+    }
+
+    private function normalizeScanResult(mixed $scanResult): string
+    {
+        if (is_string($scanResult) && in_array($scanResult, ['clean', 'unscanned', 'unavailable', 'malicious'], true)) {
+            return $scanResult;
+        }
+
+        if (is_array($scanResult)) {
+            $status = $scanResult['status'] ?? null;
+            $malicious = (int) ($scanResult['malicious'] ?? 0);
+            $suspicious = (int) ($scanResult['suspicious'] ?? 0);
+
+            if ($status === 'completed') {
+                return ($malicious > 0 || $suspicious > 0) ? 'malicious' : 'clean';
+            }
+
+            if (in_array($status, ['unavailable', 'timeout', 'error'], true)) {
+                return 'unavailable';
+            }
+        }
+
+        return 'unscanned';
     }
 }

@@ -145,46 +145,115 @@ function getActionBadge(action: AuditAction) {
 }
 
 function getTargetDetails(action: string, metadata: Record<string, any> | null) {
+    const documentName = metadata?.document_name ?? metadata?.original_name;
+    const documentLabel = documentName ? `"${documentName}"` : 'a document';
+    const location = metadata?.location as { city?: string; country?: string } | undefined;
+
     switch (action) {
         case 'login_success':
             return {
-                primary: 'Secure Login',
-                secondary: `2FA: ${metadata?.two_factor ? 'Enabled' : 'Disabled'}`,
+                primary: location?.city
+                    ? `Signed in from ${[location.city, location.country].filter(Boolean).join(', ')}`
+                    : 'Signed in successfully',
+                secondary: metadata?.two_factor !== undefined ? `2FA: ${metadata.two_factor ? 'Enabled' : 'Disabled'}` : null,
             };
         case 'login_failed':
-            return { primary: 'Failed Attempt', secondary: 'Invalid credentials' };
+            return { primary: 'Failed login attempt', secondary: null };
         case 'document_uploaded':
             return {
-                primary: metadata?.document_name ?? 'Document',
-                secondary: 'Encrypted and stored',
+                primary: `Uploaded ${documentLabel}`,
+                secondary: null,
             };
         case 'document_downloaded':
             return {
-                primary: metadata?.document_name ?? 'Document',
-                secondary: 'Decrypted on-the-fly',
+                primary: `Downloaded ${documentLabel}`,
+                secondary: metadata?.method === 'bulk_download' ? 'Included in bulk download' : null,
             };
         case 'document_shared':
             return {
-                primary: metadata?.document_name ?? 'Document',
-                secondary: metadata?.shared_with ? `Shared with ${metadata.shared_with}` : 'Shared',
+                primary: metadata?.shared_with
+                    ? `Shared ${documentLabel} with ${metadata.shared_with}`
+                    : `Shared ${documentLabel}`,
+                secondary: null,
             };
         case 'document_deleted':
             return {
-                primary: metadata?.document_name ?? 'Document',
-                secondary: 'Moved to trash',
+                primary: `Moved ${documentLabel} to trash`,
+                secondary: null,
+            };
+        case 'document_restored':
+            return {
+                primary: `Restored ${documentLabel}`,
+                secondary: null,
+            };
+        case 'document_starred':
+            return {
+                primary: `Starred ${documentLabel}`,
+                secondary: null,
+            };
+        case 'document_unstarred':
+            return {
+                primary: `Unstarred ${documentLabel}`,
+                secondary: null,
+            };
+        case 'share_link_generated':
+            return {
+                primary: typeof metadata?.expires_hours === 'number'
+                    ? `Generated share link for ${documentLabel} (${metadata.expires_hours}h)`
+                    : `Generated share link for ${documentLabel}`,
+                secondary: null,
+            };
+        case 'share_link_accessed':
+            return {
+                primary: `Share link accessed for ${documentLabel}`,
+                secondary: null,
+            };
+        case 'share_revoked':
+            return {
+                primary: metadata?.revoked_from
+                    ? `Revoked access to ${documentLabel} from ${metadata.revoked_from}`
+                    : `Revoked access to ${documentLabel}`,
+                secondary: null,
             };
         case 'account_locked':
-            return { primary: 'Account Locked', secondary: 'Too many failed attempts' };
+            return { primary: 'Account locked after failed attempts', secondary: null };
         case 'integrity_violation':
             return {
-                primary: metadata?.document_name ?? 'Document',
-                secondary: 'Hash mismatch detected',
+                primary: `Integrity check failed for ${documentLabel}`,
+                secondary: typeof metadata?.reason === 'string' ? metadata.reason : null,
             };
         case 'logout':
-            return { primary: 'Session Ended', secondary: null };
+            return {
+                primary: metadata?.ip_address ? `Signed out from ${metadata.ip_address}` : 'Signed out',
+                secondary: null,
+            };
         case '2fa_enabled':
         case 'two_factor_enabled':
-            return { primary: '2FA Activated', secondary: 'TOTP configured' };
+            return { primary: 'Two-factor authentication enabled', secondary: null };
+        case '2fa_disabled':
+        case 'two_factor_disabled':
+            return { primary: 'Two-factor authentication disabled', secondary: null };
+        case 'password_changed':
+            return { primary: 'Password updated', secondary: null };
+        case 'profile_updated':
+            return { primary: 'Profile information updated', secondary: null };
+        case 'session_revoked':
+        case 'session_terminated':
+            return { primary: 'Active session revoked', secondary: null };
+        case 'bulk_download':
+            return {
+                primary: typeof metadata?.document_count === 'number'
+                    ? `Downloaded ${metadata.document_count} documents as ZIP`
+                    : 'Bulk download performed',
+                secondary: null,
+            };
+        case 'bulk_delete':
+            return {
+                primary: typeof metadata?.document_count === 'number'
+                    ? `Moved ${metadata.document_count} documents to trash`
+                    : 'Bulk delete performed',
+                secondary: null,
+            };
         default:
             return { primary: action.replace(/_/g, ' '), secondary: null };
     }
@@ -273,6 +342,10 @@ export default function ActivityIndex({ logs, filters }: Props) {
         from_date: filters.from_date ?? '',
         to_date: filters.to_date ?? '',
     });
+    const [fromDate, setFromDate] = useState<Date | undefined>(parseDateValue(filters.from_date ?? ''));
+    const [toDate, setToDate] = useState<Date | undefined>(parseDateValue(filters.to_date ?? ''));
+    const [fromDateOpen, setFromDateOpen] = useState(false);
+    const [toDateOpen, setToDateOpen] = useState(false);
 
     const exportQuery = Object.fromEntries(
         Object.entries(localFilters).filter(([, value]) => value !== undefined && value !== '')
@@ -288,7 +361,11 @@ export default function ActivityIndex({ logs, filters }: Props) {
     const resetFilters = () => {
         const reset = { action: '', from_date: '', to_date: '' };
         setLocalFilters(reset);
-        router.get(route('activity.index'), {});
+        setFromDate(undefined);
+        setToDate(undefined);
+        setFromDateOpen(false);
+        setToDateOpen(false);
+        router.get(route('activity.index'), {}, { preserveState: false });
     };
 
     return (
@@ -318,9 +395,9 @@ export default function ActivityIndex({ logs, filters }: Props) {
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
                     <Card>
                         <CardContent className="pt-5">
-                            <div className="flex flex-wrap items-end gap-3">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="action" className="text-xs uppercase tracking-wider text-muted-foreground">
+                            <div className="flex flex-wrap items-end gap-6">
+                                <div className="flex flex-col gap-1.5">
+                                    <Label htmlFor="action" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                         Action Type
                                     </Label>
                                     <Select
@@ -345,81 +422,89 @@ export default function ActivityIndex({ logs, filters }: Props) {
                                     </Select>
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="from_date" className="text-xs uppercase tracking-wider text-muted-foreground">
+                                <div className="flex flex-col gap-1.5">
+                                    <Label htmlFor="from_date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                         From Date
                                     </Label>
-                                    <Popover>
+                                    <Popover open={fromDateOpen} onOpenChange={setFromDateOpen}>
                                         <PopoverTrigger asChild>
                                             <Button
                                                 id="from_date"
                                                 type="button"
                                                 variant="outline"
-                                                className="w-40 justify-start text-left font-normal"
+                                                className={`w-44 justify-start text-left font-normal ${!fromDate ? 'text-muted-foreground' : ''}`}
                                             >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {localFilters.from_date
-                                                    ? format(parseDateValue(localFilters.from_date) ?? new Date(), 'MMM d, yyyy')
+                                                <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                                                {fromDate
+                                                    ? format(fromDate, 'MMM d, yyyy')
                                                     : 'Start date'}
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="start">
                                             <Calendar
                                                 mode="single"
-                                                selected={parseDateValue(localFilters.from_date ?? '')}
-                                                onSelect={(date) =>
+                                                selected={fromDate}
+                                                onSelect={(date) => {
+                                                    setFromDate(date);
                                                     setLocalFilters((current) => ({
                                                         ...current,
                                                         from_date: formatDateValue(date),
-                                                    }))
-                                                }
+                                                    }));
+                                                    if (!date || (toDate && date > toDate)) {
+                                                        setToDate(undefined);
+                                                        setLocalFilters((current) => ({
+                                                            ...current,
+                                                            from_date: formatDateValue(date),
+                                                            to_date: '',
+                                                        }));
+                                                    }
+                                                    setFromDateOpen(false);
+                                                }}
                                                 initialFocus
                                             />
                                         </PopoverContent>
                                     </Popover>
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="to_date" className="text-xs uppercase tracking-wider text-muted-foreground">
+                                <div className="flex flex-col gap-1.5">
+                                    <Label htmlFor="to_date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                         To Date
                                     </Label>
-                                    <Popover>
+                                    <Popover open={toDateOpen} onOpenChange={setToDateOpen}>
                                         <PopoverTrigger asChild>
                                             <Button
                                                 id="to_date"
                                                 type="button"
                                                 variant="outline"
-                                                className="w-40 justify-start text-left font-normal"
+                                                className={`w-44 justify-start text-left font-normal ${!toDate ? 'text-muted-foreground' : ''}`}
                                             >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {localFilters.to_date
-                                                    ? format(parseDateValue(localFilters.to_date) ?? new Date(), 'MMM d, yyyy')
+                                                <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                                                {toDate
+                                                    ? format(toDate, 'MMM d, yyyy')
                                                     : 'End date'}
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="start">
                                             <Calendar
                                                 mode="single"
-                                                selected={parseDateValue(localFilters.to_date ?? '')}
-                                                onSelect={(date) =>
+                                                selected={toDate}
+                                                onSelect={(date) => {
+                                                    setToDate(date);
                                                     setLocalFilters((current) => ({
                                                         ...current,
                                                         to_date: formatDateValue(date),
-                                                    }))
-                                                }
-                                                disabled={(date) =>
-                                                    localFilters.from_date
-                                                        ? date < (parseDateValue(localFilters.from_date) ?? new Date(localFilters.from_date))
-                                                        : false
-                                                }
+                                                    }));
+                                                    setToDateOpen(false);
+                                                }}
+                                                disabled={(date) => (fromDate ? date < fromDate : false)}
                                                 initialFocus
                                             />
                                         </PopoverContent>
                                     </Popover>
                                 </div>
 
-                                <div className="flex items-end gap-3">
-                                    <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={applyFilters}>
+                                <div className="flex items-end gap-2 pb-0">
+                                    <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90" onClick={applyFilters}>
                                         <SlidersHorizontal className="h-4 w-4" />
                                         Apply Filters
                                     </Button>

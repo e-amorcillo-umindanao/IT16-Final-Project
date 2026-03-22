@@ -236,41 +236,78 @@ export default function Dashboard({
     const getActivityDescription = (entry: RecentActivity) => {
         const metadata = entry.metadata ?? {};
         const documentName =
-            (typeof metadata.original_name === 'string' && metadata.original_name) ||
-            (typeof metadata.document_name === 'string' && metadata.document_name);
+            (typeof metadata.document_name === 'string' && metadata.document_name) ||
+            (typeof metadata.original_name === 'string' && metadata.original_name);
+        const documentLabel = documentName ? `"${documentName}"` : 'a document';
+        const location = metadata.location as { city?: string; country?: string } | undefined;
 
         switch (entry.action) {
+            case 'login':
+            case 'login_success':
+                return location?.city
+                    ? `Signed in from ${[location.city, location.country].filter(Boolean).join(', ')}`
+                    : 'Signed in successfully';
+            case 'login_failed':
+                return 'Failed login attempt';
+            case 'logout':
+                return typeof metadata.ip_address === 'string'
+                    ? `Signed out from ${metadata.ip_address}`
+                    : entry.ip_address
+                      ? `Signed out from ${entry.ip_address}`
+                      : 'Signed out';
             case 'document_uploaded':
+                return `Uploaded ${documentLabel}`;
             case 'document_downloaded':
-            case 'document_deleted':
-            case 'document_restored':
-                return documentName || 'Vault document';
+                return `Downloaded ${documentLabel}`;
             case 'document_shared':
                 return typeof metadata.shared_with === 'string'
-                    ? `Shared with ${metadata.shared_with}`
-                    : 'Access granted to a collaborator';
+                    ? `Shared ${documentLabel} with ${metadata.shared_with}`
+                    : `Shared ${documentLabel}`;
+            case 'document_deleted':
+                return `Moved ${documentLabel} to trash`;
+            case 'document_restored':
+                return `Restored ${documentLabel}`;
+            case 'document_starred':
+                return `Starred ${documentLabel}`;
+            case 'document_unstarred':
+                return `Unstarred ${documentLabel}`;
+            case 'share_link_generated':
+                return typeof metadata.expires_hours === 'number'
+                    ? `Generated share link for ${documentLabel} (${metadata.expires_hours}h)`
+                    : `Generated share link for ${documentLabel}`;
+            case 'share_link_accessed':
+                return `Share link accessed for ${documentLabel}`;
             case 'share_revoked':
                 return typeof metadata.revoked_from === 'string'
-                    ? `Revoked from ${metadata.revoked_from}`
-                    : 'Access was revoked';
-            case 'login_failed':
-                return typeof metadata.email === 'string' ? metadata.email : 'A login attempt failed';
-            case 'integrity_violation':
-                return typeof metadata.reason === 'string' ? metadata.reason : 'File integrity check failed';
-            case 'logout':
-                return entry.ip_address ? `Signed out from ${entry.ip_address}` : 'Signed out of SecureVault';
+                    ? `Revoked access to ${documentLabel} from ${metadata.revoked_from}`
+                    : `Revoked access to ${documentLabel}`;
             case '2fa_enabled':
-                return 'Two-factor authentication was enabled';
+            case 'two_factor_enabled':
+                return 'Two-factor authentication enabled';
             case '2fa_disabled':
-                return 'Two-factor authentication was disabled';
-            case '2fa_failed':
-                return 'Incorrect verification code submitted';
+            case 'two_factor_disabled':
+                return 'Two-factor authentication disabled';
+            case 'password_changed':
+                return 'Password updated';
+            case 'profile_updated':
+                return 'Profile information updated';
+            case 'account_locked':
+                return 'Account locked after failed attempts';
             case 'session_revoked':
-                return typeof metadata.ip_address === 'string'
-                    ? `Session ended for ${metadata.ip_address}`
-                    : 'A session was revoked';
+            case 'session_terminated':
+                return 'Active session revoked';
+            case 'integrity_violation':
+                return `Integrity check failed for ${documentLabel}`;
+            case 'bulk_download':
+                return typeof metadata.document_count === 'number'
+                    ? `Downloaded ${metadata.document_count} documents as ZIP`
+                    : 'Bulk download performed';
+            case 'bulk_delete':
+                return typeof metadata.document_count === 'number'
+                    ? `Moved ${metadata.document_count} documents to trash`
+                    : 'Bulk delete performed';
             default:
-                return 'Account activity recorded';
+                return entry.action.replace(/_/g, ' ');
         }
     };
 
@@ -293,12 +330,12 @@ export default function Dashboard({
     };
 
     const avatarColors = [
-        'bg-amber-500',
-        'bg-blue-500',
-        'bg-green-500',
-        'bg-purple-500',
-        'bg-red-500',
-        'bg-pink-500',
+        'bg-amber-600',
+        'bg-blue-600',
+        'bg-emerald-600',
+        'bg-violet-600',
+        'bg-orange-600',
+        'bg-teal-600',
     ];
 
     const getAvatarColor = (name: string) =>
@@ -317,36 +354,46 @@ export default function Dashboard({
 
     const statCards = [
         {
-            label: 'My Documents',
+            label: 'Documents',
             value: stats.document_count,
             icon: FileText,
             valueClassName: 'text-foreground',
             description: 'Encrypted files in vault',
             tooltip: 'Total encrypted documents in your vault',
+            href: '/documents',
+            cardClassName: 'cursor-pointer min-h-[130px] hover:border-primary/50',
         },
         {
-            label: 'Shared with Me',
+            label: 'Shared',
             value: stats.shared_with_me,
             icon: Users,
             valueClassName: 'text-foreground',
-            description: 'Files others shared with you',
+            description: 'Shared with you',
             tooltip: 'Documents that other users shared with your account',
+            href: '/shared',
+            cardClassName: 'cursor-pointer min-h-[130px] hover:border-primary/50',
         },
         {
-            label: 'Active Sessions',
+            label: 'Sessions',
             value: stats.active_sessions,
             icon: Monitor,
             valueClassName: 'text-foreground',
-            description: 'Signed-in devices and browsers',
+            description: 'Active logins',
             tooltip: 'Current active sessions for your SecureVault account',
+            href: '/sessions',
+            cardClassName: 'cursor-pointer min-h-[130px] hover:border-primary/50',
         },
         {
-            label: 'Failed Logins (24h)',
+            label: 'Failed Logins',
             value: stats.failed_logins_24h,
             icon: ShieldAlert,
             valueClassName: hasFailedLogins ? 'text-destructive' : 'text-foreground',
-            description: 'Security authentication attempts',
+            description: 'Security attempts today',
             tooltip: 'Failed login attempts recorded in the last 24 hours',
+            href: '/activity',
+            cardClassName: hasFailedLogins
+                ? 'cursor-pointer min-h-[130px] border-amber-500/30 bg-amber-500/5'
+                : 'cursor-pointer min-h-[130px] hover:border-primary/50',
         },
     ];
 
@@ -421,38 +468,32 @@ export default function Dashboard({
 
                             <TooltipProvider>
                                 <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                                    {statCards.map(({ label, value, icon: Icon, valueClassName, description, tooltip }) => (
-                                        <Card
-                                            key={label}
-                                            className={cn(
-                                                'transition-colors',
-                                                label === 'Failed Logins (24h)'
-                                                    ? hasFailedLogins
-                                                        ? 'border-amber-500/30 bg-amber-500/5'
-                                                        : 'hover:border-primary/50'
-                                                    : 'hover:border-primary/50'
-                                            )}
-                                        >
-                                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                                    {label}
-                                                </CardTitle>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <div className="cursor-help rounded-lg bg-muted p-2">
-                                                            <Icon className="h-4 w-4 text-muted-foreground" />
-                                                        </div>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                        <p>{tooltip}</p>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <div className={cn('text-3xl font-bold text-foreground', valueClassName)}>{value}</div>
-                                                <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-                                            </CardContent>
-                                        </Card>
+                                    {statCards.map(({ label, value, icon: Icon, valueClassName, description, tooltip, href, cardClassName }) => (
+                                        <Link key={label} href={href}>
+                                            <Card className={cn('transition-colors', cardClassName)}>
+                                                <CardHeader className="pb-2">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <CardTitle className="text-xs font-semibold uppercase tracking-wider leading-tight text-muted-foreground">
+                                                            {label}
+                                                        </CardTitle>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <div className="cursor-help rounded-lg border border-border bg-muted p-2 flex-shrink-0">
+                                                                    <Icon className="h-4 w-4 text-muted-foreground" />
+                                                                </div>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>{tooltip}</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </div>
+                                                </CardHeader>
+                                                <CardContent className="pb-4">
+                                                    <div className={cn('text-3xl font-bold text-foreground', valueClassName)}>{value}</div>
+                                                    <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+                                                </CardContent>
+                                            </Card>
+                                        </Link>
                                     ))}
                                 </div>
                             </TooltipProvider>

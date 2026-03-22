@@ -1,5 +1,4 @@
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -15,6 +14,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { FileTypeBadge } from '@/components/FileTypeBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { consumePendingUpload } from '@/lib/pendingUpload';
 import { Head, Link, router, useForm } from '@inertiajs/react';
@@ -94,56 +94,6 @@ function getFileIcon(mimeType: string) {
     }
 
     return <File className="h-8 w-8 text-primary" />;
-}
-
-function getTypeLabel(mimeType: string) {
-    const normalized = mimeType.toLowerCase();
-
-    if (normalized.includes('pdf')) return 'PDF';
-    if (
-        normalized.includes('word') ||
-        normalized.includes('officedocument.wordprocessingml.document') ||
-        normalized.includes('msword')
-    ) {
-        return 'DOCX';
-    }
-    if (
-        normalized.includes('sheet') ||
-        normalized.includes('excel') ||
-        normalized.includes('spreadsheetml')
-    ) {
-        return 'XLSX';
-    }
-    if (normalized.includes('image/')) return 'IMAGE';
-
-    return 'FILE';
-}
-
-function getTypeBadgeClass(mimeType: string) {
-    const normalized = mimeType.toLowerCase();
-
-    if (normalized.includes('pdf')) {
-        return 'border-red-500/20 bg-red-500/15 text-red-600 dark:text-red-400';
-    }
-    if (
-        normalized.includes('word') ||
-        normalized.includes('officedocument.wordprocessingml.document') ||
-        normalized.includes('msword')
-    ) {
-        return 'border-blue-500/20 bg-blue-500/15 text-blue-600 dark:text-blue-400';
-    }
-    if (
-        normalized.includes('sheet') ||
-        normalized.includes('excel') ||
-        normalized.includes('spreadsheetml')
-    ) {
-        return 'border-green-500/20 bg-green-500/15 text-green-700 dark:text-green-400';
-    }
-    if (normalized.includes('image/')) {
-        return 'border-purple-500/20 bg-purple-500/15 text-purple-600 dark:text-purple-400';
-    }
-
-    return 'border-border bg-muted text-muted-foreground';
 }
 
 export default function Create({ maxSize, allowedMimes, isFirstDocument }: Props) {
@@ -362,9 +312,7 @@ export default function Create({ maxSize, allowedMimes, isFirstDocument }: Props
                                                         >
                                                             {data.document.name}
                                                         </span>
-                                                        <Badge variant="outline" className={getTypeBadgeClass(data.document.type)}>
-                                                            {getTypeLabel(data.document.type)}
-                                                        </Badge>
+                                                        <FileTypeBadge mimeType={data.document.type} />
                                                     </div>
                                                     <span className="text-xs text-muted-foreground">
                                                         {formatBytes(data.document.size)}

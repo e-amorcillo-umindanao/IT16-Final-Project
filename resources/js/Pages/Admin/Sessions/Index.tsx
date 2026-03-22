@@ -46,12 +46,12 @@ interface Props {
 }
 
 const avatarColors = [
-    'bg-amber-500',
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-red-500',
-    'bg-pink-500',
+    'bg-amber-600',
+    'bg-blue-600',
+    'bg-emerald-600',
+    'bg-violet-600',
+    'bg-orange-600',
+    'bg-teal-600',
 ];
 
 function getAvatarColor(name: string) {

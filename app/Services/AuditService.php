@@ -23,12 +23,31 @@ class AuditService
         $ipAddress = Request::ip() ?? '0.0.0.0';
         $userAgent = Request::userAgent();
         $createdAt = now();
+        $metadata = $metadata ?? [];
 
         $previousLog = AuditLog::latest('id')->first();
         $previousHash = $previousLog ? $previousLog->hash : null;
 
         $auditableType = $auditable ? get_class($auditable) : null;
         $auditableId = $auditable ? $auditable->getKey() : null;
+
+        if (!array_key_exists('ip_address', $metadata)) {
+            $metadata['ip_address'] = $ipAddress;
+        }
+
+        if ($auditable) {
+            $originalName = $auditable->getAttribute('original_name');
+
+            if (is_string($originalName) && $originalName !== '' && !array_key_exists('document_name', $metadata)) {
+                $metadata['document_name'] = $originalName;
+            }
+
+            $twoFactorEnabled = $auditable->getAttribute('two_factor_enabled');
+
+            if (is_bool($twoFactorEnabled) && !array_key_exists('two_factor', $metadata)) {
+                $metadata['two_factor'] = $twoFactorEnabled;
+            }
+        }
 
         // Data to hash for tamper detection: action|user_id|auditable_type|auditable_id|ip_address|created_at|previous_hash
         $dataToHash = implode('|', [

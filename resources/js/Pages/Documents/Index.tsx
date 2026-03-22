@@ -52,6 +52,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { FileTypeBadge } from '@/components/FileTypeBadge';
+import { ScanBadge, type ScanResult } from '@/components/ScanBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { setPendingUpload } from '@/lib/pendingUpload';
 import { PageProps, PaginatedResponse } from '@/types';
@@ -86,6 +88,7 @@ type DocumentItem = {
     original_name: string;
     mime_type: string;
     file_size: number;
+    scan_result: ScanResult;
     is_starred: boolean;
     created_at: string;
 };
@@ -174,37 +177,6 @@ function formatDateValue(date?: Date) {
     return date ? format(date, 'yyyy-MM-dd') : '';
 }
 
-function getTypeBadge(mimeType: string) {
-    const map: Record<string, { label: string; className: string }> = {
-        'application/pdf': {
-            label: 'PDF',
-            className: 'border-red-500/20 bg-red-500/15 text-red-600 dark:text-red-400',
-        },
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
-            label: 'DOCX',
-            className: 'border-blue-500/20 bg-blue-500/15 text-blue-600 dark:text-blue-400',
-        },
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
-            label: 'XLSX',
-            className: 'border-green-500/20 bg-green-500/15 text-green-700 dark:text-green-400',
-        },
-    };
-
-    if (mimeType.startsWith('image/')) {
-        return {
-            label: 'IMAGE',
-            className: 'border-purple-500/20 bg-purple-500/15 text-purple-600 dark:text-purple-400',
-        };
-    }
-
-    return (
-        map[mimeType] ?? {
-            label: 'FILE',
-            className: 'border-border bg-muted text-muted-foreground',
-        }
-    );
-}
-
 export default function Index({ documents, flash }: Props) {
     const [search, setSearch] = useState('');
     const [fileType, setFileType] = useState<FileFilter>('all');
@@ -214,6 +186,8 @@ export default function Index({ documents, flash }: Props) {
     const [shareDocument, setShareDocument] = useState<DocumentItem | null>(null);
     const [showStarredOnly, setShowStarredOnly] = useState(false);
     const [isDraggingOver, setIsDraggingOver] = useState(false);
+    const [shareExpiryDate, setShareExpiryDate] = useState<Date | undefined>(undefined);
+    const [shareExpiryOpen, setShareExpiryOpen] = useState(false);
     const dragCounter = useRef(0);
 
     const {
@@ -234,6 +208,8 @@ export default function Index({ documents, flash }: Props) {
         if (shareDocument) {
             clearErrors();
             reset();
+            setShareExpiryDate(undefined);
+            setShareExpiryOpen(false);
         }
     }, [shareDocument, clearErrors, reset]);
 
@@ -324,7 +300,11 @@ export default function Index({ documents, flash }: Props) {
     };
 
     const handleBulkDownload = async () => {
-        if (selected.length === 0) {
+        if (selected.length === 0 || selected.length > 20) {
+            if (selected.length > 20) {
+                toast.error('Bulk download is limited to 20 documents.');
+            }
+
             return;
         }
 
@@ -372,7 +352,11 @@ export default function Index({ documents, flash }: Props) {
     };
 
     const handleBulkDelete = () => {
-        if (selected.length === 0) {
+        if (selected.length === 0 || selected.length > 50) {
+            if (selected.length > 50) {
+                toast.error('Bulk delete is limited to 50 documents.');
+            }
+
             return;
         }
 
@@ -417,6 +401,8 @@ export default function Index({ documents, flash }: Props) {
 
                 toast.success('Document shared successfully.');
                 setShareDocument(null);
+                setShareExpiryDate(undefined);
+                setShareExpiryOpen(false);
                 reset();
             },
         });
@@ -576,24 +562,28 @@ export default function Index({ documents, flash }: Props) {
                                 </div>
 
                                 {someSelected && (
-                                    <div className="flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="animate-in fade-in slide-in-from-top-1 mb-2 flex flex-col gap-3 rounded-lg border border-border bg-muted/60 px-4 py-2.5 duration-150 sm:flex-row sm:items-center">
                                         <span className="text-sm font-medium text-foreground">
-                                            {selected.length} document{selected.length !== 1 ? 's' : ''} selected
+                                            {selected.length} selected
                                         </span>
+                                        <div className="hidden h-4 w-px bg-border sm:block" />
                                         <div className="flex flex-wrap items-center gap-2">
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="gap-2"
-                                                disabled={bulkDownloading}
+                                                className="h-8 gap-1.5"
+                                                disabled={bulkDownloading || selected.length > 20}
                                                 onClick={handleBulkDownload}
                                             >
                                                 {bulkDownloading ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                                 ) : (
-                                                    <Download className="h-4 w-4" />
+                                                    <Download className="h-3.5 w-3.5" />
                                                 )}
                                                 Download ZIP
+                                                {selected.length > 20 && (
+                                                    <span className="ml-1 text-destructive">(max 20)</span>
+                                                )}
                                             </Button>
 
                                             <AlertDialog>
@@ -601,10 +591,12 @@ export default function Index({ documents, flash }: Props) {
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        className="gap-2 border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                        className="h-8 gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                        disabled={selected.length > 50}
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
+                                                        <Trash2 className="h-3.5 w-3.5" />
                                                         Move to Trash
+                                                        {selected.length > 50 && <span className="ml-1">(max 50)</span>}
                                                     </Button>
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent>
@@ -613,7 +605,7 @@ export default function Index({ documents, flash }: Props) {
                                                             Move {selected.length} document(s) to Trash?
                                                         </AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            These documents will be permanently deleted after 30 days. You can restore them from the Trash page.
+                                                            These documents will be soft-deleted and permanently removed after 30 days. You can restore them from the Trash page within that window.
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
@@ -627,11 +619,16 @@ export default function Index({ documents, flash }: Props) {
                                                     </AlertDialogFooter>
                                                 </AlertDialogContent>
                                             </AlertDialog>
-
-                                            <Button variant="ghost" size="sm" onClick={() => setSelected([])}>
-                                                Clear
-                                            </Button>
                                         </div>
+                                        <div className="flex-1" />
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 text-muted-foreground"
+                                            onClick={() => setSelected([])}
+                                        >
+                                            Clear
+                                        </Button>
                                     </div>
                                 )}
 
@@ -650,15 +647,14 @@ export default function Index({ documents, flash }: Props) {
                                                 <TableHead>File</TableHead>
                                                 <TableHead>Size</TableHead>
                                                 <TableHead>Uploaded</TableHead>
-                                                <TableHead>Integrity</TableHead>
+                                                <TableHead className="hidden md:table-cell">Scan</TableHead>
+                                                <TableHead className="hidden md:table-cell">Integrity</TableHead>
                                                 <TableHead className="w-[72px] text-right">Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {filteredDocuments.length > 0 ? (
                                                 filteredDocuments.map((document) => {
-                                                    const typeBadge = getTypeBadge(document.mime_type);
-
                                                     return (
                                                     <TableRow key={document.id} className="hover:bg-muted/50">
                                                         <TableCell>
@@ -700,9 +696,26 @@ export default function Index({ documents, flash }: Props) {
                                                                     >
                                                                         {document.original_name}
                                                                     </p>
-                                                                    <Badge variant="outline" className={typeBadge.className}>
-                                                                        {typeBadge.label}
-                                                                    </Badge>
+                                                                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                                                                        <FileTypeBadge mimeType={document.mime_type} />
+                                                                        <div className="flex flex-wrap items-center gap-2 md:hidden">
+                                                                            <ScanBadge result={document.scan_result} />
+                                                                            <Tooltip>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <Badge
+                                                                                        variant="outline"
+                                                                                        className="cursor-help gap-1 border-green-500/20 bg-green-500/15 text-green-700 dark:text-green-400"
+                                                                                    >
+                                                                                        <ShieldCheck className="h-3 w-3" />
+                                                                                        Verified
+                                                                                    </Badge>
+                                                                                </TooltipTrigger>
+                                                                                <TooltipContent>
+                                                                                    <p>SHA-256 hash verified on last download</p>
+                                                                                </TooltipContent>
+                                                                            </Tooltip>
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </TableCell>
@@ -714,7 +727,10 @@ export default function Index({ documents, flash }: Props) {
                                                                 addSuffix: true,
                                                             })}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell className="hidden md:table-cell">
+                                                            <ScanBadge result={document.scan_result} />
+                                                        </TableCell>
+                                                        <TableCell className="hidden md:table-cell">
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <Badge
@@ -776,7 +792,7 @@ export default function Index({ documents, flash }: Props) {
                                                 })
                                             ) : (
                                                 <TableRow className="hover:bg-transparent">
-                                                    <TableCell colSpan={7} className="h-32 text-center">
+                                                    <TableCell colSpan={8} className="h-32 text-center">
                                                         <div className="space-y-1">
                                                             <p className="font-medium text-foreground">No matching documents</p>
                                                             <p className="text-sm text-muted-foreground">
@@ -855,7 +871,16 @@ export default function Index({ documents, flash }: Props) {
                 </div>
             )}
 
-            <Dialog open={shareDocument !== null} onOpenChange={(open) => !open && setShareDocument(null)}>
+            <Dialog
+                open={shareDocument !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setShareDocument(null);
+                        setShareExpiryDate(undefined);
+                        setShareExpiryOpen(false);
+                    }
+                }}
+            >
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Share Document</DialogTitle>
@@ -902,26 +927,31 @@ export default function Index({ documents, flash }: Props) {
 
                         <div className="space-y-2">
                             <Label htmlFor="share-expiry">Expiry Date <span className="text-xs text-muted-foreground">(optional)</span></Label>
-                            <Popover>
+                            <Popover open={shareExpiryOpen} onOpenChange={setShareExpiryOpen}>
                                 <PopoverTrigger asChild>
                                     <Button
                                         id="share-expiry"
                                         type="button"
                                         variant="outline"
-                                        className="w-full justify-start bg-background text-left font-normal"
+                                        className={`w-full justify-start bg-background text-left font-normal ${!shareExpiryDate ? 'text-muted-foreground' : ''}`}
                                     >
-                                        <CalendarIcon className="h-4 w-4" />
-                                        {data.expires_at
-                                            ? format(parseDateValue(data.expires_at) ?? new Date(), 'PPP')
+                                        <CalendarIcon className="h-4 w-4 flex-shrink-0" />
+                                        {shareExpiryDate
+                                            ? format(shareExpiryDate, 'PPP')
                                             : 'No expiry'}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">
                                     <Calendar
                                         mode="single"
-                                        selected={parseDateValue(data.expires_at)}
-                                        onSelect={(date) => setData('expires_at', formatDateValue(date))}
+                                        selected={shareExpiryDate}
+                                        onSelect={(date) => {
+                                            setShareExpiryDate(date);
+                                            setData('expires_at', formatDateValue(date));
+                                            setShareExpiryOpen(false);
+                                        }}
                                         disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                        initialFocus
                                     />
                                 </PopoverContent>
                             </Popover>
@@ -932,7 +962,15 @@ export default function Index({ documents, flash }: Props) {
                         {flash?.error && !errors.email && <p className="text-sm text-destructive">{flash.error}</p>}
 
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setShareDocument(null)}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                    setShareDocument(null);
+                                    setShareExpiryDate(undefined);
+                                    setShareExpiryOpen(false);
+                                }}
+                            >
                                 Cancel
                             </Button>
                             <Button

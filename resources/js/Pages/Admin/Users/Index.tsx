@@ -87,12 +87,12 @@ interface Props extends PageProps {
 }
 
 const avatarColors = [
-    'bg-amber-500',
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-red-500',
-    'bg-pink-500',
+    'bg-amber-600',
+    'bg-blue-600',
+    'bg-emerald-600',
+    'bg-violet-600',
+    'bg-orange-600',
+    'bg-teal-600',
 ];
 
 function getAvatarColor(name: string) {
@@ -520,7 +520,7 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                             Changing {selectedUser?.name}'s role takes effect immediately and is logged in the audit trail.
                         </DialogDescription>
                     </DialogHeader>
-                    <RadioGroup value={selectedRole} onChange={(value) => setSelectedRole(value as UserRole)} className="space-y-2 py-2">
+                    <RadioGroup value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole)} className="space-y-2 py-2">
                         {(['super-admin', 'admin', 'user'] as UserRole[]).map((roleOption) => (
                             <div
                                 key={roleOption}

@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { FileTypeBadge } from '@/components/FileTypeBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -64,12 +65,12 @@ interface Props extends PageProps {
 }
 
 const avatarColors = [
-    'bg-amber-500',
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-red-500',
-    'bg-pink-500',
+    'bg-amber-600',
+    'bg-blue-600',
+    'bg-emerald-600',
+    'bg-violet-600',
+    'bg-orange-600',
+    'bg-teal-600',
 ];
 
 const getAvatarColor = (name: string) => avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
@@ -91,22 +92,6 @@ function formatFileSize(bytes: number) {
     }
 
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
-function getTypeBadge(mimeType: string) {
-    switch (mimeType) {
-        case 'application/pdf':
-            return <Badge className="bg-red-500/15 text-red-600 dark:text-red-400">PDF</Badge>;
-        case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-            return <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400">DOCX</Badge>;
-        case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-            return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400">XLSX</Badge>;
-        case 'image/jpeg':
-        case 'image/png':
-            return <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400">IMAGE</Badge>;
-        default:
-            return <Badge className="bg-muted text-muted-foreground">FILE</Badge>;
-    }
 }
 
 function getFileIcon(mimeType: string) {
@@ -330,7 +315,9 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                                             </div>
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell>{getTypeBadge(doc.mime_type)}</TableCell>
+                                                    <TableCell>
+                                                        <FileTypeBadge mimeType={doc.mime_type} />
+                                                    </TableCell>
                                                     <TableCell className="text-sm text-muted-foreground">
                                                         {formatFileSize(doc.file_size)}
                                                     </TableCell>
