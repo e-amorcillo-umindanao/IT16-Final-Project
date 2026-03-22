@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Document;
@@ -233,6 +234,22 @@ class AdminController extends Controller
         ]);
     }
 
+    public function exportAuditLogsPdf(Request $request)
+    {
+        $logs = $this->auditLogsQuery($request)
+            ->with('user')
+            ->get();
+
+        $pdf = Pdf::loadView('pdf.audit-log', [
+            'logs' => $logs,
+            'userName' => auth()->user()->name,
+            'isAdmin' => true,
+            'dateRange' => $this->formatDateRange($request),
+        ]);
+
+        return $pdf->download('securevault-admin-audit-log.pdf');
+    }
+
     private function auditLogsQuery(Request $request)
     {
         $query = AuditLog::with(['user', 'auditable' => fn ($query) => $query->withTrashed()])
@@ -258,6 +275,22 @@ class AdminController extends Controller
         }
 
         return $query;
+    }
+
+    private function formatDateRange(Request $request): ?string
+    {
+        $from = $request->input('from_date');
+        $to = $request->input('to_date');
+
+        if (!$from && !$to) {
+            return null;
+        }
+
+        if ($from && $to) {
+            return "{$from} to {$to}";
+        }
+
+        return $from ? "From {$from}" : "Until {$to}";
     }
 
     /**

@@ -1,5 +1,30 @@
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { cn } from '@/lib/utils';
 import { PageProps } from '@/types';
@@ -18,6 +43,7 @@ import {
 } from 'lucide-react';
 
 type DashboardUser = PageProps['auth']['user'] & {
+    avatar_url?: string | null;
     last_login_at?: string | null;
     last_login_ip?: string | null;
     two_factor_enabled?: boolean;
@@ -65,6 +91,7 @@ export default function Dashboard({
     const canViewAdminDashboard = permissions.includes('view_admin_dashboard');
     const hasFailedLogins = stats.failed_logins_24h > 0;
     const hasTwoFactorEnabled = user.two_factor_enabled === true;
+    const firstName = user.name.split(/\s+/)[0] ?? user.name;
 
     const status = hasFailedLogins
         ? {
@@ -80,6 +107,7 @@ export default function Dashboard({
                 label: 'Review Needed',
                 className: 'border border-primary/20 bg-primary/10 text-primary',
             };
+    const vaultStatus = status.label;
 
     const formatBytes = (bytes: number) => {
         if (bytes === 0) {
@@ -99,6 +127,34 @@ export default function Dashboard({
         }
 
         return formatDistanceToNow(new Date(value), { addSuffix: true });
+    };
+
+    const getGreeting = (): string => {
+        const hour = new Date().getHours();
+
+        if (hour < 12) {
+            return 'Good morning';
+        }
+
+        if (hour < 17) {
+            return 'Good afternoon';
+        }
+
+        return 'Good evening';
+    };
+
+    const getGreetingEmoji = (): string => {
+        const hour = new Date().getHours();
+
+        if (hour < 12) {
+            return '☀️';
+        }
+
+        if (hour < 17) {
+            return '🌤️';
+        }
+
+        return '🌙';
     };
 
     const getFileIcon = (mimeType: string) => {
@@ -218,30 +274,79 @@ export default function Dashboard({
         }
     };
 
+    const getActivityBadgeClassName = (action: string) => {
+        switch (action) {
+            case 'document_uploaded':
+            case 'document_downloaded':
+            case '2fa_enabled':
+            case 'login':
+                return 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30';
+            case 'login_failed':
+            case 'document_deleted':
+            case 'integrity_violation':
+            case 'account_locked':
+            case '2fa_failed':
+                return 'bg-destructive/15 text-destructive border-destructive/30';
+            default:
+                return 'bg-primary/15 text-primary border-primary/30';
+        }
+    };
+
+    const avatarColors = [
+        'bg-amber-500',
+        'bg-blue-500',
+        'bg-green-500',
+        'bg-purple-500',
+        'bg-red-500',
+        'bg-pink-500',
+    ];
+
+    const getAvatarColor = (name: string) =>
+        avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
+
+    const getInitials = (name: string) => {
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        const first = parts[0]?.[0] ?? '';
+        const last =
+            parts.length > 1
+                ? parts[parts.length - 1]?.[0] ?? ''
+                : parts[0]?.[1] ?? '';
+
+        return `${first}${last}`.toUpperCase();
+    };
+
     const statCards = [
         {
             label: 'My Documents',
             value: stats.document_count,
             icon: FileText,
             valueClassName: 'text-foreground',
+            description: 'Encrypted files in vault',
+            tooltip: 'Total encrypted documents in your vault',
         },
         {
             label: 'Shared with Me',
             value: stats.shared_with_me,
             icon: Users,
             valueClassName: 'text-foreground',
+            description: 'Files others shared with you',
+            tooltip: 'Documents that other users shared with your account',
         },
         {
             label: 'Active Sessions',
             value: stats.active_sessions,
             icon: Monitor,
             valueClassName: 'text-foreground',
+            description: 'Signed-in devices and browsers',
+            tooltip: 'Current active sessions for your SecureVault account',
         },
         {
             label: 'Failed Logins (24h)',
             value: stats.failed_logins_24h,
             icon: ShieldAlert,
             valueClassName: hasFailedLogins ? 'text-destructive' : 'text-foreground',
+            description: 'Security authentication attempts',
+            tooltip: 'Failed login attempts recorded in the last 24 hours',
         },
     ];
 
@@ -253,6 +358,20 @@ export default function Dashboard({
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
                         <div className="space-y-6 md:col-span-8">
+                            <Breadcrumb>
+                                <BreadcrumbList>
+                                    <BreadcrumbItem>
+                                        <BreadcrumbLink asChild>
+                                            <Link href="/dashboard">Main</Link>
+                                        </BreadcrumbLink>
+                                    </BreadcrumbItem>
+                                    <BreadcrumbSeparator />
+                                    <BreadcrumbItem>
+                                        <BreadcrumbPage>Dashboard</BreadcrumbPage>
+                                    </BreadcrumbItem>
+                                </BreadcrumbList>
+                            </Breadcrumb>
+
                             <Card className="overflow-hidden">
                                 <CardContent className="flex flex-col gap-5 p-6 lg:flex-row lg:items-start lg:justify-between">
                                     <div className="space-y-3">
@@ -261,7 +380,7 @@ export default function Dashboard({
                                                 Overview
                                             </p>
                                             <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-                                                Welcome back, {user.name}
+                                                {getGreeting()}, {firstName} <span>{getGreetingEmoji()}</span>
                                             </h1>
                                         </div>
                                         <div className="flex flex-wrap items-center gap-3">
@@ -269,7 +388,20 @@ export default function Dashboard({
                                                 {status.label}
                                             </span>
                                             <p className="text-sm text-muted-foreground">
-                                                Your vault security status is {status.label.toLowerCase()}. Last login was {formatRelativeTime(user.last_login_at)}.
+                                                Your vault security status is{' '}
+                                                <span
+                                                    className={cn(
+                                                        'font-medium',
+                                                        vaultStatus === 'Optimal'
+                                                            ? 'text-green-700 dark:text-green-400'
+                                                            : vaultStatus === 'Review Needed'
+                                                              ? 'text-amber-700 dark:text-amber-400'
+                                                              : 'text-destructive'
+                                                    )}
+                                                >
+                                                    {vaultStatus}
+                                                </span>
+                                                . Last login was {formatRelativeTime(user.last_login_at)}.
                                             </p>
                                         </div>
                                     </div>
@@ -287,21 +419,43 @@ export default function Dashboard({
                                 </CardContent>
                             </Card>
 
-                            <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                                {statCards.map(({ label, value, icon: Icon, valueClassName }) => (
-                                    <Card key={label}>
-                                        <CardContent className="space-y-4 p-5">
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                                                <Icon className="h-5 w-5" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-sm text-muted-foreground">{label}</p>
-                                                <p className={cn('text-3xl font-semibold tracking-tight', valueClassName)}>{value}</p>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </div>
+                            <TooltipProvider>
+                                <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+                                    {statCards.map(({ label, value, icon: Icon, valueClassName, description, tooltip }) => (
+                                        <Card
+                                            key={label}
+                                            className={cn(
+                                                'transition-colors',
+                                                label === 'Failed Logins (24h)'
+                                                    ? hasFailedLogins
+                                                        ? 'border-amber-500/30 bg-amber-500/5'
+                                                        : 'hover:border-primary/50'
+                                                    : 'hover:border-primary/50'
+                                            )}
+                                        >
+                                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                                    {label}
+                                                </CardTitle>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <div className="cursor-help rounded-lg bg-muted p-2">
+                                                            <Icon className="h-4 w-4 text-muted-foreground" />
+                                                        </div>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>{tooltip}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className={cn('text-3xl font-bold text-foreground', valueClassName)}>{value}</div>
+                                                <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            </TooltipProvider>
 
                             <Card>
                                 <CardHeader>
@@ -352,28 +506,51 @@ export default function Dashboard({
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="divide-y divide-border">
-                                            {recent_documents.map((document) => (
-                                                <Link
-                                                    key={document.id}
-                                                    href={route('documents.show', document.id)}
-                                                    className="flex items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-muted/40"
-                                                >
-                                                    <div className="flex min-w-0 items-center gap-3">
-                                                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                                                            {getFileIcon(document.mime_type)}
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <p className="truncate font-medium text-foreground">{document.original_name}</p>
-                                                            <p className="text-sm text-muted-foreground">{formatBytes(document.file_size)}</p>
-                                                        </div>
-                                                    </div>
-                                                    <p className="shrink-0 text-sm text-muted-foreground">
-                                                        {formatDistanceToNow(new Date(document.created_at), { addSuffix: true })}
-                                                    </p>
-                                                </Link>
-                                            ))}
-                                        </div>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead className="px-6">File</TableHead>
+                                                    <TableHead>Size</TableHead>
+                                                    <TableHead>Uploaded</TableHead>
+                                                    <TableHead className="px-6 text-right"></TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {recent_documents.map((document) => (
+                                                    <TableRow key={document.id} className="hover:bg-muted/50">
+                                                        <TableCell className="px-6">
+                                                            <div className="flex min-w-0 items-center gap-3">
+                                                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                                                                    {getFileIcon(document.mime_type)}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <Link
+                                                                        href={route('documents.show', document.id)}
+                                                                        className="block truncate font-medium text-foreground hover:underline"
+                                                                    >
+                                                                        {document.original_name}
+                                                                    </Link>
+                                                                </div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-muted-foreground">
+                                                            {formatBytes(document.file_size)}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-muted-foreground">
+                                                            {formatDistanceToNow(new Date(document.created_at), { addSuffix: true })}
+                                                        </TableCell>
+                                                        <TableCell className="px-6 text-right">
+                                                            <Button variant="ghost" size="sm" asChild>
+                                                                <Link href={route('documents.show', document.id)}>
+                                                                    Open
+                                                                    <ArrowRight className="ml-2 h-4 w-4" />
+                                                                </Link>
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
                                     )}
                                 </CardContent>
                             </Card>
@@ -381,19 +558,15 @@ export default function Dashboard({
 
                         <div className="space-y-6 md:col-span-4">
                             <Card>
-                                <CardHeader className="flex flex-row items-center justify-between gap-4">
-                                    <div>
-                                        <CardTitle>Recent Activity</CardTitle>
-                                        <CardDescription>Your latest eight audit events.</CardDescription>
-                                    </div>
-                                    <Button variant="ghost" asChild className="text-muted-foreground hover:text-foreground">
-                                        <Link href={route('activity.index')}>
-                                            View All
-                                            <ArrowRight className="ml-2 h-4 w-4" />
-                                        </Link>
-                                    </Button>
+                                <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
+                                    <CardTitle className="text-sm font-semibold text-foreground">
+                                        Recent Activity
+                                    </CardTitle>
+                                    <Link href="/activity" className="text-xs text-primary hover:underline">
+                                        View All
+                                    </Link>
                                 </CardHeader>
-                                <CardContent className="space-y-4 border-t border-border pt-6">
+                                <CardContent className="space-y-3 pt-4">
                                     {recent_activity.length === 0 ? (
                                         <p className="text-sm text-muted-foreground">No recent activity recorded.</p>
                                     ) : (
@@ -402,10 +575,21 @@ export default function Dashboard({
                                                 key={`${entry.action}-${entry.created_at}-${index}`}
                                                 className="flex items-start gap-3"
                                             >
-                                                <span className={cn('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full', getActivitySeverity(entry.action))} />
-                                                <div className="min-w-0 space-y-1">
+                                                <Avatar className="h-8 w-8">
+                                                    <AvatarImage src={user.avatar_url ?? undefined} alt={user.name} />
+                                                    <AvatarFallback className={cn('text-xs font-semibold text-white', getAvatarColor(user.name))}>
+                                                        {getInitials(user.name)}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="min-w-0 flex-1 space-y-1">
                                                     <div className="flex items-center gap-2">
-                                                        <p className="text-sm font-medium text-foreground">{getActivityLabel(entry.action)}</p>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={getActivityBadgeClassName(entry.action)}
+                                                        >
+                                                            {getActivityLabel(entry.action)}
+                                                        </Badge>
+                                                        <span className={cn('h-2 w-2 shrink-0 rounded-full', getActivitySeverity(entry.action))} />
                                                     </div>
                                                     <p className="text-sm text-muted-foreground">{getActivityDescription(entry)}</p>
                                                     <p className="text-xs text-muted-foreground">
@@ -430,7 +614,12 @@ export default function Dashboard({
                                             <span className="h-2.5 w-2.5 rounded-full bg-status-success" />
                                             <span className="text-sm text-foreground">Encrypted Connection</span>
                                         </div>
-                                        <span className="text-sm font-medium text-status-success">Active</span>
+                                        <Badge
+                                            variant="outline"
+                                            className="border-green-500/30 bg-green-500/15 text-xs text-green-700 dark:text-green-400"
+                                        >
+                                            Active
+                                        </Badge>
                                     </div>
 
                                     <div className="flex items-center justify-between gap-4">
@@ -438,9 +627,17 @@ export default function Dashboard({
                                             <span className={cn('h-2.5 w-2.5 rounded-full', hasTwoFactorEnabled ? 'bg-status-success' : 'bg-primary')} />
                                             <span className="text-sm text-foreground">2FA</span>
                                         </div>
-                                        <span className={cn('text-sm font-medium', hasTwoFactorEnabled ? 'text-status-success' : 'text-primary')}>
+                                        <Badge
+                                            variant="outline"
+                                            className={cn(
+                                                'text-xs',
+                                                hasTwoFactorEnabled
+                                                    ? 'border-green-500/30 bg-green-500/15 text-green-700 dark:text-green-400'
+                                                    : 'border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                                            )}
+                                        >
                                             {hasTwoFactorEnabled ? 'Enabled' : 'Disabled'}
-                                        </span>
+                                        </Badge>
                                     </div>
 
                                     {!hasTwoFactorEnabled && (
@@ -451,6 +648,8 @@ export default function Dashboard({
                                             </Link>
                                         </Button>
                                     )}
+
+                                    <Separator className="my-4" />
 
                                     <div className="space-y-1 rounded-lg border border-border bg-muted/40 p-4">
                                         <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Last Login IP</p>

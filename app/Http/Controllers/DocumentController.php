@@ -7,11 +7,13 @@ use App\Models\Document;
 use App\Services\AuditService;
 use App\Services\EncryptionService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -40,6 +42,7 @@ class DocumentController extends Controller
         return Inertia::render('Documents/Index', [
             'documents' => $user->documents()
                 ->whereNull('deleted_at')
+                ->orderByDesc('is_starred')
                 ->orderByDesc('created_at')
                 ->paginate(15)
                 ->through(fn ($doc) => [
@@ -47,6 +50,7 @@ class DocumentController extends Controller
                     'original_name' => $doc->original_name,
                     'mime_type' => $doc->mime_type,
                     'file_size' => $doc->file_size,
+                    'is_starred' => (bool) $doc->is_starred,
                     'created_at' => $doc->created_at,
                 ]),
         ]);
@@ -60,6 +64,10 @@ class DocumentController extends Controller
         return Inertia::render('Documents/Create', [
             'maxSize' => config('securevault.max_upload_size'),
             'allowedMimes' => config('securevault.allowed_mimes'),
+            'isFirstDocument' => Auth::user()
+                ->documents()
+                ->whereNull('deleted_at')
+                ->count() === 0,
         ]);
     }
 
@@ -172,6 +180,7 @@ class DocumentController extends Controller
                 'description' => $document->description,
                 'created_at' => $document->created_at,
                 'user_id' => $document->user_id,
+                'is_starred' => (bool) $document->is_starred,
                 'owner_name' => $document->user->name,
                 'owner_avatar_url' => $document->user->avatar_url,
                 'scan_result' => $document->scan_result,
@@ -233,6 +242,171 @@ class DocumentController extends Controller
 
             abort(500, 'Document download failed. Please contact your administrator.');
         }
+    }
+
+    public function bulkDownload(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:20'],
+            'ids.*' => ['integer', 'exists:documents,id'],
+        ]);
+
+        $documents = Document::query()
+            ->where('user_id', Auth::id())
+            ->whereIn('id', $validated['ids'])
+            ->get();
+
+        if ($documents->isEmpty()) {
+            return response()->json([
+                'error' => 'No documents found.',
+            ], 404);
+        }
+
+        $tempDirectory = storage_path('app/temp');
+        $zipPath = $tempDirectory . '/bulk_' . uniqid('', true) . '.zip';
+
+        if (!File::exists($tempDirectory)) {
+            File::makeDirectory($tempDirectory, 0755, true);
+        }
+
+        $zip = new \ZipArchive();
+
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return response()->json([
+                'error' => 'Could not create ZIP.',
+            ], 500);
+        }
+
+        foreach ($documents as $document) {
+            try {
+                $encryptedPath = config('securevault.vault_path') . '/' . $document->encrypted_name;
+
+                if (!File::exists($encryptedPath)) {
+                    Log::warning('Bulk download skipped missing vault file.', [
+                        'document_id' => $document->id,
+                    ]);
+
+                    continue;
+                }
+
+                $decryptedContent = $this->encryptionService->decryptFile(
+                    File::get($encryptedPath),
+                    $document->encryption_iv
+                );
+
+                if (!$this->encryptionService->verifyIntegrity($decryptedContent, $document->file_hash)) {
+                    Log::warning('Integrity check failed during bulk download.', [
+                        'document_id' => $document->id,
+                    ]);
+
+                    continue;
+                }
+
+                $zip->addFromString($document->original_name, $decryptedContent);
+
+                $this->auditService->log('document_downloaded', $document, [
+                    'document_name' => $document->original_name,
+                    'method' => 'bulk_download',
+                ]);
+            } catch (\Throwable $exception) {
+                Log::error('Bulk download failed for document.', [
+                    'document_id' => $document->id,
+                    'user_id' => Auth::id(),
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+        $zip->close();
+
+        $this->auditService->log('bulk_download', null, [
+            'document_count' => $documents->count(),
+        ]);
+
+        return response()->download($zipPath, 'securevault-documents.zip')->deleteFileAfterSend(true);
+    }
+
+    public function bulkDelete(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:50'],
+            'ids.*' => ['integer', 'exists:documents,id'],
+        ]);
+
+        $count = Document::query()
+            ->where('user_id', Auth::id())
+            ->whereIn('id', $validated['ids'])
+            ->update([
+                'deleted_at' => now(),
+            ]);
+
+        $this->auditService->log('bulk_delete', null, [
+            'document_count' => $count,
+        ]);
+
+        return back()->with('success', "{$count} document(s) moved to trash.");
+    }
+
+    public function toggleStar(Document $document): RedirectResponse
+    {
+        abort_unless($document->user_id === Auth::id(), 403);
+
+        $document->update([
+            'is_starred' => !$document->is_starred,
+        ]);
+
+        $this->auditService->log($document->is_starred ? 'document_starred' : 'document_unstarred', $document, [
+            'document_name' => $document->original_name,
+        ]);
+
+        return back()->with('success', $document->is_starred ? 'Document starred.' : 'Document unstarred.');
+    }
+
+    public function generateShareLink(Request $request, Document $document): JsonResponse
+    {
+        $this->authorize('update', $document);
+
+        $validated = $request->validate([
+            'expires_hours' => ['required', 'integer', 'min:1', 'max:168'],
+        ]);
+
+        $url = URL::temporarySignedRoute(
+            'documents.access-link',
+            now()->addHours($validated['expires_hours']),
+            ['document' => $document->id]
+        );
+
+        $this->auditService->log('share_link_generated', $document, [
+            'document_name' => $document->original_name,
+            'expires_hours' => $validated['expires_hours'],
+        ]);
+
+        return response()->json([
+            'url' => $url,
+        ]);
+    }
+
+    public function accessViaLink(Request $request, Document $document): Response
+    {
+        $this->auditService->log('share_link_accessed', $document, [
+            'document_name' => $document->original_name,
+            'signed_url_expires_at' => $request->query('expires'),
+        ]);
+
+        return Inertia::render('Shared/Access', [
+            'document' => [
+                'id' => $document->id,
+                'original_name' => $document->original_name,
+                'mime_type' => $document->mime_type,
+                'file_size' => $document->file_size,
+                'description' => $document->description,
+                'created_at' => $document->created_at,
+                'owner_name' => $document->user()->value('name'),
+            ],
+            'expiresAt' => $request->query('expires')
+                ? now()->setTimestamp((int) $request->query('expires'))->toIso8601String()
+                : null,
+        ]);
     }
 
     /**

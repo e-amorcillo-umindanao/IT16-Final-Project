@@ -1,17 +1,19 @@
+import AppLogo from '@/components/AppLogo';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Head, Link, useForm } from '@inertiajs/react';
 import {
     AlertTriangle,
     Eye,
     EyeOff,
     Loader2,
-    Lock,
     Mail,
+    Lock,
 } from 'lucide-react';
-import AppLogo from '@/components/AppLogo';
 import { useState } from 'react';
 
 export default function Login({
@@ -34,7 +36,6 @@ export default function Login({
         });
     };
 
-    // Determine which kind of error to show above the submit button
     const isLockout =
         errors.email &&
         (errors.email.includes('locked') || errors.email.includes('minutes'));
@@ -50,15 +51,12 @@ export default function Login({
         <GuestLayout>
             <Head title="Log in — SecureVault" />
 
-            <div className="flex min-h-screen items-center justify-center px-4">
-                <div className="w-full max-w-md rounded-2xl border border-border bg-card px-8 py-10 shadow-sm">
-
-                    {/* ── Logo mark ── */}
+            <Card className="mx-4 w-full max-w-md rounded-2xl shadow-sm">
+                <CardContent className="px-8 py-10">
                     <div className="mb-6 flex justify-center">
                         <AppLogo size="lg" showText={false} />
                     </div>
 
-                    {/* ── Title ── */}
                     <h1 className="text-center text-2xl font-bold text-foreground">
                         SecureVault
                     </h1>
@@ -66,23 +64,20 @@ export default function Login({
                         Authorized Access Only
                     </p>
 
-                    {/* ── Status message (e.g. password reset confirmation) ── */}
                     {status && (
-                        <div className="mt-5 rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm font-medium text-green-600 dark:text-green-400">
+                        <div className="mt-5 rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm font-medium text-green-700 dark:text-green-400">
                             {status}
                         </div>
                     )}
 
                     <div className="mt-8 space-y-5">
-
-                        {/* ── Email ── */}
-                        <div>
-                            <label
+                        <div className="space-y-1.5">
+                            <Label
                                 htmlFor="email"
-                                className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                             >
                                 Email Address
-                            </label>
+                            </Label>
                             <div className="relative">
                                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
@@ -98,22 +93,20 @@ export default function Login({
                                     autoFocus
                                 />
                             </div>
-                            {/* Show field-level email error only when it's NOT a rate/lockout message */}
                             {errors.email && !isThrottle && !isLockout && (
-                                <p className="mt-1.5 text-sm text-destructive">
+                                <p className="text-sm text-destructive">
                                     {errors.email}
                                 </p>
                             )}
                         </div>
 
-                        {/* ── Password ── */}
-                        <div>
-                            <label
+                        <div className="space-y-1.5">
+                            <Label
                                 htmlFor="password"
-                                className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                             >
                                 Password
-                            </label>
+                            </Label>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
@@ -127,12 +120,11 @@ export default function Login({
                                     }
                                     autoComplete="current-password"
                                 />
-                                {/* Show/hide toggle */}
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
                                     onClick={() =>
                                         setShowPassword((prev) => !prev)
                                     }
@@ -151,13 +143,12 @@ export default function Login({
                                 </Button>
                             </div>
                             {errors.password && (
-                                <p className="mt-1.5 text-sm text-destructive">
+                                <p className="text-sm text-destructive">
                                     {errors.password}
                                 </p>
                             )}
                         </div>
 
-                        {/* ── Forgot password ── */}
                         {canResetPassword && (
                             <div className="flex justify-end">
                                 <Link
@@ -169,12 +160,8 @@ export default function Login({
                             </div>
                         )}
 
-                        {/* ── Rate limit alert ── */}
                         {isThrottle && (
-                            <Alert
-                                variant="destructive"
-                                className="border-destructive/30 bg-destructive/10 text-sm"
-                            >
+                            <Alert variant="destructive">
                                 <AlertTriangle className="h-4 w-4" />
                                 <AlertDescription>
                                     {errors.email}
@@ -182,30 +169,31 @@ export default function Login({
                             </Alert>
                         )}
 
-                        {/* ── Account lockout alert ── */}
                         {isLockout && (
-                            <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
-                                <Lock className="mt-0.5 h-4 w-4 flex-shrink-0 text-destructive" />
-                                <p className="text-sm text-destructive">
+                            <Alert variant="destructive">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertDescription>
                                     {errors.email}
-                                </p>
-                            </div>
+                                </AlertDescription>
+                            </Alert>
                         )}
 
-                        {/* ── Submit ── */}
                         <Button
                             type="button"
-                            className="h-11 w-full rounded-lg bg-primary text-sm font-semibold uppercase tracking-wide text-primary-foreground"
+                            className="h-11 w-full bg-primary text-sm font-semibold uppercase tracking-wide text-primary-foreground"
                             disabled={processing}
                             onClick={submit}
                         >
-                            {processing && (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            {processing ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Signing in...
+                                </>
+                            ) : (
+                                'Log In'
                             )}
-                            {processing ? 'Signing in...' : 'Log In'}
                         </Button>
 
-                        {/* ── Footer link ── */}
                         <p className="text-center text-sm text-muted-foreground">
                             Don&apos;t have an account?{' '}
                             <Link
@@ -216,8 +204,8 @@ export default function Login({
                             </Link>
                         </p>
                     </div>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
         </GuestLayout>
     );
 }

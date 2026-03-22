@@ -5,9 +5,12 @@ use App\Http\Controllers\Admin\AdminDocumentController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\ShareController;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -36,8 +39,15 @@ Route::middleware('auth')->group(function () {
     Route::delete('/sessions/{session}', [SessionController::class, 'destroy'])->name('sessions.destroy');
 
     // Documents
+    Route::post('/documents/bulk-download', [DocumentController::class, 'bulkDownload'])
+        ->name('documents.bulk-download');
+    Route::delete('/documents/bulk-delete', [DocumentController::class, 'bulkDelete'])
+        ->name('documents.bulk-delete');
     Route::resource('documents', DocumentController::class);
     Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
+    Route::patch('/documents/{document}/star', [DocumentController::class, 'toggleStar'])->name('documents.star');
+    Route::post('/documents/{document}/share-link', [DocumentController::class, 'generateShareLink'])
+        ->name('documents.share-link');
     
     // Trash
     Route::get('/trash', [DocumentController::class, 'trash'])->name('documents.trash');
@@ -54,6 +64,20 @@ Route::middleware('auth')->group(function () {
     // Activity
     Route::get('/activity', [AuditLogController::class, 'index'])->name('activity.index');
     Route::get('/activity/export', [AuditLogController::class, 'export'])->name('activity.export');
+    Route::get('/activity/export/pdf', [AuditLogController::class, 'exportPdf'])->name('activity.export-pdf');
+    Route::get('/search', [SearchController::class, 'search'])->name('search');
+
+    Route::post('/vault/unlock', function (Request $request) {
+        $request->validate([
+            'password' => ['required', 'string'],
+        ]);
+
+        if (Hash::check($request->password, $request->user()->password)) {
+            return response()->json(['success' => true]);
+        }
+
+        return response()->json(['error' => 'Invalid password'], 401);
+    })->name('vault.unlock');
 
     // Administration
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -90,6 +114,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/audit-logs/export', [AdminController::class, 'exportAuditLogs'])
             ->middleware('permission:view_audit_logs')
             ->name('audit-logs.export');
+        Route::get('/audit-logs/export/pdf', [AdminController::class, 'exportAuditLogsPdf'])
+            ->middleware('permission:view_audit_logs')
+            ->name('audit-logs.export-pdf');
 
         Route::get('/sessions', [AdminController::class, 'sessions'])
             ->middleware('permission:manage_sessions')
@@ -102,5 +129,9 @@ Route::middleware('auth')->group(function () {
             ->name('sessions.destroy');
     });
 });
+
+Route::get('/shared/access/{document}', [DocumentController::class, 'accessViaLink'])
+    ->middleware('signed')
+    ->name('documents.access-link');
 
 require __DIR__.'/auth.php';

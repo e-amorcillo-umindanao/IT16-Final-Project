@@ -1,6 +1,25 @@
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -8,8 +27,6 @@ import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { format } from 'date-fns';
 import {
-    ChevronLeft,
-    ChevronRight,
     Download,
     Eye,
     File,
@@ -33,6 +50,7 @@ interface AdminDocumentRow {
     user: {
         name: string;
         email: string;
+        avatar_url?: string | null;
     };
 }
 
@@ -54,14 +72,12 @@ const avatarColors = [
     'bg-pink-500',
 ];
 
-const getAvatarColor = (name: string) =>
-    avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
+const getAvatarColor = (name: string) => avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
 
 function getInitials(name: string) {
     const parts = name.trim().split(/\s+/).filter(Boolean);
     const first = parts[0]?.[0] ?? '';
     const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
-
     return `${first}${last}`.toUpperCase();
 }
 
@@ -77,56 +93,36 @@ function formatFileSize(bytes: number) {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-function getDocumentType(mimeType: string) {
+function getTypeBadge(mimeType: string) {
     switch (mimeType) {
         case 'application/pdf':
-            return {
-                label: 'PDF',
-                className: 'bg-red-500/15 text-red-600 dark:text-red-400',
-                icon: FileText,
-            };
+            return <Badge className="bg-red-500/15 text-red-600 dark:text-red-400">PDF</Badge>;
         case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-            return {
-                label: 'DOCX',
-                className: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-                icon: FileText,
-            };
+            return <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400">DOCX</Badge>;
         case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-            return {
-                label: 'XLSX',
-                className: 'bg-green-500/15 text-green-600 dark:text-green-400',
-                icon: FileSpreadsheet,
-            };
+            return <Badge className="bg-green-500/15 text-green-700 dark:text-green-400">XLSX</Badge>;
         case 'image/jpeg':
         case 'image/png':
-            return {
-                label: 'IMAGE',
-                className: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
-                icon: FileImage,
-            };
+            return <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400">IMAGE</Badge>;
         default:
-            return {
-                label: 'FILE',
-                className: 'bg-muted text-muted-foreground',
-                icon: File,
-            };
+            return <Badge className="bg-muted text-muted-foreground">FILE</Badge>;
     }
 }
 
-function getVisiblePages(currentPage: number, lastPage: number) {
-    if (lastPage <= 5) {
-        return Array.from({ length: lastPage }, (_, index) => index + 1);
+function getFileIcon(mimeType: string) {
+    switch (mimeType) {
+        case 'application/pdf':
+            return FileText;
+        case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+            return FileText;
+        case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+            return FileSpreadsheet;
+        case 'image/jpeg':
+        case 'image/png':
+            return FileImage;
+        default:
+            return File;
     }
-
-    if (currentPage <= 3) {
-        return [1, 2, 3, 4, 5];
-    }
-
-    if (currentPage >= lastPage - 2) {
-        return [lastPage - 4, lastPage - 3, lastPage - 2, lastPage - 1, lastPage];
-    }
-
-    return [currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2];
 }
 
 export default function AdminDocumentsIndex({ documents, filters }: Props) {
@@ -135,10 +131,6 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
     const [owner, setOwner] = useState(filters.owner ?? '');
 
     const currentCountLabel = `Showing ${documents.data.length} of ${documents.total} documents`;
-    const summaryLabel =
-        documents.from && documents.to
-            ? `Showing ${documents.from}-${documents.to} of ${documents.total} documents`
-            : `Showing 0 of ${documents.total} documents`;
 
     const submitFilters = (override?: Partial<{ search: string; type: string; owner: string }>) => {
         const next = {
@@ -148,9 +140,7 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
             ...override,
         };
 
-        const query = Object.fromEntries(
-            Object.entries(next).filter(([, value]) => value && value !== 'all')
-        );
+        const query = Object.fromEntries(Object.entries(next).filter(([, value]) => value && value !== 'all'));
 
         router.get(route('admin.documents'), query, {
             preserveState: true,
@@ -158,43 +148,17 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
         });
     };
 
-    const goToPage = (url: string | null) => {
-        if (!url) {
-            return;
-        }
-
-        router.get(url, {}, { preserveState: true, preserveScroll: true });
-    };
-
-    const buildPageUrl = (pageNumber: number) => {
-        const params = new URLSearchParams();
-
-        if (filters.search) {
-            params.set('search', filters.search);
-        }
-
-        if (filters.type) {
-            params.set('type', filters.type);
-        }
-
-        if (filters.owner) {
-            params.set('owner', filters.owner);
-        }
-
-        params.set('page', String(pageNumber));
-
-        return `${documents.path}?${params.toString()}`;
-    };
-
     const handleRowClick = (documentId: number) => {
-        router.get(route('documents.show', documentId));
+        router.visit(`/documents/${documentId}`);
+    };
+
+    const handleExport = () => {
+        window.location.assign(route('admin.documents.export'));
     };
 
     const stopRowNavigation = (event: MouseEvent<Element>) => {
         event.stopPropagation();
     };
-
-    const visiblePages = getVisiblePages(documents.current_page, documents.last_page);
 
     return (
         <AuthenticatedLayout
@@ -205,7 +169,19 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                         <p className="text-sm text-muted-foreground">
                             Read-only audit view of all uploaded documents within the system.
                         </p>
-                        <p className="text-xs text-muted-foreground">Admin &#8250; All Documents</p>
+                        <Breadcrumb>
+                            <BreadcrumbList>
+                                <BreadcrumbItem>
+                                    <BreadcrumbLink asChild>
+                                        <Link href="/admin">Admin</Link>
+                                    </BreadcrumbLink>
+                                </BreadcrumbItem>
+                                <BreadcrumbSeparator />
+                                <BreadcrumbItem>
+                                    <BreadcrumbPage>All Documents</BreadcrumbPage>
+                                </BreadcrumbItem>
+                            </BreadcrumbList>
+                        </Breadcrumb>
                     </div>
 
                     <Button form="admin-documents-filters" type="submit" variant="outline">
@@ -219,7 +195,7 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <Card className="bg-card">
+                    <Card>
                         <CardContent className="p-4">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                 <form
@@ -236,7 +212,8 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                             value={search}
                                             onChange={(event) => setSearch(event.target.value)}
                                             placeholder="Search by filename or owner..."
-                                            className="bg-background pl-9"
+                                            aria-label="Search documents by filename or owner"
+                                            className="pl-9"
                                         />
                                     </div>
 
@@ -248,7 +225,7 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                                 submitFilters({ type: value });
                                             }}
                                         >
-                                            <SelectTrigger className="bg-background">
+                                            <SelectTrigger aria-label="Filter documents by type">
                                                 <SelectValue placeholder="All Types" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -266,7 +243,7 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                             value={owner}
                                             onChange={(event) => setOwner(event.target.value)}
                                             placeholder="Filter by owner name or email..."
-                                            className="bg-background"
+                                            aria-label="Filter documents by owner name or email"
                                         />
                                     </div>
                                 </form>
@@ -279,138 +256,119 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                         </a>
                                     </Button>
                                     <p className="text-sm text-muted-foreground">{currentCountLabel}</p>
+                                    <div aria-live="polite" className="sr-only">
+                                        {currentCountLabel}
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-card">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
+                            <CardTitle className="font-semibold text-foreground">All Documents</CardTitle>
+                            <Button variant="outline" size="sm" onClick={handleExport} className="gap-2">
+                                <Download className="h-4 w-4" />
+                                Export CSV
+                            </Button>
+                        </CardHeader>
                         <CardContent className="p-0">
                             <Table>
-                                <TableHeader className="bg-muted [&_tr]:border-border">
-                                    <TableRow className="border-border hover:bg-transparent">
-                                        <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
-                                            Document Name
-                                        </TableHead>
-                                        <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
-                                            Owner
-                                        </TableHead>
-                                        <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
-                                            Type
-                                        </TableHead>
-                                        <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
-                                            Size
-                                        </TableHead>
-                                        <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
-                                            Uploaded Date
-                                        </TableHead>
-                                        <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
-                                            Encryption Status
-                                        </TableHead>
-                                        <TableHead className="bg-muted text-right text-xs uppercase tracking-wider text-muted-foreground">
-                                            Actions
-                                        </TableHead>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Document Name</TableHead>
+                                        <TableHead>Owner</TableHead>
+                                        <TableHead>Type</TableHead>
+                                        <TableHead>Size</TableHead>
+                                        <TableHead>Uploaded Date</TableHead>
+                                        <TableHead>Encryption Status</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {documents.data.length === 0 ? (
-                                        <TableRow className="border-border hover:bg-transparent">
-                                            <TableCell colSpan={7} className="h-32 text-center text-sm text-muted-foreground">
-                                                No documents matched your current filters.
+                                        <TableRow>
+                                            <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                                                No documents found.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        documents.data.map((document) => {
-                                            const typeMeta = getDocumentType(document.mime_type);
-                                            const TypeIcon = typeMeta.icon;
+                                        documents.data.map((doc) => {
+                                            const FileIcon = getFileIcon(doc.mime_type);
 
                                             return (
                                                 <TableRow
-                                                    key={document.id}
-                                                    className="cursor-pointer border-border hover:bg-muted/50"
-                                                    onClick={() => handleRowClick(document.id)}
+                                                    key={doc.id}
+                                                    className="cursor-pointer hover:bg-muted/50"
+                                                    onClick={() => handleRowClick(doc.id)}
                                                 >
                                                     <TableCell>
-                                                        <div className="flex items-center gap-3">
-                                                            <TypeIcon className="h-[18px] w-[18px] shrink-0 text-primary" />
-                                                            <div className="min-w-0">
-                                                                <p className="truncate font-medium text-foreground">
-                                                                    {document.original_name}
-                                                                </p>
-                                                                <p className="text-xs text-muted-foreground">#{document.id}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <FileIcon className="h-4 w-4 flex-shrink-0 text-primary" />
+                                                            <div>
+                                                                <div className="max-w-[200px] truncate text-sm font-medium text-foreground">
+                                                                    {doc.original_name}
+                                                                </div>
+                                                                <div className="text-xs text-muted-foreground">#{doc.id}</div>
                                                             </div>
                                                         </div>
                                                     </TableCell>
-
                                                     <TableCell>
-                                                        <div className="flex items-center gap-3">
-                                                            <div
-                                                                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white ${getAvatarColor(
-                                                                    document.user.name
-                                                                )}`}
-                                                            >
-                                                                {getInitials(document.user.name)}
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <p className="truncate text-sm text-foreground">
-                                                                    {document.user.name}
-                                                                </p>
-                                                                <p className="truncate text-xs text-muted-foreground">
-                                                                    {document.user.email}
-                                                                </p>
+                                                        <div className="flex items-center gap-2">
+                                                            <Avatar className="h-7 w-7">
+                                                                <AvatarImage
+                                                                    src={doc.user.avatar_url ?? undefined}
+                                                                    alt={doc.user.name}
+                                                                />
+                                                                <AvatarFallback className={`text-xs text-white ${getAvatarColor(doc.user.name)}`}>
+                                                                    {getInitials(doc.user.name)}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <div>
+                                                                <div className="text-sm text-foreground">{doc.user.name}</div>
+                                                                <div className="text-xs text-muted-foreground">{doc.user.email}</div>
                                                             </div>
                                                         </div>
                                                     </TableCell>
-
-                                                    <TableCell>
-                                                        <span
-                                                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${typeMeta.className}`}
-                                                        >
-                                                            {typeMeta.label}
-                                                        </span>
-                                                    </TableCell>
-
+                                                    <TableCell>{getTypeBadge(doc.mime_type)}</TableCell>
                                                     <TableCell className="text-sm text-muted-foreground">
-                                                        {formatFileSize(document.file_size)}
+                                                        {formatFileSize(doc.file_size)}
                                                     </TableCell>
-
-                                                    <TableCell className="text-xs text-muted-foreground">
-                                                        <div>{format(new Date(document.created_at), 'MMM dd, yyyy')}</div>
-                                                        <div>{format(new Date(document.created_at), 'HH:mm')}</div>
+                                                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                                                        <div>{format(new Date(doc.created_at), 'MMM dd, yyyy')}</div>
+                                                        <div>{format(new Date(doc.created_at), 'HH:mm')}</div>
                                                     </TableCell>
-
                                                     <TableCell>
-                                                        {document.has_integrity_violation ? (
-                                                            <div className="space-y-1">
-                                                                <span className="inline-flex items-center rounded-full bg-destructive/15 px-2.5 py-0.5 text-xs font-semibold text-destructive">
-                                                                    <ShieldAlert className="mr-1 h-3 w-3" />
-                                                                    Integrity Flag
-                                                                </span>
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    Hash mismatch logged
-                                                                </p>
-                                                            </div>
+                                                        {doc.has_integrity_violation ? (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="gap-1 border-destructive/20 bg-destructive/10 text-xs text-destructive"
+                                                            >
+                                                                <ShieldAlert className="h-3 w-3" />
+                                                                Integrity Flag
+                                                            </Badge>
                                                         ) : (
-                                                            <div className="space-y-1">
-                                                                <span className="inline-flex items-center rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:text-green-400">
-                                                                    <Lock className="mr-1 h-3 w-3" />
-                                                                    Encrypted
-                                                                </span>
-                                                                <p className="text-xs text-muted-foreground">AES-256-CBC</p>
-                                                            </div>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="gap-1 border-green-500/20 bg-green-500/10 text-xs text-green-700 dark:text-green-400"
+                                                            >
+                                                                <Lock className="h-3 w-3" />
+                                                                Encrypted
+                                                            </Badge>
                                                         )}
                                                     </TableCell>
-
                                                     <TableCell className="text-right">
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            asChild
+                                                            className="gap-1.5"
+                                                            onClick={(event) => {
+                                                                stopRowNavigation(event);
+                                                                router.visit(`/documents/${doc.id}`);
+                                                            }}
                                                         >
-                                                            <Link href={route('documents.show', document.id)} onClick={stopRowNavigation}>
-                                                                <Eye className="h-4 w-4" />
-                                                                View Details
-                                                            </Link>
+                                                            <Eye className="h-3.5 w-3.5" />
+                                                            View Details
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>
@@ -422,71 +380,35 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                         </CardContent>
                     </Card>
 
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-sm text-muted-foreground">{summaryLabel}</p>
-
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={!documents.prev_page_url}
-                                onClick={() => goToPage(documents.prev_page_url)}
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </Button>
-
-                            {visiblePages[0] > 1 && (
-                                <>
-                                    <Button variant="outline" size="sm" onClick={() => goToPage(buildPageUrl(1))}>
-                                        1
-                                    </Button>
-                                    {visiblePages[0] > 2 && (
-                                        <span className="px-2 text-sm text-muted-foreground">...</span>
-                                    )}
-                                </>
-                            )}
-
-                            {visiblePages.map((pageNumber) => (
-                                <Button
-                                    key={pageNumber}
-                                    variant="outline"
-                                    size="sm"
-                                    className={
-                                        pageNumber === documents.current_page
-                                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                                            : ''
-                                    }
-                                    onClick={() => goToPage(buildPageUrl(pageNumber))}
-                                >
-                                    {pageNumber}
-                                </Button>
-                            ))}
-
-                            {visiblePages[visiblePages.length - 1] < documents.last_page && (
-                                <>
-                                    {visiblePages[visiblePages.length - 1] < documents.last_page - 1 && (
-                                        <span className="px-2 text-sm text-muted-foreground">...</span>
-                                    )}
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => goToPage(buildPageUrl(documents.last_page))}
-                                    >
-                                        {documents.last_page}
-                                    </Button>
-                                </>
-                            )}
-
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={!documents.next_page_url}
-                                onClick={() => goToPage(documents.next_page_url)}
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
+                    {documents.last_page > 1 && (
+                        <Pagination>
+                            <PaginationContent>
+                                <PaginationItem>
+                                    <PaginationPrevious
+                                        href={documents.prev_page_url ?? '#'}
+                                        className={!documents.prev_page_url ? 'pointer-events-none opacity-50' : ''}
+                                    />
+                                </PaginationItem>
+                                {documents.links.slice(1, -1).map((link, index) => (
+                                    <PaginationItem key={`${link.label}-${index}`}>
+                                        {link.label === '...' ? (
+                                            <PaginationEllipsis />
+                                        ) : (
+                                            <PaginationLink href={link.url ?? '#'} isActive={link.active}>
+                                                {link.label}
+                                            </PaginationLink>
+                                        )}
+                                    </PaginationItem>
+                                ))}
+                                <PaginationItem>
+                                    <PaginationNext
+                                        href={documents.next_page_url ?? '#'}
+                                        className={!documents.next_page_url ? 'pointer-events-none opacity-50' : ''}
+                                    />
+                                </PaginationItem>
+                            </PaginationContent>
+                        </Pagination>
+                    )}
                 </div>
             </div>
         </AuthenticatedLayout>

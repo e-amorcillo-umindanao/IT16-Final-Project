@@ -26,6 +26,7 @@ class Document extends Model
         'encryption_iv',
         'file_hash',
         'description',
+        'is_starred',
         'scan_result',
     ];
 
@@ -39,6 +40,7 @@ class Document extends Model
         return [
             'description' => 'encrypted',
             'file_size' => 'integer',
+            'is_starred' => 'boolean',
             'scan_result' => 'array',
         ];
     }

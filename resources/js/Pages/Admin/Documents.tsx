@@ -89,6 +89,7 @@ export default function AdminDocuments({ documents, filters }: Props) {
                             onChange={(e) => setSearch(e.target.value)}
                             className="pl-10"
                             placeholder="Search by document or owner..."
+                            aria-label="Search documents by document name or owner"
                         />
                     </div>
                 </div>

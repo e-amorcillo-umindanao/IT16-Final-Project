@@ -36,7 +36,7 @@ class PwnedPasswordService
 
                         // Log the rejection if pwned and user is authenticated
                         if ($count > 0 && auth()->check()) {
-                            \App\Services\AuditService::log('pwned_password_rejected', null, [
+                            app(AuditService::class)->log('pwned_password_rejected', null, [
                                 'breach_count' => $count,
                                 'context'      => request()->routeIs('register') ? 'registration' : 'password_change',
                             ]);

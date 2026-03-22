@@ -1,10 +1,20 @@
+import AppLogo from '@/components/AppLogo';
+import PasswordStrengthBar from '@/components/PasswordStrengthBar';
 import GuestLayout from '@/Layouts/GuestLayout';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Eye, EyeOff, Loader2, Lock, Mail, ShieldAlert } from 'lucide-react';
+import {
+    ArrowRight,
+    Eye,
+    EyeOff,
+    Loader2,
+    Mail,
+    ShieldAlert,
+} from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
-import AppLogo from '@/components/AppLogo';
 
 export default function Register() {
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -15,7 +25,7 @@ export default function Register() {
     });
 
     const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -25,132 +35,94 @@ export default function Register() {
         });
     };
 
-    const getStrength = (pwd: string) => {
-        const checks = [
-            pwd.length >= 8,
-            /[A-Z]/.test(pwd),
-            /[a-z]/.test(pwd),
-            /[0-9]/.test(pwd),
-            /[@$!%*?&#^()_+]/.test(pwd),
-        ];
-        return checks.filter(Boolean).length;
-    };
-
-    const strength = getStrength(data.password);
-
-    const getStrengthColor = (s: number) => {
-        if (s === 0) return 'bg-muted';
-        if (s <= 2) return 'bg-destructive';
-        if (s === 3) return 'bg-amber-500';
-        return 'bg-green-500';
-    };
-
-    const getStrengthLabel = (s: number) => {
-        if (s === 0) return '';
-        if (s <= 2) return 'Weak';
-        if (s === 3) return 'Fair';
-        return 'Strong';
-    };
-
-    const getStrengthWidth = (s: number) => {
-        if (s === 0) return 'w-0';
-        if (s <= 2) return 'w-1/4';
-        if (s === 3) return 'w-2/3';
-        return 'w-full';
-    };
-
     return (
         <GuestLayout>
             <Head title="Register — SecureVault" />
 
-            <div className="flex min-h-screen items-center justify-center px-4">
-                <div className="w-full max-w-md rounded-2xl border border-border bg-card px-8 py-10 shadow-sm">
-                    {/* Amber top accent bar */}
-                    <div className="mb-8 -mx-8 -mt-10 h-1 rounded-t-2xl bg-primary" />
-
-                    {/* ── Logo mark ── */}
+            <Card className="mx-4 w-full max-w-md overflow-hidden rounded-2xl shadow-sm">
+                <CardContent className="px-10 py-10">
+                    <div className="-mx-10 -mt-10 mb-8 h-1.5 rounded-t-2xl bg-primary" />
                     <div className="mb-6 flex justify-center">
                         <AppLogo size="lg" showText={false} />
                     </div>
 
-                    <h1 className="text-2xl font-bold text-foreground">
+                    <h1 className="text-center text-2xl font-bold text-foreground">
                         Create Account
                     </h1>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="text-center text-sm text-muted-foreground">
                         Start managing your documents securely.
                     </p>
 
                     <form onSubmit={submit} className="mt-8 space-y-5">
-                        {/* Full Name */}
-                        <div>
-                            <label
-                                htmlFor="name"
-                                className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                            >
-                                Full Name
-                            </label>
-                            <Input
-                                id="name"
-                                name="name"
-                                value={data.name}
-                                onChange={(e) => setData('name', e.target.value)}
-                                placeholder="John Doe"
-                                autoComplete="name"
-                                autoFocus
-                            />
-                            {errors.name && (
-                                <p className="mt-1.5 text-sm text-destructive">
-                                    {errors.name}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Email Address */}
-                        <div>
-                            <label
-                                htmlFor="email"
-                                className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                            >
-                                Email Address
-                            </label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <div className="space-y-5">
+                            <div className="space-y-1.5">
+                                <Label
+                                    htmlFor="name"
+                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                                >
+                                    Full Name
+                                </Label>
                                 <Input
-                                    id="email"
-                                    type="email"
-                                    name="email"
-                                    className="pl-9"
-                                    value={data.email}
+                                    id="name"
+                                    name="name"
+                                    value={data.name}
                                     onChange={(e) =>
-                                        setData('email', e.target.value)
+                                        setData('name', e.target.value)
                                     }
-                                    placeholder="you@example.com"
-                                    autoComplete="email"
+                                    placeholder="John Doe"
+                                    autoComplete="name"
+                                    className="h-12 rounded-lg"
+                                    autoFocus
                                 />
+                                {errors.name && (
+                                    <p className="text-sm text-destructive">
+                                        {errors.name}
+                                    </p>
+                                )}
                             </div>
-                            {errors.email && (
-                                <p className="mt-1.5 text-sm text-destructive">
-                                    {errors.email}
-                                </p>
-                            )}
-                        </div>
 
-                        {/* Password Row */}
-                        <div className="grid grid-cols-2 gap-4">
-                            {/* Create Password */}
-                            <div>
-                                <label
+                            <div className="space-y-1.5">
+                                <Label
+                                    htmlFor="email"
+                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                                >
+                                    Email Address
+                                </Label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        name="email"
+                                        className="h-12 rounded-lg pl-9"
+                                        value={data.email}
+                                        onChange={(e) =>
+                                            setData('email', e.target.value)
+                                        }
+                                        placeholder="you@example.com"
+                                        autoComplete="email"
+                                    />
+                                </div>
+                                {errors.email && (
+                                    <p className="text-sm text-destructive">
+                                        {errors.email}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label
                                     htmlFor="password"
-                                    className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                                 >
                                     Password
-                                </label>
+                                </Label>
                                 <div className="relative">
                                     <Input
                                         id="password"
                                         type={showPassword ? 'text' : 'password'}
                                         name="password"
-                                        className="pr-10"
+                                        className="h-12 rounded-lg pr-10"
                                         value={data.password}
                                         onChange={(e) =>
                                             setData('password', e.target.value)
@@ -161,9 +133,16 @@ export default function Register() {
                                         type="button"
                                         variant="ghost"
                                         size="icon"
-                                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+                                        onClick={() =>
+                                            setShowPassword((prev) => !prev)
+                                        }
                                         tabIndex={-1}
+                                        aria-label={
+                                            showPassword
+                                                ? 'Hide password'
+                                                : 'Show password'
+                                        }
                                     >
                                         {showPassword ? (
                                             <EyeOff className="h-4 w-4" />
@@ -172,25 +151,36 @@ export default function Register() {
                                         )}
                                     </Button>
                                 </div>
+                                {errors.password &&
+                                    !errors.password.includes('data breach') && (
+                                        <p className="text-sm text-destructive">
+                                            {errors.password}
+                                        </p>
+                                    )}
+                                {data.password && (
+                                    <PasswordStrengthBar password={data.password} />
+                                )}
                             </div>
 
-                            {/* Confirm Password */}
-                            <div>
-                                <label
+                            <div className="space-y-1.5">
+                                <Label
                                     htmlFor="password_confirmation"
-                                    className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
                                 >
                                     Confirm Password
-                                </label>
+                                </Label>
                                 <div className="relative">
                                     <Input
                                         id="password_confirmation"
-                                        type={showConfirmPassword ? 'text' : 'password'}
+                                        type={showConfirm ? 'text' : 'password'}
                                         name="password_confirmation"
-                                        className="pr-10"
+                                        className="h-12 rounded-lg pr-10"
                                         value={data.password_confirmation}
                                         onChange={(e) =>
-                                            setData('password_confirmation', e.target.value)
+                                            setData(
+                                                'password_confirmation',
+                                                e.target.value
+                                            )
                                         }
                                         autoComplete="new-password"
                                     />
@@ -198,77 +188,63 @@ export default function Register() {
                                         type="button"
                                         variant="ghost"
                                         size="icon"
-                                        className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
+                                        onClick={() =>
+                                            setShowConfirm((prev) => !prev)
+                                        }
                                         tabIndex={-1}
+                                        aria-label={
+                                            showConfirm
+                                                ? 'Hide confirmation password'
+                                                : 'Show confirmation password'
+                                        }
                                     >
-                                        {showConfirmPassword ? (
+                                        {showConfirm ? (
                                             <EyeOff className="h-4 w-4" />
                                         ) : (
                                             <Eye className="h-4 w-4" />
                                         )}
                                     </Button>
                                 </div>
+                                {errors.password_confirmation && (
+                                    <p className="text-sm text-destructive">
+                                        {errors.password_confirmation}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
-                        {/* Password Strength Indicator */}
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <div className="h-1 w-full flex-1 rounded-full bg-muted overflow-hidden">
-                                    <div
-                                        className={`h-full transition-all duration-300 ${getStrengthColor(strength)} ${getStrengthWidth(strength)}`}
-                                    />
-                                </div>
-                                <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-12 text-right">
-                                    {getStrengthLabel(strength)}
-                                </span>
-                            </div>
-                            <p className="text-[10px] leading-relaxed text-muted-foreground">
-                                Min. 8 characters · Uppercase · Lowercase · Number · Special character
-                            </p>
-                        </div>
-
-                        {/* Errors for password (shared across both if validation returns them) */}
-                        {errors.password && (
-                            <div className={`rounded-lg p-3 ${errors.password.includes('data breach') ? 'bg-destructive/10 border border-destructive/20' : ''}`}>
-                                {errors.password.includes('data breach') && (
-                                    <div className="flex items-center gap-2 mb-1 text-destructive font-bold text-xs uppercase tracking-wider">
+                        {errors.password &&
+                            errors.password.includes('data breach') && (
+                                <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3">
+                                    <div className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-destructive">
                                         <ShieldAlert className="h-4 w-4" />
                                         Security Alert
                                     </div>
-                                )}
-                                <p className="text-sm text-destructive font-medium">
-                                    {errors.password}
-                                </p>
-                            </div>
-                        )}
-                        {errors.password_confirmation && (
-                            <p className="text-sm text-destructive">
-                                {errors.password_confirmation}
-                            </p>
-                        )}
+                                    <p className="text-sm font-medium text-destructive">
+                                        {errors.password}
+                                    </p>
+                                </div>
+                            )}
 
-                        {/* Submit Button */}
                         <Button
                             type="submit"
-                            className="h-11 w-full bg-primary text-sm font-semibold uppercase tracking-wide text-primary-foreground"
+                            className="mt-2 h-12 w-full gap-2 rounded-lg bg-primary font-semibold text-primary-foreground"
                             disabled={processing}
                         >
                             {processing ? (
                                 <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    <Loader2 className="h-4 w-4 animate-spin" />
                                     Creating account...
                                 </>
                             ) : (
                                 <>
-                                    <Lock className="mr-2 h-4 w-4" />
-                                    Create Account
+                                    <span>Create My Account</span>
+                                    <ArrowRight className="h-4 w-4" />
                                 </>
                             )}
                         </Button>
 
-                        {/* Footer link */}
                         <p className="text-center text-sm text-muted-foreground">
                             Already have an account?{' '}
                             <Link
@@ -279,8 +255,8 @@ export default function Register() {
                             </Link>
                         </p>
                     </form>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
         </GuestLayout>
     );
 }

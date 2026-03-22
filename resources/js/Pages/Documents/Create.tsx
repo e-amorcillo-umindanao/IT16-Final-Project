@@ -1,9 +1,26 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { consumePendingUpload } from '@/lib/pendingUpload';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import confetti from 'canvas-confetti';
+import {
+    AlertTriangle,
     File,
     FileText,
     FileType,
@@ -15,11 +32,12 @@ import {
     UploadCloud,
     X,
 } from 'lucide-react';
-import { ChangeEvent, DragEvent, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 interface Props {
     maxSize: number;
     allowedMimes: string[];
+    isFirstDocument: boolean;
 }
 
 type ValidationError = 'type' | 'size' | null;
@@ -78,7 +96,57 @@ function getFileIcon(mimeType: string) {
     return <File className="h-8 w-8 text-primary" />;
 }
 
-export default function Create({ maxSize, allowedMimes }: Props) {
+function getTypeLabel(mimeType: string) {
+    const normalized = mimeType.toLowerCase();
+
+    if (normalized.includes('pdf')) return 'PDF';
+    if (
+        normalized.includes('word') ||
+        normalized.includes('officedocument.wordprocessingml.document') ||
+        normalized.includes('msword')
+    ) {
+        return 'DOCX';
+    }
+    if (
+        normalized.includes('sheet') ||
+        normalized.includes('excel') ||
+        normalized.includes('spreadsheetml')
+    ) {
+        return 'XLSX';
+    }
+    if (normalized.includes('image/')) return 'IMAGE';
+
+    return 'FILE';
+}
+
+function getTypeBadgeClass(mimeType: string) {
+    const normalized = mimeType.toLowerCase();
+
+    if (normalized.includes('pdf')) {
+        return 'border-red-500/20 bg-red-500/15 text-red-600 dark:text-red-400';
+    }
+    if (
+        normalized.includes('word') ||
+        normalized.includes('officedocument.wordprocessingml.document') ||
+        normalized.includes('msword')
+    ) {
+        return 'border-blue-500/20 bg-blue-500/15 text-blue-600 dark:text-blue-400';
+    }
+    if (
+        normalized.includes('sheet') ||
+        normalized.includes('excel') ||
+        normalized.includes('spreadsheetml')
+    ) {
+        return 'border-green-500/20 bg-green-500/15 text-green-700 dark:text-green-400';
+    }
+    if (normalized.includes('image/')) {
+        return 'border-purple-500/20 bg-purple-500/15 text-purple-600 dark:text-purple-400';
+    }
+
+    return 'border-border bg-muted text-muted-foreground';
+}
+
+export default function Create({ maxSize, allowedMimes, isFirstDocument }: Props) {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [dragActive, setDragActive] = useState(false);
     const [clientError, setClientError] = useState<ValidationError>(null);
@@ -122,6 +190,16 @@ export default function Create({ maxSize, allowedMimes }: Props) {
         setClientError(validationError);
         setData('document', file);
     };
+
+    useEffect(() => {
+        const pendingFile = consumePendingUpload();
+
+        if (pendingFile) {
+            handleSelectedFile(pendingFile);
+        }
+        // We only want to hydrate a pending file once on page load.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const clearSelection = () => {
         setData('document', null);
@@ -180,6 +258,16 @@ export default function Create({ maxSize, allowedMimes }: Props) {
 
         post(route('documents.store'), {
             forceFormData: true,
+            onSuccess: () => {
+                if (isFirstDocument) {
+                    confetti({
+                        particleCount: 120,
+                        spread: 80,
+                        origin: { y: 0.6 },
+                        colors: ['#D4A843', '#B8860B', '#FFD700', '#FFF8DC', '#111111'],
+                    });
+                }
+            },
         });
     };
 
@@ -188,9 +276,25 @@ export default function Create({ maxSize, allowedMimes }: Props) {
             header={
                 <div className="space-y-1">
                     <h2 className="text-xl font-semibold leading-tight text-foreground">Upload Document</h2>
-                    <p className="text-sm text-muted-foreground">
-                        Main &#8250; <Link href={route('documents.index')} className="hover:text-foreground">My Vault</Link> &#8250; Upload
-                    </p>
+                    <Breadcrumb>
+                        <BreadcrumbList>
+                            <BreadcrumbItem>
+                                <BreadcrumbLink asChild>
+                                    <Link href="/dashboard">Main</Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                                <BreadcrumbLink asChild>
+                                    <Link href="/documents">My Vault</Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                                <BreadcrumbPage>Upload</BreadcrumbPage>
+                            </BreadcrumbItem>
+                        </BreadcrumbList>
+                    </Breadcrumb>
                 </div>
             }
         >
@@ -201,12 +305,12 @@ export default function Create({ maxSize, allowedMimes }: Props) {
                     <Card className="border-border bg-card">
                         <CardHeader className="space-y-3">
                             <CardTitle className="text-2xl font-semibold text-foreground">Secure Upload</CardTitle>
-                            <p className="text-sm text-muted-foreground">
+                            <CardDescription>
                                 Your document will be encrypted with{' '}
-                                <span className="font-semibold text-primary">AES-256-CBC</span> before being stored.
-                            </p>
+                                <strong className="font-semibold text-primary">AES-256-CBC</strong> before being stored.
+                            </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="space-y-6">
                             <form
                                 onSubmit={(event) => {
                                     event.preventDefault();
@@ -221,6 +325,7 @@ export default function Create({ maxSize, allowedMimes }: Props) {
                                         className="hidden"
                                         accept={acceptedMimes.join(',')}
                                         onChange={handleInputChange}
+                                        aria-label="Choose a document to upload"
                                     />
 
                                     <div
@@ -250,34 +355,51 @@ export default function Create({ maxSize, allowedMimes }: Props) {
                                                     {getFileIcon(data.document.type)}
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <p
-                                                        className="max-w-xs truncate font-medium text-foreground"
-                                                        title={data.document.name}
-                                                    >
-                                                        {data.document.name}
-                                                    </p>
-                                                    <p className="text-sm text-muted-foreground">
+                                                    <div className="flex items-center gap-2">
+                                                        <span
+                                                            className="max-w-xs truncate text-sm font-medium text-foreground"
+                                                            title={data.document.name}
+                                                        >
+                                                            {data.document.name}
+                                                        </span>
+                                                        <Badge variant="outline" className={getTypeBadgeClass(data.document.type)}>
+                                                            {getTypeLabel(data.document.type)}
+                                                        </Badge>
+                                                    </div>
+                                                    <span className="text-xs text-muted-foreground">
                                                         {formatBytes(data.document.size)}
-                                                    </p>
+                                                    </span>
                                                 </div>
-                                                <button
+                                                <Button
                                                     type="button"
+                                                    variant="ghost"
+                                                    size="icon"
                                                     onClick={(event) => {
                                                         event.stopPropagation();
                                                         clearSelection();
                                                     }}
-                                                    className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                                     disabled={processing}
+                                                    aria-label="Clear selected file"
                                                 >
                                                     <X className="h-4 w-4" />
                                                     <span className="sr-only">Clear selected file</span>
-                                                </button>
+                                                </Button>
                                             </div>
                                         ) : (
                                             <div className="flex flex-col items-center justify-center py-8 text-center">
-                                                <div className="mb-4 rounded-lg bg-muted p-3">
-                                                    <UploadCloud className="h-10 w-10 text-primary" />
-                                                </div>
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <div className="mb-4 cursor-help rounded-lg bg-muted p-3">
+                                                                <UploadCloud className="h-10 w-10 text-muted-foreground" />
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>Max file size: 10 MB</p>
+                                                            <p>Accepted: PDF, DOCX, XLSX, JPG, PNG</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
                                                 <p className="font-medium text-foreground">Click or drag file to upload</p>
                                                 <p className="mt-1 text-sm text-muted-foreground">
                                                     PDF, DOCX, XLSX, JPG, or PNG up to 10 MB
@@ -287,21 +409,29 @@ export default function Create({ maxSize, allowedMimes }: Props) {
                                     </div>
 
                                     {processing && progress && (
-                                        <div className="overflow-hidden rounded-full bg-muted">
-                                            <div
-                                                className="h-1 rounded-full bg-primary transition-all"
-                                                style={{ width: `${progress.percentage}%` }}
-                                            />
+                                        <div className="space-y-1.5">
+                                            <Progress value={progress.percentage} className="h-1" />
+                                            <p className="text-right text-xs text-muted-foreground">
+                                                {progress.percentage}% uploaded
+                                            </p>
                                         </div>
                                     )}
 
-                                    {fileErrorMessage && <p className="text-sm text-destructive">{fileErrorMessage}</p>}
+                                    {fileErrorMessage && (
+                                        <Alert variant="destructive">
+                                            <AlertTriangle className="h-4 w-4" />
+                                            <AlertDescription>{fileErrorMessage}</AlertDescription>
+                                        </Alert>
+                                    )}
                                 </div>
 
+                                <Separator />
+
                                 <div className="space-y-2">
-                                    <label htmlFor="description" className="text-sm font-medium text-foreground">
-                                        Description <span className="text-muted-foreground">(optional)</span>
-                                    </label>
+                                    <Label htmlFor="description">
+                                        Description{' '}
+                                        <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                                    </Label>
                                     <Textarea
                                         id="description"
                                         rows={3}
@@ -309,57 +439,56 @@ export default function Create({ maxSize, allowedMimes }: Props) {
                                         placeholder="Add a note about this document..."
                                         value={data.description}
                                         onChange={(event) => setData('description', event.target.value)}
-                                        className="bg-background"
+                                        className="resize-none bg-background"
                                     />
-                                    <div className="flex justify-end">
-                                        <p className="text-xs text-muted-foreground">{data.description.length}/500</p>
+                                    <div className="text-right">
+                                        <span className="text-xs text-muted-foreground">{data.description.length}/500</span>
                                     </div>
                                     {errors.description && <p className="text-sm text-destructive">{errors.description}</p>}
                                 </div>
 
-                                <div className="rounded-lg border border-primary/20 bg-primary/10 px-4 py-3">
-                                    <div className="flex items-start gap-3">
-                                        <div className="rounded-full bg-primary/20 p-1.5">
-                                            <ShieldCheck className="h-5 w-5 text-primary" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-sm font-medium text-foreground">
-                                                End-to-end encryption active
-                                            </p>
-                                            <p className="text-xs font-medium tracking-wide text-primary">
-                                                AES-256-CBC &middot; SHA-256 Integrity Verification
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
+                                <Separator />
 
-                                <div className="flex items-center justify-between gap-4">
+                                <Alert className="border-primary/20 bg-primary/10">
+                                    <ShieldCheck className="h-4 w-4 text-primary" />
+                                    <AlertDescription>
+                                        <span className="block text-sm font-medium text-foreground">
+                                            End-to-end encryption active
+                                        </span>
+                                        <span className="text-xs font-medium tracking-wide text-primary">
+                                            AES-256-CBC · SHA-256 Integrity Verification
+                                        </span>
+                                    </AlertDescription>
+                                </Alert>
+
+                                <div className="flex items-center justify-between gap-4 pt-2">
                                     <Button
                                         type="submit"
                                         disabled={!canSubmit}
-                                        className="bg-primary text-primary-foreground hover:bg-primary/90"
+                                        className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
                                     >
                                         {processing ? (
                                             <>
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                <Loader2 className="h-4 w-4 animate-spin" />
                                                 Encrypt & Upload Now
                                             </>
                                         ) : (
                                             <>
-                                                <LockKeyhole className="mr-2 h-4 w-4" />
+                                                <LockKeyhole className="h-4 w-4" />
                                                 Encrypt & Upload Now
                                             </>
                                         )}
                                     </Button>
 
-                                    <button
+                                    <Button
                                         type="button"
+                                        variant="ghost"
+                                        className="text-muted-foreground"
                                         onClick={() => router.visit(route('documents.index'))}
-                                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                                         disabled={processing}
                                     >
                                         Cancel
-                                    </button>
+                                    </Button>
                                 </div>
                             </form>
                         </CardContent>

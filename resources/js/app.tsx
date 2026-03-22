@@ -1,6 +1,7 @@
 import '../css/app.css';
 import './bootstrap';
 
+import { Toaster } from '@/components/ui/sonner';
 import { ThemeProvider } from '@/Providers/ThemeProvider';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
@@ -21,6 +22,7 @@ createInertiaApp({
                 el,
                 <ThemeProvider>
                     <App {...props} />
+                    <Toaster richColors position="top-right" />
                 </ThemeProvider>,
             );
             return;
@@ -29,6 +31,7 @@ createInertiaApp({
         createRoot(el).render(
             <ThemeProvider>
                 <App {...props} />
+                <Toaster richColors position="top-right" />
             </ThemeProvider>,
         );
     },

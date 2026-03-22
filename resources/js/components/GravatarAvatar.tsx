@@ -51,7 +51,7 @@ export default function GravatarAvatar({
             <div className={base}>
                 <img
                     src={avatarUrl}
-                    alt={name}
+                    alt={`${name}'s profile photo`}
                     className="h-full w-full object-cover"
                     onError={() => setFailed(true)}
                 />

@@ -1,14 +1,36 @@
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import GravatarAvatar from '@/components/GravatarAvatar';
 import { formatDistanceToNow } from 'date-fns';
 import {
+    AlertTriangle,
     Clock,
     Download,
     Eye,
@@ -22,7 +44,6 @@ import {
     Share2,
     Sheet,
     SlidersHorizontal,
-    User,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -108,12 +129,41 @@ function getPermissionLabel(permission: Permission) {
 function getPermissionBadge(permission: Permission) {
     switch (permission) {
         case 'view_only':
-            return 'bg-muted text-muted-foreground';
+            return <Badge variant="outline" className="text-xs">View Only</Badge>;
         case 'download':
-            return 'bg-primary/10 text-primary';
+            return (
+                <Badge variant="outline" className="border-primary/20 bg-primary/10 text-xs text-primary">
+                    Download
+                </Badge>
+            );
         case 'full_access':
-            return 'bg-primary text-primary-foreground';
+            return <Badge className="bg-primary text-xs text-primary-foreground">Full Access</Badge>;
     }
+}
+
+const avatarColors = ['bg-amber-500', 'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-red-500', 'bg-pink-500'];
+
+function getAvatarColor(name: string) {
+    return avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
+}
+
+function getInitials(name: string) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] ?? '';
+    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
+    return `${first}${last}`.toUpperCase();
+}
+
+function daysRemaining(value: string) {
+    return Math.ceil((new Date(value).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+}
+
+function isShareExpired(value: string | null) {
+    return value ? new Date(value).getTime() < Date.now() : false;
+}
+
+function formatRelative(value: string) {
+    return formatDistanceToNow(new Date(value), { addSuffix: true });
 }
 
 function FilterPanel({
@@ -137,8 +187,9 @@ function FilterPanel({
         <div className="space-y-4">
             <div className="space-y-3">
                 <p className="text-sm font-medium text-foreground">Permission</p>
-                <label className="flex items-center gap-2 text-sm text-foreground">
+                <div className="flex items-center gap-2">
                     <Checkbox
+                        id="view_only"
                         checked={permissionFilters.view_only}
                         onCheckedChange={(checked) =>
                             setPermissionFilters((current) => ({
@@ -147,10 +198,11 @@ function FilterPanel({
                             }))
                         }
                     />
-                    View Only
-                </label>
-                <label className="flex items-center gap-2 text-sm text-foreground">
+                    <Label htmlFor="view_only" className="cursor-pointer text-sm font-normal">View Only</Label>
+                </div>
+                <div className="flex items-center gap-2">
                     <Checkbox
+                        id="download"
                         checked={permissionFilters.download}
                         onCheckedChange={(checked) =>
                             setPermissionFilters((current) => ({
@@ -159,10 +211,11 @@ function FilterPanel({
                             }))
                         }
                     />
-                    Download
-                </label>
-                <label className="flex items-center gap-2 text-sm text-foreground">
+                    <Label htmlFor="download" className="cursor-pointer text-sm font-normal">Download</Label>
+                </div>
+                <div className="flex items-center gap-2">
                     <Checkbox
+                        id="full_access"
                         checked={permissionFilters.full_access}
                         onCheckedChange={(checked) =>
                             setPermissionFilters((current) => ({
@@ -171,8 +224,8 @@ function FilterPanel({
                             }))
                         }
                     />
-                    Full Access
-                </label>
+                    <Label htmlFor="full_access" className="cursor-pointer text-sm font-normal">Full Access</Label>
+                </div>
             </div>
 
             <div className="space-y-2">
@@ -181,22 +234,23 @@ function FilterPanel({
                     value={sharedByFilter}
                     onChange={(event) => setSharedByFilter(event.target.value)}
                     placeholder="Name or email"
+                    aria-label="Filter shares by sender name or email"
                     className="bg-background"
                 />
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-foreground">
-                <Checkbox checked={showExpired} onCheckedChange={(checked) => onToggleShowExpired(checked === true)} />
-                Show expired shares
-            </label>
+            <Separator />
 
-            <button
-                type="button"
-                onClick={clearFilters}
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
+            <div className="flex items-center gap-2">
+                <Checkbox id="show-expired" checked={showExpired} onCheckedChange={(checked) => onToggleShowExpired(checked === true)} />
+                <Label htmlFor="show-expired" className="cursor-pointer text-sm font-normal">Show expired shares</Label>
+            </div>
+
+            <Separator />
+
+            <Button type="button" variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={clearFilters}>
                 Clear Filters
-            </button>
+            </Button>
         </div>
     );
 }
@@ -271,17 +325,29 @@ export default function SharedWithMe({ shares, filters }: Props) {
                 <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-1">
                         <h2 className="text-xl font-semibold leading-tight text-foreground">Shared with Me</h2>
-                        <p className="text-sm text-muted-foreground">Main &#8250; Shared with Me</p>
+                        <Breadcrumb>
+                            <BreadcrumbList>
+                                <BreadcrumbItem>
+                                    <BreadcrumbLink asChild>
+                                        <Link href="/dashboard">Main</Link>
+                                    </BreadcrumbLink>
+                                </BreadcrumbItem>
+                                <BreadcrumbSeparator />
+                                <BreadcrumbItem>
+                                    <BreadcrumbPage>Shared with Me</BreadcrumbPage>
+                                </BreadcrumbItem>
+                            </BreadcrumbList>
+                        </Breadcrumb>
                     </div>
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" className="relative shrink-0">
+                            <Button variant="outline" className="relative shrink-0 gap-2">
                                 <SlidersHorizontal className="h-4 w-4" />
                                 Filter
                                 {activeFilterCount > 0 && (
-                                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                                    <Badge className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary p-0 text-xs text-primary-foreground">
                                         {activeFilterCount}
-                                    </span>
+                                    </Badge>
                                 )}
                             </Button>
                         </PopoverTrigger>
@@ -307,20 +373,24 @@ export default function SharedWithMe({ shares, filters }: Props) {
                     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                         {isEmpty ? (
                             <div className="flex min-h-[calc(100vh-18rem)] items-center justify-center">
-                                <div className="flex max-w-md flex-col items-center text-center">
-                                    <div className="relative mb-6">
-                                        <div className="rounded-xl bg-muted p-4">
-                                            <FolderOpen className="h-14 w-14 text-primary" />
+                                <Card className="flex w-full max-w-md flex-col items-center justify-center py-20">
+                                    <CardContent className="flex flex-col items-center gap-4 pt-6 text-center">
+                                        <div className="relative">
+                                            <div className="inline-block rounded-xl bg-muted p-4">
+                                                <FolderOpen className="h-14 w-14 text-muted-foreground" />
+                                            </div>
+                                            <div className="absolute -bottom-2 -right-2 rounded-full border border-border bg-card p-1.5">
+                                                <Link2 className="h-5 w-5 text-muted-foreground" />
+                                            </div>
                                         </div>
-                                        <div className="absolute -bottom-2 -right-2 rounded-full border border-border bg-card p-1.5">
-                                            <Link2 className="h-5 w-5 text-primary" />
+                                        <div>
+                                            <h3 className="text-xl font-semibold text-foreground">Nothing shared with you yet</h3>
+                                            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                                                Documents shared with you will appear here.
+                                            </p>
                                         </div>
-                                    </div>
-                                    <h3 className="text-2xl font-semibold text-foreground">Nothing shared with you yet</h3>
-                                    <p className="mt-3 max-w-sm text-center text-sm text-muted-foreground">
-                                        Documents shared with you will appear here.
-                                    </p>
-                                </div>
+                                    </CardContent>
+                                </Card>
                             </div>
                         ) : (
                             <div className="space-y-6">
@@ -331,19 +401,20 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                             value={search}
                                             onChange={(event) => setSearch(event.target.value)}
                                             placeholder="Search shared documents..."
+                                            aria-label="Search shared documents"
                                             className="bg-background pl-9"
                                         />
                                     </div>
                                     <div className="flex items-center gap-3 self-end sm:self-auto">
                                         <Popover>
                                             <PopoverTrigger asChild>
-                                                <Button variant="outline" className="relative">
+                                                <Button variant="outline" className="relative gap-2">
                                                     <SlidersHorizontal className="h-4 w-4" />
                                                     Filter
                                                     {activeFilterCount > 0 && (
-                                                        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                                                        <Badge className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary p-0 text-xs text-primary-foreground">
                                                             {activeFilterCount}
-                                                        </span>
+                                                        </Badge>
                                                     )}
                                                 </Button>
                                             </PopoverTrigger>
@@ -360,6 +431,13 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                             </PopoverContent>
                                         </Popover>
                                         <p className="text-sm text-muted-foreground">{filteredShares.length} shared</p>
+                                        <div aria-live="polite" aria-atomic="true" className="sr-only">
+                                            {search.trim().length >= 2
+                                                ? filteredShares.length > 0
+                                                    ? `${filteredShares.length} shared document result${filteredShares.length !== 1 ? 's' : ''} found`
+                                                    : 'No shared documents found'
+                                                : `${filteredShares.length} shared document${filteredShares.length !== 1 ? 's' : ''} shown`}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -371,70 +449,89 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                 ) : (
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                                         {filteredShares.map((share) => {
-                                            const now = Date.now();
-                                            const isExpired = share.expires_at ? new Date(share.expires_at).getTime() < now : false;
-                                            const isExpiringSoon = share.expires_at
-                                                ? new Date(share.expires_at).getTime() - now <= 24 * 60 * 60 * 1000 && !isExpired
-                                                : false;
+                                            const expired = isShareExpired(share.expires_at);
+                                            const remainingDays = share.expires_at ? daysRemaining(share.expires_at) : null;
 
                                             return (
-                                                <div
+                                                <Card
                                                     key={share.id}
-                                                    className={`rounded-lg border border-border bg-card p-4 ${isExpired ? 'opacity-50' : ''}`}
+                                                    className={`transition-all ${expired ? 'opacity-50' : 'hover:border-primary/30'}`}
                                                 >
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                                                    <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+                                                        <div className="flex items-center gap-2">
                                                             {getFileIcon(share.document.mime_type)}
+                                                            <div className="min-w-0">
+                                                                <p className="truncate text-sm font-medium text-foreground">
+                                                                    {share.document.original_name}
+                                                                </p>
+                                                                <p className="text-xs text-muted-foreground">{formatBytes(share.document.file_size)}</p>
+                                                            </div>
                                                         </div>
-                                                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getPermissionBadge(share.permission)}`}>
-                                                            {getPermissionLabel(share.permission)}
-                                                        </span>
-                                                    </div>
+                                                        {getPermissionBadge(share.permission)}
+                                                    </CardHeader>
 
-                                                    <div className="mt-4 space-y-1">
-                                                        <p className="truncate font-medium text-foreground" title={share.document.original_name}>
-                                                            {share.document.original_name}
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground">{formatBytes(share.document.file_size)}</p>
+                                                    <CardContent className="space-y-3 pt-0">
                                                         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                                                            <GravatarAvatar 
-                                                                name={share.shared_by.name} 
-                                                                avatarUrl={share.shared_by.avatar_url} 
-                                                                size="xs" 
-                                                            />
+                                                            <Avatar className="h-5 w-5">
+                                                                <AvatarImage src={share.shared_by.avatar_url ?? undefined} alt={share.shared_by.name} />
+                                                                <AvatarFallback className={`text-[10px] text-white ${getAvatarColor(share.shared_by.name)}`}>
+                                                                    {getInitials(share.shared_by.name)}
+                                                                </AvatarFallback>
+                                                            </Avatar>
                                                             <span className="truncate">Shared by {share.shared_by.name}</span>
                                                         </div>
-                                                    </div>
 
-                                                    <div className="mt-5 flex items-end justify-between gap-3">
+                                                    <div className="flex items-end justify-between gap-3">
                                                         <div className="space-y-1">
                                                             <p className="text-xs text-muted-foreground">
                                                                 Shared {formatDistanceToNow(new Date(share.created_at), { addSuffix: true })}
                                                             </p>
                                                             {share.expires_at && (
-                                                                <div className={`flex items-center gap-1 text-xs ${isExpiringSoon ? 'text-destructive' : 'text-muted-foreground'}`}>
-                                                                    <Clock className="h-3 w-3" />
-                                                                    <span>
-                                                                        Expires {formatDistanceToNow(new Date(share.expires_at), { addSuffix: true })}
-                                                                    </span>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    {remainingDays !== null && remainingDays <= 3 ? (
+                                                                        <Badge variant="outline" className="gap-1 border-destructive/20 bg-destructive/10 text-xs text-destructive">
+                                                                            <AlertTriangle className="h-3 w-3" />
+                                                                            Expires {formatRelative(share.expires_at)}
+                                                                        </Badge>
+                                                                    ) : remainingDays !== null && remainingDays <= 7 ? (
+                                                                        <Badge variant="outline" className="gap-1 border-amber-500/20 bg-amber-500/10 text-xs text-amber-700 dark:text-amber-400">
+                                                                            <Clock className="h-3 w-3" />
+                                                                            Expires {formatRelative(share.expires_at)}
+                                                                        </Badge>
+                                                                    ) : (
+                                                                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                                            <Clock className="h-3 w-3" />
+                                                                            Expires {formatRelative(share.expires_at)}
+                                                                        </span>
+                                                                    )}
+                                                                    {expired && (
+                                                                        <Badge variant="outline" className="text-xs text-muted-foreground">
+                                                                            Expired
+                                                                        </Badge>
+                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>
 
-                                                        {isExpired ? (
+                                                        {expired ? (
                                                             <span className="text-xs text-muted-foreground">Expired</span>
                                                         ) : (
                                                             <div className="flex items-center gap-1">
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                        <Button variant="ghost" size="icon" asChild>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            aria-label={`View details for ${share.document.original_name}`}
+                                                                            asChild
+                                                                        >
                                                                             <Link href={route('documents.show', share.document.id)}>
                                                                                 <Eye className="h-4 w-4" />
                                                                                 <span className="sr-only">View Details</span>
                                                                             </Link>
                                                                         </Button>
                                                                     </TooltipTrigger>
-                                                                    <TooltipContent>View Details</TooltipContent>
+                                                                    <TooltipContent><p>View Details</p></TooltipContent>
                                                                 </Tooltip>
 
                                                                 {(share.permission === 'download' || share.permission === 'full_access') && (
@@ -444,32 +541,39 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                                                                 variant="ghost"
                                                                                 size="icon"
                                                                                 onClick={() => window.location.assign(route('documents.download', share.document.id))}
+                                                                                aria-label={`Download ${share.document.original_name}`}
                                                                             >
                                                                                 <Download className="h-4 w-4" />
                                                                                 <span className="sr-only">Download</span>
                                                                             </Button>
                                                                         </TooltipTrigger>
-                                                                        <TooltipContent>Download</TooltipContent>
+                                                                        <TooltipContent><p>Download</p></TooltipContent>
                                                                     </Tooltip>
                                                                 )}
 
                                                                 {share.permission === 'full_access' && (
                                                                     <Tooltip>
                                                                         <TooltipTrigger asChild>
-                                                                            <Button variant="ghost" size="icon" asChild>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                aria-label={`Manage sharing for ${share.document.original_name}`}
+                                                                                asChild
+                                                                            >
                                                                                 <Link href={route('documents.show', share.document.id)}>
                                                                                     <Share2 className="h-4 w-4" />
                                                                                     <span className="sr-only">Share</span>
                                                                                 </Link>
                                                                             </Button>
                                                                         </TooltipTrigger>
-                                                                        <TooltipContent>Share</TooltipContent>
+                                                                        <TooltipContent><p>Share</p></TooltipContent>
                                                                     </Tooltip>
                                                                 )}
                                                             </div>
                                                         )}
                                                     </div>
-                                                </div>
+                                                    </CardContent>
+                                                </Card>
                                             );
                                         })}
                                     </div>
@@ -477,15 +581,51 @@ export default function SharedWithMe({ shares, filters }: Props) {
 
                                 {shares.total > 12 && (
                                     <div className="flex items-center justify-between gap-3">
-                                        <Button variant="outline" onClick={() => goToPage(shares.prev_page_url)} disabled={!shares.prev_page_url}>
-                                            Previous
-                                        </Button>
                                         <p className="text-sm text-muted-foreground">
                                             Page {shares.current_page} of {shares.last_page}
                                         </p>
-                                        <Button variant="outline" onClick={() => goToPage(shares.next_page_url)} disabled={!shares.next_page_url}>
-                                            Next
-                                        </Button>
+                                        <Pagination className="mx-0 w-auto justify-end">
+                                            <PaginationContent>
+                                                <PaginationItem>
+                                                    <PaginationPrevious
+                                                        href={shares.prev_page_url ?? '#'}
+                                                        className={!shares.prev_page_url ? 'pointer-events-none opacity-50' : ''}
+                                                        onClick={(event) => {
+                                                            event.preventDefault();
+                                                            goToPage(shares.prev_page_url);
+                                                        }}
+                                                    />
+                                                </PaginationItem>
+                                                {shares.links.slice(1, -1).map((link, index) => (
+                                                    <PaginationItem key={`${link.label}-${index}`}>
+                                                        {link.label === '...' ? (
+                                                            <PaginationEllipsis />
+                                                        ) : (
+                                                            <PaginationLink
+                                                                href={link.url ?? '#'}
+                                                                isActive={link.active}
+                                                                onClick={(event) => {
+                                                                    event.preventDefault();
+                                                                    goToPage(link.url);
+                                                                }}
+                                                            >
+                                                                {link.label}
+                                                            </PaginationLink>
+                                                        )}
+                                                    </PaginationItem>
+                                                ))}
+                                                <PaginationItem>
+                                                    <PaginationNext
+                                                        href={shares.next_page_url ?? '#'}
+                                                        className={!shares.next_page_url ? 'pointer-events-none opacity-50' : ''}
+                                                        onClick={(event) => {
+                                                            event.preventDefault();
+                                                            goToPage(shares.next_page_url);
+                                                        }}
+                                                    />
+                                                </PaginationItem>
+                                            </PaginationContent>
+                                        </Pagination>
                                     </div>
                                 )}
                             </div>

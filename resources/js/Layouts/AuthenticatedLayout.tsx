@@ -1,6 +1,7 @@
 import AppLogo from '@/components/AppLogo';
+import GlobalSearch from '@/components/GlobalSearch';
 import ThemeToggle from '@/components/ThemeToggle';
-import { Toaster } from '@/components/ui/sonner';
+import VaultLock from '@/components/VaultLock';
 import { Link, usePage } from '@inertiajs/react';
 import { PropsWithChildren, ReactNode, useState, useEffect } from 'react';
 import { useFlashToasts } from '@/hooks/useFlashToasts';
@@ -46,14 +47,57 @@ export default function Authenticated({
         canViewAuditLogs ||
         canManageSessions;
 
+    const getRoleLabel = () => {
+        const rawRole = typeof user.role === 'string' ? user.role : null;
+
+        if (rawRole === 'super-admin') {
+            return 'Super Admin';
+        }
+
+        if (rawRole === 'admin') {
+            return 'Admin';
+        }
+
+        if (rawRole === 'user') {
+            return 'User';
+        }
+
+        if (
+            canViewAdminDashboard ||
+            canManageUsers ||
+            canViewAllDocuments ||
+            canViewAuditLogs ||
+            canManageSessions
+        ) {
+            return 'Admin';
+        }
+
+        return 'User';
+    };
+
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     // Close mobile menu on route change (simulated by checking route in usePage)
     const { url } = usePage();
     useEffect(() => {
         setIsMobileMenuOpen(false);
+        setIsSearchOpen(false);
     }, [url]);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+                event.preventDefault();
+                setIsSearchOpen(true);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const NavItem = ({ href, icon: Icon, label, active }: { href: string; icon: any; label: string; active: boolean }) => (
         <Link
@@ -204,6 +248,9 @@ export default function Authenticated({
                         {(isSidebarOpen || isMobileMenuOpen) && (
                             <div className="flex flex-col min-w-0">
                                 <p className="truncate text-sm font-semibold text-foreground">{user.name}</p>
+                                <p className="truncate text-xs font-medium uppercase tracking-[0.14em] text-primary">
+                                    {getRoleLabel()}
+                                </p>
                                 <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                             </div>
                         )}
@@ -253,14 +300,20 @@ export default function Authenticated({
                     <header className="border-b border-border bg-background py-6">
                         <div className="mx-auto flex max-w-7xl items-start justify-between gap-4 px-4 sm:px-6 lg:px-8">
                             {header}
-                            <div className="hidden shrink-0 lg:flex">
+                            <div className="hidden shrink-0 items-center gap-3 lg:flex">
+                                <div className="w-[20rem]">
+                                    <GlobalSearch open={isSearchOpen} onOpenChange={setIsSearchOpen} />
+                                </div>
                                 <ThemeToggle />
                             </div>
                         </div>
                     </header>
                 )}
                 {!header && (
-                    <div className="hidden justify-end border-b border-border bg-background px-4 py-3 lg:flex">
+                    <div className="hidden items-center justify-end gap-3 border-b border-border bg-background px-4 py-3 lg:flex">
+                        <div className="w-[20rem]">
+                            <GlobalSearch open={isSearchOpen} onOpenChange={setIsSearchOpen} />
+                        </div>
                         <ThemeToggle />
                     </div>
                 )}
@@ -270,13 +323,8 @@ export default function Authenticated({
                     {children}
                 </main>
             </div>
-            
-            <Toaster
-                position="top-right"
-                toastOptions={{
-                    className: 'shadow-none',
-                }}
-            />
+
+            <VaultLock userEmail={user.email} />
         </div>
     );
 }

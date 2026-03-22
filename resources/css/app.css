@@ -149,9 +149,25 @@
     -webkit-text-fill-color: var(--foreground) !important;
     caret-color: var(--foreground) !important;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer utilities {
+  .typewriter {
+    width: 0;
+    animation: typewriter 2s steps(40) 0.5s forwards, blink 0.75s step-end infinite;
+  }
+
   .noir-card-glow {
     box-shadow: 0 1px 3px color-mix(in srgb, var(--primary) 12%, transparent);
   }
@@ -173,5 +189,34 @@
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: color-mix(in srgb, var(--primary) 70%, transparent);
+  }
+}
+
+@keyframes typewriter {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blink {
+  from,
+  to {
+    border-color: transparent;
+  }
+
+  50% {
+    border-color: var(--primary);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typewriter {
+    width: 100%;
+    animation: none;
+    border-right: none;
   }
 }

@@ -1,14 +1,27 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import {
     Table,
@@ -19,8 +32,9 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { formatDistanceToNow } from 'date-fns';
 import {
     AlertTriangle,
@@ -97,23 +111,27 @@ function ExpiryStatus({ deletedAt }: { deletedAt: string }) {
     const daysRemaining = getDaysRemaining(deletedAt);
 
     if (daysRemaining <= 0) {
-        return <span className="text-xs font-semibold text-destructive">Expires today</span>;
+        return (
+            <Badge variant="outline" className="border-destructive/20 bg-destructive/10 text-xs text-destructive">
+                Expires today
+            </Badge>
+        );
     }
 
-    if (daysRemaining < 3) {
+    if (daysRemaining <= 3) {
         return (
-            <div className="flex items-center gap-1 text-xs font-medium text-destructive">
+            <Badge variant="outline" className="gap-1 border-destructive/20 bg-destructive/10 text-xs text-destructive">
                 <AlertTriangle className="h-3 w-3" />
-                <span>{daysRemaining} days remaining</span>
-            </div>
+                {daysRemaining}d remaining
+            </Badge>
         );
     }
 
     if (daysRemaining <= 7) {
         return (
-            <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                {daysRemaining} days remaining
-            </span>
+            <Badge variant="outline" className="border-amber-500/20 bg-amber-500/10 text-xs text-amber-700 dark:text-amber-400">
+                {daysRemaining}d remaining
+            </Badge>
         );
     }
 
@@ -124,8 +142,6 @@ export default function TrashIndex({ documents }: Props) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [processingId, setProcessingId] = useState<number | null>(null);
     const [isRestoringSelected, setIsRestoringSelected] = useState(false);
-    const [documentToDelete, setDocumentToDelete] = useState<TrashDocument | null>(null);
-    const [showEmptyTrashDialog, setShowEmptyTrashDialog] = useState(false);
 
     const allSelected = useMemo(
         () => documents.length > 0 && selectedIds.length === documents.length,
@@ -166,17 +182,12 @@ export default function TrashIndex({ documents }: Props) {
         );
     };
 
-    const handlePermanentDelete = () => {
-        if (!documentToDelete) {
-            return;
-        }
-
-        setProcessingId(documentToDelete.id);
-        router.delete(route('documents.force-delete', documentToDelete.id), {
+    const handlePermanentDelete = (id: number) => {
+        setProcessingId(id);
+        router.delete(route('documents.force-delete', id), {
             preserveScroll: true,
             onFinish: () => {
                 setProcessingId(null);
-                setDocumentToDelete(null);
             },
         });
     };
@@ -184,57 +195,72 @@ export default function TrashIndex({ documents }: Props) {
     const handleEmptyTrash = () => {
         router.delete(route('documents.empty-trash'), {
             preserveScroll: true,
-            onFinish: () => setShowEmptyTrashDialog(false),
         });
     };
 
     return (
         <AuthenticatedLayout
             header={
-                <div className="w-full space-y-3">
-                    <div className="space-y-1">
-                        <h2 className="text-2xl font-semibold text-foreground">Trash</h2>
-                        <p className="text-sm text-muted-foreground">
-                            Manage and recover your deleted documents.
-                        </p>
-                        <p className="text-xs text-muted-foreground">Main › Trash</p>
-                    </div>
-                    <Separator />
+                <div className="w-full space-y-1">
+                    <h2 className="text-2xl font-semibold text-foreground">Trash</h2>
+                    <p className="text-sm text-muted-foreground">Manage and recover your deleted documents.</p>
+                    <Breadcrumb>
+                        <BreadcrumbList>
+                            <BreadcrumbItem>
+                                <BreadcrumbLink asChild>
+                                    <Link href="/dashboard">Main</Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                                <BreadcrumbPage>Trash</BreadcrumbPage>
+                            </BreadcrumbItem>
+                        </BreadcrumbList>
+                    </Breadcrumb>
                 </div>
             }
         >
             <Head title="Trash" />
 
             <div className="py-10">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
-                    <Alert variant="default" className="border-l-4 border-l-primary text-foreground">
-                        <Info className="h-4 w-4" />
-                        <AlertTitle className="uppercase tracking-wide">Notice</AlertTitle>
-                        <AlertDescription className="text-sm text-foreground">
-                            <p>Documents in the trash will be permanently deleted after 30 days.</p>
-                            <p>No recovery is possible after that period.</p>
+                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                    <Alert className="border-l-4 border-l-primary bg-primary/5">
+                        <Info className="h-4 w-4 text-primary" />
+                        <AlertTitle className="text-sm font-semibold text-foreground">Notice</AlertTitle>
+                        <AlertDescription className="text-sm text-muted-foreground">
+                            Documents in the trash will be permanently deleted after 30 days. No recovery is possible after that period.
                         </AlertDescription>
                     </Alert>
 
+                    <Separator className="my-6" />
+
                     {documents.length === 0 ? (
                         <div className="flex min-h-[calc(100vh-24rem)] items-center justify-center">
-                            <div className="flex max-w-md flex-col items-center text-center">
-                                <div className="mb-4 inline-block rounded-xl bg-muted p-4">
-                                    <Trash2 className="h-12 w-12 text-muted-foreground" />
-                                </div>
-                                <h3 className="text-lg font-semibold text-foreground">Your trash is empty</h3>
-                                <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-                                    Deleted documents will appear here for 30 days before being permanently removed.
-                                </p>
-                            </div>
+                            <Card className="flex w-full max-w-md flex-col items-center justify-center py-20">
+                                <CardContent className="flex flex-col items-center gap-4 pt-6 text-center">
+                                    <div className="inline-block rounded-xl bg-muted p-4">
+                                        <Trash2 className="h-12 w-12 text-muted-foreground" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-foreground">Your trash is empty</h3>
+                                        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                                            Deleted documents will appear here for 30 days before being permanently removed.
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
                     ) : (
                         <div className="overflow-hidden rounded-lg border border-border bg-card">
                             <Table>
                                 <TableHeader className="bg-background [&_tr]:border-border">
                                     <TableRow className="border-border hover:bg-transparent">
-                                        <TableHead className="w-12">
-                                            <Checkbox checked={allSelected} onCheckedChange={(checked) => toggleAll(checked === true)} />
+                                        <TableHead className="w-10">
+                                            <Checkbox
+                                                checked={allSelected}
+                                                onCheckedChange={(checked) => toggleAll(checked === true)}
+                                                aria-label="Select all documents in trash"
+                                            />
                                         </TableHead>
                                         <TableHead>Name</TableHead>
                                         <TableHead>Size</TableHead>
@@ -245,11 +271,12 @@ export default function TrashIndex({ documents }: Props) {
                                 </TableHeader>
                                 <TableBody>
                                     {documents.map((document) => (
-                                        <TableRow key={document.id} className="border-border hover:bg-muted/50">
+                                        <TableRow key={document.id} className="hover:bg-muted/50">
                                             <TableCell>
                                                 <Checkbox
                                                     checked={selectedIds.includes(document.id)}
                                                     onCheckedChange={(checked) => toggleOne(document.id, checked === true)}
+                                                    aria-label={`Select ${document.original_name}`}
                                                 />
                                             </TableCell>
                                             <TableCell>
@@ -272,27 +299,60 @@ export default function TrashIndex({ documents }: Props) {
                                             <TableCell>
                                                 <ExpiryStatus deletedAt={document.deleted_at} />
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handleRestore(document.id)}
-                                                        disabled={processingId === document.id}
-                                                    >
-                                                        <RotateCcw className="h-4 w-4" />
-                                                        Restore
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                        onClick={() => setDocumentToDelete(document)}
-                                                        disabled={processingId === document.id}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                        Delete Permanently
-                                                    </Button>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="gap-1.5"
+                                                                    onClick={() => handleRestore(document.id)}
+                                                                    disabled={processingId === document.id}
+                                                                    aria-label={`Restore ${document.original_name}`}
+                                                                >
+                                                                    <RotateCcw className="h-3.5 w-3.5" />
+                                                                    Restore
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Restore to My Vault</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="gap-1.5 text-destructive hover:bg-destructive/10"
+                                                                disabled={processingId === document.id}
+                                                                aria-label={`Delete ${document.original_name} permanently`}
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                                Delete Permanently
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Delete Permanently?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    This action cannot be undone. The document and its encrypted file will be permanently deleted from the server.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction
+                                                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                                    onClick={() => handlePermanentDelete(document.id)}
+                                                                >
+                                                                    Delete Permanently
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -300,38 +360,59 @@ export default function TrashIndex({ documents }: Props) {
                                 </TableBody>
                                 <TableFooter className="bg-background">
                                     <TableRow className="border-border hover:bg-transparent">
-                                        <TableCell colSpan={3}>
-                                            <div className="flex items-center gap-3">
-                                                {selectedIds.length === 0 ? (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {documents.length} item{documents.length === 1 ? '' : 's'} in trash
-                                                    </span>
-                                                ) : (
-                                                    <>
-                                                        <span className="text-xs font-medium text-foreground">
-                                                            {selectedIds.length} selected
-                                                        </span>
+                                        <TableCell colSpan={6}>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs text-muted-foreground">
+                                                    {selectedIds.length > 0
+                                                        ? `${selectedIds.length} selected`
+                                                        : `${documents.length} item(s) in trash`}
+                                                </span>
+                                                <div className="flex items-center gap-3">
+                                                    {selectedIds.length > 0 && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
+                                                            className="gap-1.5 text-sm"
                                                             onClick={handleRestoreSelected}
                                                             disabled={isRestoringSelected}
+                                                            aria-label={`Restore ${selectedIds.length} selected document${selectedIds.length !== 1 ? 's' : ''}`}
                                                         >
-                                                            <RotateCcw className="h-4 w-4" />
+                                                            <RotateCcw className="h-3.5 w-3.5" />
                                                             Restore Selected
                                                         </Button>
-                                                    </>
-                                                )}
+                                                    )}
+
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="text-destructive hover:bg-destructive/10"
+                                                                aria-label={`Empty trash and permanently delete ${documents.length} document${documents.length !== 1 ? 's' : ''}`}
+                                                            >
+                                                                Empty Trash
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Empty Trash?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    This will permanently delete all {documents.length} document(s) in your trash. This cannot be undone.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction
+                                                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                                    onClick={handleEmptyTrash}
+                                                                >
+                                                                    Empty Trash
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </div>
                                             </div>
-                                        </TableCell>
-                                        <TableCell colSpan={3} className="text-right">
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowEmptyTrashDialog(true)}
-                                                className="text-sm text-destructive transition-colors hover:underline"
-                                            >
-                                                Empty Trash
-                                            </button>
                                         </TableCell>
                                     </TableRow>
                                 </TableFooter>
@@ -340,48 +421,6 @@ export default function TrashIndex({ documents }: Props) {
                     )}
                 </div>
             </div>
-
-            <Dialog open={documentToDelete !== null} onOpenChange={(open) => !open && setDocumentToDelete(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete Permanently</DialogTitle>
-                        <DialogDescription>
-                            This action cannot be undone. The document and its encrypted file will be permanently deleted.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setDocumentToDelete(null)}>
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={handlePermanentDelete}
-                        >
-                            Delete Permanently
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={showEmptyTrashDialog} onOpenChange={setShowEmptyTrashDialog}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Empty Trash</DialogTitle>
-                        <DialogDescription>
-                            This will permanently delete all {documents.length} documents in your trash. This cannot be undone.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setShowEmptyTrashDialog(false)}>
-                            Cancel
-                        </Button>
-                        <Button type="button" variant="destructive" onClick={handleEmptyTrash}>
-                            Delete Permanently
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </AuthenticatedLayout>
     );
 }

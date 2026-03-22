@@ -1,17 +1,41 @@
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps, PaginatedResponse } from '@/types';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { format } from 'date-fns';
-import GravatarAvatar from '@/components/GravatarAvatar';
 import {
     Activity,
+    AlertTriangle,
+    CalendarIcon,
     Download,
+    FileDown,
     Lock,
     LogIn,
     LogOut,
@@ -80,83 +104,62 @@ const ACTION_OPTIONS = [
     { value: 'integrity_violation', label: 'Integrity Violation' },
 ];
 
+const avatarColors = ['bg-amber-500', 'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-red-500', 'bg-pink-500'];
 
+function getAvatarColor(name: string) {
+    return avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
+}
 
-function getActionLabel(action: AuditAction) {
-    switch (action) {
-        case 'login_success':
-            return 'Login';
-        case 'login_failed':
-            return 'Failed Login';
-        case 'logout':
-            return 'Logout';
-        case 'document_uploaded':
-            return 'Upload';
-        case 'document_downloaded':
-            return 'Download';
-        case 'document_shared':
-            return 'Share';
-        case 'document_deleted':
-            return 'Delete';
-        case '2fa_enabled':
-        case 'two_factor_enabled':
-            return '2FA Enabled';
-        case 'account_locked':
-            return 'Account Locked';
-        case 'integrity_violation':
-            return 'Integrity Violation';
-        default:
-            return action.replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+function getInitials(name: string) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] ?? '';
+    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
+    return `${first}${last}`.toUpperCase();
+}
+
+function parseDateValue(value: string) {
+    if (!value) {
+        return undefined;
     }
+
+    const [year, month, day] = value.split('-').map(Number);
+
+    return new Date(year, month - 1, day);
+}
+
+function formatDateValue(date?: Date) {
+    return date ? format(date, 'yyyy-MM-dd') : '';
 }
 
 function getActionBadge(action: AuditAction) {
     switch (action) {
         case 'login_success':
-            return { icon: LogIn, className: 'bg-green-500/15 text-green-700 dark:text-green-400' };
+            return { icon: LogIn, label: 'LOGIN SUCCESS', className: 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20' };
         case 'login_failed':
-            return { icon: LogIn, className: 'bg-destructive/15 text-destructive' };
+            return { icon: LogIn, label: 'LOGIN FAILED', className: 'bg-destructive/15 text-destructive border-destructive/20' };
         case 'logout':
-            return { icon: LogOut, className: 'bg-muted text-muted-foreground' };
+            return { icon: LogOut, label: 'LOGOUT', className: 'bg-muted text-muted-foreground border-border' };
         case 'document_uploaded':
-            return { icon: Upload, className: 'bg-primary/15 text-primary' };
+            return { icon: Upload, label: 'UPLOADED', className: 'bg-primary/15 text-primary border-primary/20' };
         case 'document_downloaded':
-            return { icon: Download, className: 'bg-primary/15 text-primary' };
+            return { icon: Download, label: 'DOWNLOADED', className: 'bg-primary/15 text-primary border-primary/20' };
         case 'document_shared':
-            return { icon: Share2, className: 'bg-blue-500/15 text-blue-600 dark:text-blue-400' };
+            return { icon: Share2, label: 'SHARED', className: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20' };
         case 'document_deleted':
-            return { icon: Trash2, className: 'bg-destructive/15 text-destructive' };
+            return { icon: Trash2, label: 'DELETED', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20' };
         case '2fa_enabled':
         case 'two_factor_enabled':
-            return { icon: ShieldCheck, className: 'bg-green-500/15 text-green-700 dark:text-green-400' };
+            return { icon: ShieldCheck, label: '2FA ENABLED', className: 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20' };
         case 'account_locked':
-            return { icon: Lock, className: 'bg-destructive/15 text-destructive' };
+            return { icon: Lock, label: 'LOCKED', className: 'bg-destructive/15 text-destructive border-destructive/20' };
         case 'integrity_violation':
-            return { icon: ShieldAlert, className: 'bg-destructive/15 text-destructive' };
+            return { icon: ShieldAlert, label: 'INTEGRITY VIOLATION', className: 'bg-destructive/15 text-destructive border-destructive/20' };
         default:
-            return { icon: Activity, className: 'bg-muted text-muted-foreground' };
-    }
-}
-
-function getStatusBadge(action: AuditAction) {
-    switch (action) {
-        case 'login_success':
-        case 'document_uploaded':
-        case 'document_downloaded':
-        case '2fa_enabled':
-        case 'two_factor_enabled':
-            return { label: 'SUCCESS', className: 'bg-green-500/15 text-green-700 dark:text-green-400' };
-        case 'document_shared':
-        case 'logout':
-        case 'profile_updated':
-            return { label: 'INFO', className: 'bg-primary/15 text-primary' };
-        case 'login_failed':
-        case 'document_deleted':
-        case 'account_locked':
-        case 'integrity_violation':
-            return { label: 'FAILED', className: 'bg-destructive/15 text-destructive' };
-        default:
-            return { label: 'LOG', className: 'bg-muted text-muted-foreground' };
+            return {
+                icon: Activity,
+                label: action.replace(/_/g, ' ').toUpperCase(),
+                className: 'bg-muted text-muted-foreground border-border',
+            };
     }
 }
 
@@ -206,7 +209,7 @@ function getTargetDetails(action: string, metadata: Record<string, any> | null) 
     }
 }
 
-function Pagination({
+function AuditPagination({
     logs,
     filters,
 }: {
@@ -218,35 +221,67 @@ function Pagination({
     );
 
     return (
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center justify-between border-t border-border px-4 py-3">
             <p className="text-sm text-muted-foreground">
                 Showing {logs.from ?? 0}-{logs.to ?? 0} of {logs.total} logs
             </p>
-            <div className="flex flex-wrap items-center gap-2">
-                {logs.links.map((link, index) => {
-                    const label = link.label.replace('&laquo;', '').replace('&raquo;', '').trim();
-
-                    return (
-                        <Button
-                            key={`${label}-${index}`}
-                            variant="outline"
-                            size="sm"
-                            disabled={!link.url}
-                            className={link.active ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}
-                            onClick={() => {
-                                if (link.url) {
-                                    router.get(link.url, cleanedFilters, {
+            <Pagination className="mx-0 w-auto justify-end">
+                <PaginationContent>
+                    <PaginationItem>
+                        <PaginationPrevious
+                            href={logs.prev_page_url ?? '#'}
+                            className={!logs.prev_page_url ? 'pointer-events-none opacity-50' : ''}
+                            onClick={(event) => {
+                                event.preventDefault();
+                                if (logs.prev_page_url) {
+                                    router.get(logs.prev_page_url, cleanedFilters, {
                                         preserveScroll: true,
                                         preserveState: true,
                                     });
                                 }
                             }}
-                        >
-                            {label}
-                        </Button>
-                    );
-                })}
-            </div>
+                        />
+                    </PaginationItem>
+                    {logs.links.slice(1, -1).map((link, index) => (
+                        <PaginationItem key={`${link.label}-${index}`}>
+                            {link.label === '...' ? (
+                                <PaginationEllipsis />
+                            ) : (
+                                <PaginationLink
+                                    href={link.url ?? '#'}
+                                    isActive={link.active}
+                                    onClick={(event) => {
+                                        event.preventDefault();
+                                        if (link.url) {
+                                            router.get(link.url, cleanedFilters, {
+                                                preserveScroll: true,
+                                                preserveState: true,
+                                            });
+                                        }
+                                    }}
+                                >
+                                    {link.label}
+                                </PaginationLink>
+                            )}
+                        </PaginationItem>
+                    ))}
+                    <PaginationItem>
+                        <PaginationNext
+                            href={logs.next_page_url ?? '#'}
+                            className={!logs.next_page_url ? 'pointer-events-none opacity-50' : ''}
+                            onClick={(event) => {
+                                event.preventDefault();
+                                if (logs.next_page_url) {
+                                    router.get(logs.next_page_url, cleanedFilters, {
+                                        preserveScroll: true,
+                                        preserveState: true,
+                                    });
+                                }
+                            }}
+                        />
+                    </PaginationItem>
+                </PaginationContent>
+            </Pagination>
         </div>
     );
 }
@@ -281,7 +316,19 @@ export default function AdminAuditLogsIndex({ logs, filters }: Props) {
             header={
                 <div className="space-y-1">
                     <h2 className="text-xl font-semibold leading-tight text-foreground">Global Audit Log</h2>
-                    <p className="text-sm text-muted-foreground">Admin {'›'} Audit Logs</p>
+                    <Breadcrumb>
+                        <BreadcrumbList>
+                            <BreadcrumbItem>
+                                <BreadcrumbLink asChild>
+                                    <Link href="/admin">Admin</Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                                <BreadcrumbPage>Audit Logs</BreadcrumbPage>
+                            </BreadcrumbItem>
+                        </BreadcrumbList>
+                    </Breadcrumb>
                 </div>
             }
         >
@@ -289,223 +336,271 @@ export default function AdminAuditLogsIndex({ logs, filters }: Props) {
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <div className="rounded-lg border border-border bg-card p-4">
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-                            <div className="space-y-2">
-                                <Label htmlFor="action">Action Type</Label>
-                                <Select
-                                    value={localFilters.action || 'all'}
-                                    onValueChange={(value) =>
-                                        setLocalFilters((current) => ({
-                                            ...current,
-                                            action: value === 'all' ? '' : value,
-                                        }))
-                                    }
-                                >
-                                    <SelectTrigger id="action" className="bg-background">
-                                        <SelectValue placeholder="All Actions" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {ACTION_OPTIONS.map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                    <Card>
+                        <CardContent className="pt-5">
+                            <div className="flex flex-wrap items-end gap-3">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="action" className="text-xs uppercase tracking-wider text-muted-foreground">
+                                        Action Type
+                                    </Label>
+                                    <Select
+                                        value={localFilters.action || 'all'}
+                                        onValueChange={(value) =>
+                                            setLocalFilters((current) => ({
+                                                ...current,
+                                                action: value === 'all' ? '' : value,
+                                            }))
+                                        }
+                                    >
+                                        <SelectTrigger id="action" className="w-48 bg-background">
+                                            <SelectValue placeholder="All Actions" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {ACTION_OPTIONS.map((option) => (
+                                                <SelectItem key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="from_date">From Date</Label>
-                                <input
-                                    id="from_date"
-                                    type="date"
-                                    value={localFilters.from_date ?? ''}
-                                    onChange={(event) =>
-                                        setLocalFilters((current) => ({
-                                            ...current,
-                                            from_date: event.target.value,
-                                        }))
-                                    }
-                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-                                />
-                            </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="from_date" className="text-xs uppercase tracking-wider text-muted-foreground">
+                                        From Date
+                                    </Label>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                id="from_date"
+                                                type="button"
+                                                variant="outline"
+                                                className="w-40 justify-start text-left font-normal"
+                                            >
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {localFilters.from_date
+                                                    ? format(parseDateValue(localFilters.from_date) ?? new Date(), 'MMM d, yyyy')
+                                                    : 'Start date'}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={parseDateValue(localFilters.from_date ?? '')}
+                                                onSelect={(date) =>
+                                                    setLocalFilters((current) => ({
+                                                        ...current,
+                                                        from_date: formatDateValue(date),
+                                                    }))
+                                                }
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="to_date">To Date</Label>
-                                <input
-                                    id="to_date"
-                                    type="date"
-                                    value={localFilters.to_date ?? ''}
-                                    onChange={(event) =>
-                                        setLocalFilters((current) => ({
-                                            ...current,
-                                            to_date: event.target.value,
-                                        }))
-                                    }
-                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-                                />
-                            </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="to_date" className="text-xs uppercase tracking-wider text-muted-foreground">
+                                        To Date
+                                    </Label>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                id="to_date"
+                                                type="button"
+                                                variant="outline"
+                                                className="w-40 justify-start text-left font-normal"
+                                            >
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {localFilters.to_date
+                                                    ? format(parseDateValue(localFilters.to_date) ?? new Date(), 'MMM d, yyyy')
+                                                    : 'End date'}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={parseDateValue(localFilters.to_date ?? '')}
+                                                onSelect={(date) =>
+                                                    setLocalFilters((current) => ({
+                                                        ...current,
+                                                        to_date: formatDateValue(date),
+                                                    }))
+                                                }
+                                                disabled={(date) =>
+                                                    localFilters.from_date
+                                                        ? date < (parseDateValue(localFilters.from_date) ?? new Date(localFilters.from_date))
+                                                        : false
+                                                }
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="user">User</Label>
-                                <Input
-                                    id="user"
-                                    value={localFilters.user ?? ''}
-                                    onChange={(event) =>
-                                        setLocalFilters((current) => ({
-                                            ...current,
-                                            user: event.target.value,
-                                        }))
-                                    }
-                                    placeholder="Name or email"
-                                    className="bg-background"
-                                />
-                            </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="user" className="text-xs uppercase tracking-wider text-muted-foreground">
+                                        User Search
+                                    </Label>
+                                    <Input
+                                        id="user"
+                                        value={localFilters.user ?? ''}
+                                        onChange={(event) =>
+                                            setLocalFilters((current) => ({
+                                                ...current,
+                                                user: event.target.value,
+                                            }))
+                                        }
+                                        placeholder="Name or email"
+                                        className="bg-background"
+                                    />
+                                </div>
 
-                            <div className="flex items-end justify-start gap-3 lg:justify-end">
-                                <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={applyFilters}>
-                                    <SlidersHorizontal className="h-4 w-4" />
-                                    Apply Filters
-                                </Button>
-                                <button
-                                    type="button"
-                                    onClick={resetFilters}
-                                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                                >
-                                    Reset
-                                </button>
+                                <div className="flex items-end gap-3">
+                                    <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={applyFilters}>
+                                        <SlidersHorizontal className="h-4 w-4" />
+                                        Apply Filters
+                                    </Button>
+                                    <Button type="button" variant="ghost" className="text-muted-foreground" onClick={resetFilters}>
+                                        Reset
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
 
-                    <div className="rounded-lg border border-border bg-card">
-                        <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
                             <div className="flex items-center gap-2">
-                                <ShieldCheck className="h-5 w-5 text-primary" />
-                                <h3 className="font-semibold text-foreground">Security Audit Trail</h3>
+                                <ShieldCheck className="h-4 w-4 text-primary" />
+                                <div>
+                                    <CardTitle className="font-semibold text-foreground">Security Audit Trail</CardTitle>
+                                    <p className="mt-0.5 text-xs uppercase tracking-wide text-muted-foreground">
+                                        {logs.total} total entries
+                                    </p>
+                                </div>
                             </div>
-                            <Button variant="outline" asChild>
-                                <a href={route('admin.audit-logs.export', exportQuery)}>
-                                    <Download className="h-4 w-4" />
-                                    Export CSV
-                                </a>
-                            </Button>
-                        </div>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" asChild>
+                                    <a href={route('admin.audit-logs.export', exportQuery)}>
+                                        <Download className="h-4 w-4" />
+                                        Export CSV
+                                    </a>
+                                </Button>
+                                <Button variant="outline" size="sm" asChild>
+                                    <a href={route('admin.audit-logs.export-pdf', exportQuery)} target="_blank" rel="noopener noreferrer">
+                                        <FileDown className="h-4 w-4" />
+                                        Export PDF
+                                    </a>
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {logs.data.length === 0 ? (
+                                <Card className="border-0 shadow-none">
+                                    <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                                        <Activity className="mb-3 h-10 w-10 text-muted-foreground" />
+                                        <p className="font-medium text-foreground">No activity found</p>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            Try adjusting your filters or date range.
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Timestamp</TableHead>
+                                            <TableHead>User</TableHead>
+                                            <TableHead>Action</TableHead>
+                                            <TableHead>Target / Details</TableHead>
+                                            <TableHead>IP Address</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {logs.data.map((log) => {
+                                            const actionBadge = getActionBadge(log.action);
+                                            const details = getTargetDetails(log.action, log.metadata);
+                                            const ActionIcon = actionBadge.icon;
+                                            const location = (log.metadata as Record<string, any> | null)?.location as
+                                                | { city?: string; country?: string }
+                                                | undefined;
 
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Timestamp</TableHead>
-                                    <TableHead>User</TableHead>
-                                    <TableHead>Action</TableHead>
-                                    <TableHead>Target / Details</TableHead>
-                                    <TableHead>IP Address</TableHead>
-                                    <TableHead>Status</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {logs.data.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="h-40 text-center text-muted-foreground">
-                                            No logs found for the selected filters.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    logs.data.map((log) => {
-                                        const actionBadge = getActionBadge(log.action);
-                                        const status = getStatusBadge(log.action);
-                                        const details = getTargetDetails(log.action, log.metadata);
-                                        const ActionIcon = actionBadge.icon;
-
-                                        return (
-                                            <TableRow key={log.id} className="hover:bg-muted/50">
-                                                <TableCell>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {format(new Date(log.created_at), 'MMM dd, yyyy')}
-                                                        </span>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {format(new Date(log.created_at), 'HH:mm:ss')}
-                                                        </span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    {log.user ? (
-                                                        <div className="flex items-center gap-2.5">
-                                                            <GravatarAvatar 
-                                                                name={log.user.name} 
-                                                                avatarUrl={log.user.avatar_url} 
-                                                                size="sm" 
-                                                            />
-                                                            <div className="min-w-0">
-                                                                <div className="truncate text-sm font-medium text-foreground">
-                                                                    {log.user.name}
-                                                                </div>
-                                                                <div className="truncate text-xs text-muted-foreground">
-                                                                    {log.user.email}
+                                            return (
+                                                <TableRow key={log.id} className="hover:bg-muted/50">
+                                                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                                                        <div>{format(new Date(log.created_at), 'MMM dd, yyyy')}</div>
+                                                        <div>{format(new Date(log.created_at), 'HH:mm:ss')}</div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {log.user ? (
+                                                            <div className="flex items-center gap-2.5">
+                                                                <Avatar className="h-8 w-8">
+                                                                    <AvatarImage src={log.user.avatar_url ?? undefined} alt={log.user.name} />
+                                                                    <AvatarFallback className={`text-xs text-white ${getAvatarColor(log.user.name)}`}>
+                                                                        {getInitials(log.user.name)}
+                                                                    </AvatarFallback>
+                                                                </Avatar>
+                                                                <div>
+                                                                    <div className="text-sm font-medium text-foreground">{log.user.name}</div>
+                                                                    <div className="text-xs text-muted-foreground">{log.user.email}</div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-2.5">
-                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                                                                <Terminal className="h-3.5 w-3.5" />
-                                                            </div>
-                                                            <div className="min-w-0">
-                                                                <div className="text-sm font-medium text-foreground">System</div>
-                                                                <div className="text-xs text-muted-foreground">
-                                                                    Automated event
+                                                        ) : (
+                                                            <div className="flex items-center gap-2.5">
+                                                                <Avatar className="h-8 w-8">
+                                                                    <AvatarFallback className="bg-muted text-muted-foreground">
+                                                                        <Terminal className="h-3.5 w-3.5" />
+                                                                    </AvatarFallback>
+                                                                </Avatar>
+                                                                <div>
+                                                                    <div className="text-sm font-medium text-foreground italic">System</div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span
-                                                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${actionBadge.className}`}
-                                                    >
-                                                        <ActionIcon className="h-3 w-3" />
-                                                        {getActionLabel(log.action)}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell>
-                                                    {details.primary || details.secondary ? (
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={`gap-1 text-xs font-semibold uppercase tracking-wide ${actionBadge.className}`}
+                                                        >
+                                                            <ActionIcon className="h-3 w-3" />
+                                                            {actionBadge.label}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
                                                         <div className="flex flex-col">
-                                                            <span className="text-sm text-foreground">
-                                                                {details.primary}
-                                                            </span>
+                                                            <span className="text-sm text-foreground">{details.primary}</span>
                                                             {details.secondary && (
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    {details.secondary}
-                                                                </span>
+                                                                <span className="text-xs text-muted-foreground">{details.secondary}</span>
                                                             )}
                                                         </div>
-                                                    ) : (
-                                                        <span className="text-muted-foreground">—</span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-foreground">
-                                                        {log.ip_address || '—'}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge
-                                                        className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${status.className}`}
-                                                    >
-                                                        {status.label}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                    {logs.last_page > 1 && <Pagination logs={logs} filters={filters} />}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span className="cursor-help rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                                                                        {log.ip_address || '—'}
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                {location && (
+                                                                    <TooltipContent>
+                                                                        <p>{[location.city, location.country].filter(Boolean).join(', ')}</p>
+                                                                    </TooltipContent>
+                                                                )}
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </CardContent>
+                        {logs.last_page > 1 && <AuditPagination logs={logs} filters={filters} />}
+                    </Card>
                 </div>
             </div>
         </AuthenticatedLayout>

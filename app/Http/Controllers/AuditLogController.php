@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -65,6 +66,23 @@ class AuditLogController extends Controller
         ]);
     }
 
+    public function exportPdf(Request $request)
+    {
+        $user = Auth::user();
+        $logs = $this->personalLogsQuery($request, $user->id)
+            ->with('user')
+            ->get();
+
+        $pdf = Pdf::loadView('pdf.audit-log', [
+            'logs' => $logs,
+            'userName' => $user->name,
+            'isAdmin' => false,
+            'dateRange' => $this->formatDateRange($request),
+        ]);
+
+        return $pdf->download('securevault-audit-log.pdf');
+    }
+
     private function personalLogsQuery(Request $request, int $userId)
     {
         $query = AuditLog::where('user_id', $userId)
@@ -84,5 +102,21 @@ class AuditLogController extends Controller
         }
 
         return $query;
+    }
+
+    private function formatDateRange(Request $request): ?string
+    {
+        $from = $request->input('from_date');
+        $to = $request->input('to_date');
+
+        if (!$from && !$to) {
+            return null;
+        }
+
+        if ($from && $to) {
+            return "{$from} to {$to}";
+        }
+
+        return $from ? "From {$from}" : "Until {$to}";
     }
 }

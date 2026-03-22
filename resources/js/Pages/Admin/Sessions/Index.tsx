@@ -1,20 +1,33 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Monitor, ShieldOff, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import GravatarAvatar from '@/components/GravatarAvatar';
 
 interface SessionRow {
     id: string;
@@ -24,6 +37,7 @@ interface SessionRow {
     user_name: string | null;
     user_email: string | null;
     user_avatar_url: string | null;
+    location?: string | null;
 }
 
 interface Props {
@@ -31,7 +45,25 @@ interface Props {
     currentSessionId: string;
 }
 
+const avatarColors = [
+    'bg-amber-500',
+    'bg-blue-500',
+    'bg-green-500',
+    'bg-purple-500',
+    'bg-red-500',
+    'bg-pink-500',
+];
 
+function getAvatarColor(name: string) {
+    return avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
+}
+
+function getInitials(name: string) {
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] ?? '';
+    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
+    return `${first}${last}`.toUpperCase();
+}
 
 function formatLastActivity(unixTimestamp: number): string {
     const seconds = Math.floor(Date.now() / 1000) - unixTimestamp;
@@ -41,17 +73,12 @@ function formatLastActivity(unixTimestamp: number): string {
     return `${Math.floor(seconds / 86400)} days ago`;
 }
 
-function getActivityDotClass(unixTimestamp: number) {
-    const seconds = Math.floor(Date.now() / 1000) - unixTimestamp;
-    if (seconds < 300) return 'text-green-500';
-    if (seconds < 1800) return 'text-amber-500';
-    return 'text-muted-foreground';
+function getActivityAge(unixTimestamp: number) {
+    return Math.floor(Date.now() / 1000 - unixTimestamp) / 60;
 }
 
 export default function AdminSessionsIndex({ sessions, currentSessionId }: Props) {
     const [search, setSearch] = useState('');
-    const [sessionToTerminate, setSessionToTerminate] = useState<SessionRow | null>(null);
-    const [showTerminateAllDialog, setShowTerminateAllDialog] = useState(false);
 
     const filteredSessions = useMemo(() => {
         const value = search.trim().toLowerCase();
@@ -69,47 +96,42 @@ export default function AdminSessionsIndex({ sessions, currentSessionId }: Props
         });
     }, [search, sessions]);
 
-    const confirmTerminate = () => {
-        if (!sessionToTerminate) {
-            return;
-        }
-
-        router.delete(route('admin.sessions.destroy', sessionToTerminate.id), {
+    const handleRevoke = (sessionId: string) => {
+        router.delete(route('admin.sessions.destroy', sessionId), {
             preserveScroll: true,
-            onFinish: () => setSessionToTerminate(null),
         });
     };
 
-    const confirmTerminateAll = () => {
+    const handleTerminateAll = () => {
         router.delete(route('admin.sessions.destroy-all'), {
             preserveScroll: true,
-            onFinish: () => setShowTerminateAllDialog(false),
         });
     };
 
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-3">
-                            <h2 className="text-2xl font-semibold text-foreground">Session Monitoring</h2>
-                            <Badge className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground hover:bg-primary">
-                                {sessions.length}
-                            </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">System-wide active session oversight.</p>
-                        <p className="text-xs text-muted-foreground">Admin &#8250; Session Monitoring</p>
+                <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-2xl font-semibold text-foreground">Session Monitoring</h2>
+                        <Badge className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground hover:bg-primary">
+                            {sessions.length}
+                        </Badge>
                     </div>
-
-                    <Button
-                        variant="outline"
-                        className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => setShowTerminateAllDialog(true)}
-                    >
-                        <ShieldOff className="h-4 w-4" />
-                        Terminate All
-                    </Button>
+                    <p className="text-sm text-muted-foreground">System-wide active session oversight.</p>
+                    <Breadcrumb>
+                        <BreadcrumbList>
+                            <BreadcrumbItem>
+                                <BreadcrumbLink asChild>
+                                    <Link href="/admin">Admin</Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                                <BreadcrumbPage>Session Monitoring</BreadcrumbPage>
+                            </BreadcrumbItem>
+                        </BreadcrumbList>
+                    </Breadcrumb>
                 </div>
             }
         >
@@ -117,163 +139,226 @@ export default function AdminSessionsIndex({ sessions, currentSessionId }: Props
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <div className="rounded-lg border border-border bg-card p-4">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                            <Input
-                                value={search}
-                                onChange={(event) => setSearch(event.target.value)}
-                                placeholder="Search by user name or IP..."
-                                className="bg-background lg:max-w-sm"
-                            />
-                            <p className="text-sm text-muted-foreground">{filteredSessions.length} active sessions</p>
-                        </div>
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                        <Input
+                            placeholder="Search by user name or IP..."
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            aria-label="Search sessions by user name or IP address"
+                            className="max-w-xs"
+                        />
+                        <span className="flex-shrink-0 text-sm text-muted-foreground">
+                            {filteredSessions.length} active session{filteredSessions.length !== 1 ? 's' : ''}
+                        </span>
                     </div>
 
-                    <div className="rounded-lg border border-border bg-card">
-                        <Table>
-                            <TableHeader className="bg-muted [&_tr]:border-border">
-                                <TableRow className="border-border hover:bg-transparent">
-                                    <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
-                                        Session
-                                    </TableHead>
-                                    <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
-                                        User
-                                    </TableHead>
-                                    <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
-                                        IP Address
-                                    </TableHead>
-                                    <TableHead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
-                                        Last Activity
-                                    </TableHead>
-                                    <TableHead className="bg-muted text-right text-xs uppercase tracking-wider text-muted-foreground">
-                                        Actions
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredSessions.length === 0 ? (
-                                    <TableRow className="border-border hover:bg-transparent">
-                                        <TableCell colSpan={5} className="h-40 text-center">
-                                            <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                                                <Monitor className="h-10 w-10" />
-                                                <p>No active sessions found.</p>
-                                            </div>
-                                        </TableCell>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
+                            <div className="flex items-center gap-2">
+                                <CardTitle className="font-semibold text-foreground">Active Sessions</CardTitle>
+                                <Badge className="rounded-full bg-primary/15 px-2 text-xs text-primary">
+                                    {sessions.length}
+                                </Badge>
+                            </div>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-2 border-destructive/50 text-destructive hover:bg-destructive/10"
+                                        aria-label="Terminate all sessions except your current session"
+                                    >
+                                        <ShieldOff className="h-4 w-4" />
+                                        Terminate All
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Terminate All Sessions?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will immediately terminate ALL active sessions system-wide except your own. All users will be logged out.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            onClick={handleTerminateAll}
+                                        >
+                                            Terminate All
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Session</TableHead>
+                                        <TableHead>User</TableHead>
+                                        <TableHead>IP Address</TableHead>
+                                        <TableHead>Last Activity</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
-                                ) : (
-                                    filteredSessions.map((session) => {
-                                        const isCurrentSession = session.id === currentSessionId;
-                                        const userName = session.user_name ?? 'Unknown User';
-                                        const userEmail = session.user_email ?? 'Unavailable';
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredSessions.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                                                No active sessions found.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        filteredSessions.map((session) => {
+                                            const isCurrentSession = session.id === currentSessionId;
+                                            const userName = session.user_name ?? 'Unknown User';
+                                            const userEmail = session.user_email ?? 'Unavailable';
 
-                                        return (
-                                            <TableRow
-                                                key={session.id}
-                                                className={isCurrentSession ? 'border-l-2 border-l-primary bg-primary/5' : 'hover:bg-muted/50'}
-                                            >
-                                                <TableCell>
-                                                    <div className="flex items-center gap-3">
-                                                        <Monitor className="h-4 w-4 text-muted-foreground" />
-                                                        <div className="min-w-0">
-                                                            <p className="text-sm font-medium text-foreground">Web Session</p>
-                                                            <p className="font-mono text-xs text-muted-foreground">
-                                                                {session.id.slice(0, 8)}
-                                                            </p>
+                                            return (
+                                                <TableRow
+                                                    key={session.id}
+                                                    className={`hover:bg-muted/50 ${
+                                                        isCurrentSession ? 'border-l-2 border-l-primary bg-primary/5' : ''
+                                                    }`}
+                                                >
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2.5">
+                                                            <div className="flex-shrink-0 rounded bg-muted p-1.5">
+                                                                <Monitor className="h-4 w-4 text-muted-foreground" />
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-sm font-medium text-foreground">
+                                                                        Web Session
+                                                                    </span>
+                                                                    {isCurrentSession && (
+                                                                        <>
+                                                                            <Badge
+                                                                                variant="outline"
+                                                                                className="border-primary/20 bg-primary/15 text-xs text-primary"
+                                                                            >
+                                                                                Current
+                                                                            </Badge>
+                                                                            <Badge
+                                                                                variant="outline"
+                                                                                className="border-primary/20 bg-primary/15 text-xs text-primary"
+                                                                            >
+                                                                                Your Session
+                                                                            </Badge>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                                <span className="font-mono text-xs text-muted-foreground">
+                                                                    #{session.id.slice(0, 8)}
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-3">
-                                                        <GravatarAvatar 
-                                                            name={userName} 
-                                                            avatarUrl={session.user_avatar_url} 
-                                                            size="sm" 
-                                                        />
-                                                        <div className="min-w-0">
-                                                            <p className="truncate text-sm font-medium text-foreground">
-                                                                {userName}
-                                                            </p>
-                                                            <p className="truncate text-xs text-muted-foreground">
-                                                                {userEmail}
-                                                            </p>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2.5">
+                                                            <Avatar className="h-8 w-8">
+                                                                <AvatarImage
+                                                                    src={session.user_avatar_url ?? undefined}
+                                                                    alt={userName}
+                                                                />
+                                                                <AvatarFallback className={`text-xs text-white ${getAvatarColor(userName)}`}>
+                                                                    {getInitials(userName || 'U')}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <div>
+                                                                <div className="text-sm font-medium text-foreground">
+                                                                    {userName}
+                                                                </div>
+                                                                <div className="text-xs text-muted-foreground">
+                                                                    {userEmail}
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-foreground">
-                                                        {session.ip_address || 'Unavailable'}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                        <span className={getActivityDotClass(session.last_activity)}>&#9679;</span>
-                                                        <span>{formatLastActivity(session.last_activity)}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {isCurrentSession ? (
-                                                        <span className="inline-flex rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                                                            YOUR SESSION
-                                                        </span>
-                                                    ) : (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                            onClick={() => setSessionToTerminate(session)}
-                                                        >
-                                                            <X className="h-4 w-4" />
-                                                            Terminate
-                                                        </Button>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span className="cursor-help rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+                                                                        {session.ip_address ?? '-'}
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                {session.location && (
+                                                                    <TooltipContent>
+                                                                        <p>{session.location}</p>
+                                                                    </TooltipContent>
+                                                                )}
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            <span
+                                                                className={`h-2 w-2 flex-shrink-0 rounded-full ${
+                                                                    getActivityAge(session.last_activity) < 5
+                                                                        ? 'bg-green-500'
+                                                                        : getActivityAge(session.last_activity) < 30
+                                                                          ? 'bg-amber-500'
+                                                                          : 'bg-muted-foreground'
+                                                                }`}
+                                                            />
+                                                            <span className="text-sm text-muted-foreground">
+                                                                {formatLastActivity(session.last_activity)}
+                                                            </span>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        {isCurrentSession ? (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="border-border text-xs text-muted-foreground"
+                                                            >
+                                                                Your Session
+                                                            </Badge>
+                                                        ) : (
+                                                            <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="gap-1.5 text-destructive hover:bg-destructive/10"
+                                                                        aria-label={`Terminate session for ${userName} from ${session.ip_address ?? 'unknown IP address'}`}
+                                                                    >
+                                                                        <X className="h-3.5 w-3.5" />
+                                                                        Terminate
+                                                                    </Button>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>Terminate Session?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            This will immediately end this user's session. They will be logged out of their current device.
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                        <AlertDialogAction
+                                                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                                            onClick={() => handleRevoke(session.id)}
+                                                                        >
+                                                                            Terminate
+                                                                        </AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
-
-            <Dialog open={sessionToTerminate !== null} onOpenChange={(open) => !open && setSessionToTerminate(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Terminate Session</DialogTitle>
-                        <DialogDescription>
-                            This will immediately end this user's session. They will be logged out of their current device.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setSessionToTerminate(null)}>
-                            Cancel
-                        </Button>
-                        <Button type="button" variant="destructive" onClick={confirmTerminate}>
-                            Confirm Termination
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={showTerminateAllDialog} onOpenChange={setShowTerminateAllDialog}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Terminate All Sessions</DialogTitle>
-                        <DialogDescription>
-                            This will immediately terminate ALL active sessions system-wide except your own. All users will be logged out.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setShowTerminateAllDialog(false)}>
-                            Cancel
-                        </Button>
-                        <Button type="button" variant="destructive" onClick={confirmTerminateAll}>
-                            Terminate All
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </AuthenticatedLayout>
     );
 }

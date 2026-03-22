@@ -119,7 +119,7 @@ function getActionPresentation(action: AuditAction) {
         case 'login_success':
             return {
                 icon: LogIn,
-                circleClass: 'bg-green-500/20 text-green-600',
+                circleClass: 'bg-green-500/20 text-green-700',
             };
         case 'login_failed':
             return {
@@ -155,7 +155,7 @@ function getActionPresentation(action: AuditAction) {
         case 'two_factor_enabled':
             return {
                 icon: ShieldCheck,
-                circleClass: 'bg-green-500/20 text-green-600',
+                circleClass: 'bg-green-500/20 text-green-700',
             };
         case 'account_locked':
             return {
