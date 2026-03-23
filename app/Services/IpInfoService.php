@@ -18,8 +18,9 @@ class IpInfoService
         if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
             return [
                 'city'     => 'Local',
+                'region'   => 'DEV',
                 'country'  => 'DEV',
-                'location' => 'Local Network',
+                'location' => 'Local / DEV',
             ];
         }
 
@@ -30,7 +31,7 @@ class IpInfoService
                     ->get("https://ipinfo.io/{$ip}/json?token={$token}");
 
                 if ($response->failed()) {
-                    return ['city' => null, 'country' => null, 'location' => null];
+                    return ['city' => null, 'region' => null, 'country' => null, 'location' => 'Unknown location'];
                 }
 
                 $data     = $response->json();
@@ -47,7 +48,7 @@ class IpInfoService
                 ];
             } catch (\Exception $e) {
                 Log::warning('IPInfo lookup failed', ['error' => $e->getMessage(), 'ip' => $ip]);
-                return ['city' => null, 'country' => null, 'location' => null];
+                return ['city' => null, 'region' => null, 'country' => null, 'location' => 'Unknown location'];
             }
         });
     }

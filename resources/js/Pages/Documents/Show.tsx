@@ -31,6 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { FileTypeBadge } from '@/components/FileTypeBadge';
+import { PermissionBadge, type Permission as SharePermission } from '@/components/PermissionBadge';
 import { ScanBadge, type ScanResult } from '@/components/ScanBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps } from '@/types';
@@ -62,7 +63,6 @@ import {
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-type SharePermission = 'view_only' | 'download' | 'full_access';
 type UserPermission = 'owner' | 'admin_viewer' | SharePermission | 'none';
 
 interface DocumentDetails {
@@ -202,34 +202,6 @@ function parseDateValue(value: string) {
 
 function formatDateValue(date?: Date) {
     return date ? format(date, 'yyyy-MM-dd') : '';
-}
-
-function getPermissionLabel(permission: SharePermission) {
-    switch (permission) {
-        case 'view_only':
-            return 'View Only';
-        case 'download':
-            return 'Download';
-        case 'full_access':
-            return 'Full Access';
-    }
-}
-
-function getPermissionBadge(permission: SharePermission) {
-    return (
-        <Badge
-            variant="outline"
-            className={
-                permission === 'full_access'
-                    ? 'border-primary/20 bg-primary/10 text-primary'
-                    : permission === 'download'
-                      ? 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-400'
-                      : 'border-border bg-muted text-muted-foreground'
-            }
-        >
-            {getPermissionLabel(permission)}
-        </Badge>
-    );
 }
 
 export default function Show({ auth, document, auditTrail, shares, userPermission }: Props) {
@@ -769,7 +741,7 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
                                                                         {share.user.name}
                                                                     </p>
                                                                     <div className="flex items-center gap-1.5">
-                                                                        {getPermissionBadge(share.permission)}
+                                                                        <PermissionBadge permission={share.permission} />
                                                                         {share.expires_at && (
                                                                             <span className="text-xs text-muted-foreground">
                                                                                 Expires {formatRelativeTime(share.expires_at)}

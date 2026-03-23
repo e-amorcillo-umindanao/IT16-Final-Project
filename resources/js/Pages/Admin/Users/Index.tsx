@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { RoleBadge, normalizeRoleBadgeRole } from '@/components/RoleBadge';
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -59,12 +60,13 @@ import {
     ScrollText,
     Search,
     Shield,
+    ShieldOff,
     UserCheck,
     UserX,
 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
-type UserRole = 'super-admin' | 'admin' | 'user';
+type AssignableRole = 'super-admin' | 'admin' | 'user';
 
 interface UserRow {
     id: number;
@@ -73,7 +75,7 @@ interface UserRow {
     is_active: boolean;
     last_login_at: string | null;
     last_login_ip: string | null;
-    role: UserRole;
+    role: string;
     avatar_url: string | null;
 }
 
@@ -83,6 +85,7 @@ interface Props extends PageProps {
         search?: string;
         role?: string;
         status?: string;
+        verification?: string;
     };
 }
 
@@ -106,26 +109,21 @@ function getInitials(name: string) {
     return `${first}${last}`.toUpperCase();
 }
 
-function getRoleBadge(role: UserRole) {
-    switch (role) {
-        case 'super-admin':
-            return <Badge className="bg-primary text-xs uppercase tracking-wide text-primary-foreground">Super Admin</Badge>;
-        case 'admin':
-            return (
-                <Badge variant="outline" className="text-xs uppercase tracking-wide">
-                    Admin
-                </Badge>
-            );
-        default:
-            return (
-                <Badge variant="outline" className="text-xs uppercase tracking-wide text-muted-foreground">
-                    User
-                </Badge>
-            );
+function normalizeAssignableRole(roleName: string | null | undefined): AssignableRole {
+    const normalized = (roleName ?? 'user').toLowerCase().replace(/[\s_]+/g, '-');
+
+    if (normalized === 'super-admin') {
+        return 'super-admin';
     }
+
+    if (normalized === 'admin') {
+        return 'admin';
+    }
+
+    return 'user';
 }
 
-function getRoleLabel(role: UserRole) {
+function getRoleLabel(role: AssignableRole) {
     switch (role) {
         case 'super-admin':
             return 'Super Admin';
@@ -152,7 +150,7 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
     const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
     const [roleDialogOpen, setRoleDialogOpen] = useState(false);
-    const [selectedRole, setSelectedRole] = useState<UserRole>('user');
+    const [selectedRole, setSelectedRole] = useState<AssignableRole>('user');
 
     const currentCountLabel = `Showing ${users.data.length} of ${users.total} users`;
 
@@ -186,7 +184,7 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
 
     const openRoleDialog = (user: UserRow) => {
         setSelectedUser(user);
-        setSelectedRole(user.role);
+        setSelectedRole(normalizeAssignableRole(user.role));
         setRoleDialogOpen(true);
     };
 
@@ -229,7 +227,6 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
             header={
                 <div className="space-y-1">
                     <h2 className="text-2xl font-semibold text-foreground">User Management</h2>
-                    <p className="text-sm text-muted-foreground">Manage user accounts, roles, and access status.</p>
                     <Breadcrumb>
                         <BreadcrumbList>
                             <BreadcrumbItem>
@@ -355,7 +352,10 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        users.data.map((user) => (
+                                        users.data.map((user) => {
+                                            const isSelf = user.id === authUserId;
+
+                                            return (
                                             <TableRow key={user.id} className="hover:bg-muted/50">
                                                 <TableCell>
                                                     <div className="flex items-center gap-3">
@@ -371,7 +371,9 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                                                         </div>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>{getRoleBadge(user.role)}</TableCell>
+                                                <TableCell>
+                                                    <RoleBadge role={normalizeRoleBadgeRole(user.role)} />
+                                                </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-1.5">
                                                         <span
@@ -418,7 +420,7 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                                                                 </Link>
                                                             </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
-                                                            {user.id !== authUserId && (
+                                                            {!isSelf && (
                                                                 <>
                                                                     {user.is_active ? (
                                                                         <DropdownMenuItem
@@ -444,16 +446,18 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                                                                     </DropdownMenuItem>
                                                                 </>
                                                             )}
-                                                            {user.id === authUserId && (
-                                                                <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-                                                                    Current account
+                                                            {isSelf && (
+                                                                <DropdownMenuItem disabled className="text-muted-foreground">
+                                                                    <ShieldOff className="mr-2 h-4 w-4" />
+                                                                    Cannot modify own account
                                                                 </DropdownMenuItem>
                                                             )}
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </TableCell>
                                             </TableRow>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </TableBody>
                             </Table>
@@ -520,8 +524,8 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                             Changing {selectedUser?.name}'s role takes effect immediately and is logged in the audit trail.
                         </DialogDescription>
                     </DialogHeader>
-                    <RadioGroup value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole)} className="space-y-2 py-2">
-                        {(['super-admin', 'admin', 'user'] as UserRole[]).map((roleOption) => (
+                    <RadioGroup value={selectedRole} onValueChange={(value) => setSelectedRole(value as AssignableRole)} className="space-y-2 py-2">
+                        {(['super-admin', 'admin', 'user'] as AssignableRole[]).map((roleOption) => (
                             <div
                                 key={roleOption}
                                 className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-muted/50"

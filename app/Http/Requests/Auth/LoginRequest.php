@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Services\IpInfoService;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -44,6 +45,7 @@ class LoginRequest extends FormRequest
 
         $user = \App\Models\User::where('email', $this->email)->first();
         $auditService = app(\App\Services\AuditService::class);
+        $location = app(IpInfoService::class)->lookup($this->ip())['location'] ?? 'Unknown location';
 
         // 1. Pre-auth Checks
         if ($user) {
@@ -71,11 +73,17 @@ class LoginRequest extends FormRequest
                 
                 if ($user->failed_login_attempts >= 10) {
                     $user->lockAccount(15);
-                    $auditService->log('account_locked', $user, ['email' => $this->email]);
+                    $auditService->log('account_locked', $user, [
+                        'email' => $this->email,
+                        'location' => $location,
+                    ]);
                 }
             }
 
-            $auditService->log('login_failed', null, ['email' => $this->email]);
+            $auditService->log('login_failed', null, [
+                'email' => $this->email,
+                'location' => $location,
+            ]);
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
@@ -89,8 +97,6 @@ class LoginRequest extends FormRequest
             'last_login_at' => now(),
             'last_login_ip' => $this->ip(),
         ]);
-
-        $auditService->log('login_success', $user);
 
         RateLimiter::clear($this->throttleKey());
     }

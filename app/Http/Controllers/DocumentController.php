@@ -435,7 +435,15 @@ class DocumentController extends Controller
             'documents' => $user->documents()
                 ->onlyTrashed()
                 ->orderByDesc('deleted_at')
-                ->get(['id', 'original_name', 'mime_type', 'file_size', 'deleted_at']),
+                ->get(['id', 'original_name', 'mime_type', 'file_size', 'deleted_at'])
+                ->map(fn ($document) => [
+                    'id' => $document->id,
+                    'original_name' => $document->original_name,
+                    'mime_type' => $document->mime_type,
+                    'file_size' => $document->file_size,
+                    'deleted_at' => $document->deleted_at?->toISOString(),
+                    'deleted_at_human' => $document->deleted_at?->diffForHumans(),
+                ]),
         ]);
     }
 

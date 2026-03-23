@@ -1,0 +1,88 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\AuditLog;
+
+class AuditDescriptionService
+{
+    public function generate(AuditLog $log): string
+    {
+        $meta = $log->metadata ?? [];
+        $documentName = $meta['document_name'] ?? $meta['original_name'] ?? null;
+        $location = $this->formatLocation($meta['location'] ?? null);
+
+        return match ($log->action) {
+            'login_success' => $location
+                ? "Signed in from {$location}"
+                : 'Signed in successfully',
+            'login_failed' => $location
+                ? "Failed sign-in attempt from {$location}"
+                : 'Failed sign-in attempt',
+            'account_locked' => $location
+                ? "Account locked after repeated failures from {$location}"
+                : 'Account locked after repeated failed attempts',
+            'logout' => 'Signed out',
+            '2fa_enabled', 'two_factor_enabled' => 'Two-factor authentication enabled',
+            '2fa_disabled', 'two_factor_disabled' => 'Two-factor authentication disabled',
+            '2fa_verified' => 'Two-factor authentication verified',
+            '2fa_failed' => 'Invalid 2FA code submitted',
+            '2fa_corrupt_reset' => '2FA setup was invalid and has been reset',
+            'document_uploaded' => $documentName
+                ? "Uploaded '{$documentName}'"
+                : 'Uploaded a document',
+            'document_downloaded' => $documentName
+                ? "Downloaded '{$documentName}'"
+                : 'Downloaded a document',
+            'document_deleted' => $documentName
+                ? "Moved '{$documentName}' to trash"
+                : 'Moved a document to trash',
+            'document_restored' => $documentName
+                ? "Restored '{$documentName}' from trash"
+                : 'Restored a document from trash',
+            'document_starred' => $documentName
+                ? "Starred '{$documentName}'"
+                : 'Starred a document',
+            'document_unstarred' => $documentName
+                ? "Unstarred '{$documentName}'"
+                : 'Unstarred a document',
+            'integrity_violation' => $documentName
+                ? "Integrity check failed for '{$documentName}'"
+                : 'File integrity check failed',
+            'document_shared' => ($documentName && isset($meta['shared_with']))
+                ? "Shared '{$documentName}' with {$meta['shared_with']}"
+                : 'Shared a document',
+            'share_revoked' => $documentName
+                ? "Revoked share for '{$documentName}'"
+                : 'Revoked a document share',
+            'share_link_generated' => ($documentName && isset($meta['expires_hours']))
+                ? "Generated share link for '{$documentName}' ({$meta['expires_hours']}h)"
+                : 'Generated a signed share link',
+            'malware_detected', 'document_scan_blocked' => $documentName
+                ? "Blocked upload of '{$documentName}' - malware detected"
+                : 'Blocked a malicious file upload',
+            'password_changed' => 'Password changed',
+            'profile_updated' => 'Profile information updated',
+            default => ucwords(str_replace('_', ' ', $log->action)),
+        };
+    }
+
+    private function formatLocation(mixed $location): ?string
+    {
+        if (is_string($location) && $location !== '') {
+            return $location;
+        }
+
+        if (!is_array($location)) {
+            return null;
+        }
+
+        $city = $location['city'] ?? null;
+        $country = $location['country'] ?? null;
+        $region = $location['region'] ?? null;
+
+        return collect([$city, $region, $country])
+            ->filter(fn ($value) => is_string($value) && $value !== '')
+            ->implode(', ') ?: null;
+    }
+}

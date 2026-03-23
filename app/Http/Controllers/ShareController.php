@@ -99,10 +99,10 @@ class ShareController extends Controller
     public function sharedWithMe(Request $request): Response
     {
         $user = Auth::user();
-        $includeExpired = $request->boolean('include_expired');
+        $showExpired = $request->boolean('show_expired') || $request->boolean('include_expired');
         $query = DocumentShare::with(['document', 'sharedBy'])
             ->where('shared_with_id', $user->id)
-            ->when(!$includeExpired, function ($query) {
+            ->when(!$showExpired, function ($query) {
                 $query->where(function ($q) {
                     $q->whereNull('expires_at')
                         ->orWhere('expires_at', '>', now());
@@ -129,7 +129,7 @@ class ShareController extends Controller
                 ],
             ]),
             'filters' => [
-                'include_expired' => $includeExpired,
+                'show_expired' => $showExpired,
             ],
         ]);
     }

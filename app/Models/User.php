@@ -24,6 +24,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'two_factor_secret',
         'two_factor_enabled',
         'failed_login_attempts',
         'locked_until',
@@ -132,6 +133,15 @@ class User extends Authenticatable
         $this->update([
             'locked_until' => now()->addMinutes($minutes),
         ]);
+    }
+
+    /**
+     * Determine whether the decrypted 2FA secret is present and valid.
+     */
+    public function hasTwoFactorSecretValid(): bool
+    {
+        return !empty($this->two_factor_secret)
+            && strlen($this->two_factor_secret) >= 16;
     }
 
     /**

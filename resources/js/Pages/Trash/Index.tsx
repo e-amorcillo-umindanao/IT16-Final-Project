@@ -34,10 +34,10 @@ import {
 } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { getExpiryBadge } from '@/lib/trashExpiryBadge';
 import { Head, Link, router } from '@inertiajs/react';
 import { formatDistanceToNow } from 'date-fns';
 import {
-    AlertTriangle,
     File,
     FileText,
     FileType,
@@ -55,6 +55,7 @@ interface TrashDocument {
     mime_type: string;
     file_size: number;
     deleted_at: string;
+    deleted_at_human: string;
 }
 
 interface Props {
@@ -102,40 +103,14 @@ function getFileIcon(mimeType: string) {
     return <File className="h-5 w-5 text-muted-foreground" />;
 }
 
-function getDaysRemaining(deletedAt: string) {
-    const msPerDay = 1000 * 60 * 60 * 24;
-    return 30 - Math.floor((Date.now() - new Date(deletedAt).getTime()) / msPerDay);
-}
-
 function ExpiryStatus({ deletedAt }: { deletedAt: string }) {
-    const daysRemaining = getDaysRemaining(deletedAt);
+    const expiry = getExpiryBadge(deletedAt);
 
-    if (daysRemaining <= 0) {
-        return (
-            <Badge variant="outline" className="border-destructive/20 bg-destructive/10 text-xs text-destructive">
-                Expires today
-            </Badge>
-        );
-    }
-
-    if (daysRemaining <= 3) {
-        return (
-            <Badge variant="outline" className="gap-1 border-destructive/20 bg-destructive/10 text-xs text-destructive">
-                <AlertTriangle className="h-3 w-3" />
-                {daysRemaining}d remaining
-            </Badge>
-        );
-    }
-
-    if (daysRemaining <= 7) {
-        return (
-            <Badge variant="outline" className="border-amber-500/20 bg-amber-500/10 text-xs text-amber-700 dark:text-amber-400">
-                {daysRemaining}d remaining
-            </Badge>
-        );
-    }
-
-    return <span className="text-xs text-muted-foreground">{daysRemaining} days remaining</span>;
+    return (
+        <Badge variant="outline" className={`text-xs font-medium ${expiry.className}`}>
+            {expiry.label}
+        </Badge>
+    );
 }
 
 export default function TrashIndex({ documents }: Props) {
@@ -192,18 +167,11 @@ export default function TrashIndex({ documents }: Props) {
         });
     };
 
-    const handleEmptyTrash = () => {
-        router.delete(route('documents.empty-trash'), {
-            preserveScroll: true,
-        });
-    };
-
     return (
         <AuthenticatedLayout
             header={
                 <div className="w-full space-y-1">
                     <h2 className="text-2xl font-semibold text-foreground">Trash</h2>
-                    <p className="text-sm text-muted-foreground">Manage and recover your deleted documents.</p>
                     <Breadcrumb>
                         <BreadcrumbList>
                             <BreadcrumbItem>
@@ -294,33 +262,50 @@ export default function TrashIndex({ documents }: Props) {
                                                 {formatBytes(document.file_size)}
                                             </TableCell>
                                             <TableCell className="text-sm text-muted-foreground">
-                                                {formatDistanceToNow(new Date(document.deleted_at), { addSuffix: true })}
+                                                {document.deleted_at_human}
                                             </TableCell>
                                             <TableCell>
                                                 <ExpiryStatus deletedAt={document.deleted_at} />
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    className="gap-1.5"
-                                                                    onClick={() => handleRestore(document.id)}
-                                                                    disabled={processingId === document.id}
-                                                                    aria-label={`Restore ${document.original_name}`}
-                                                                >
-                                                                    <RotateCcw className="h-3.5 w-3.5" />
+                                                    <AlertDialog>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <AlertDialogTrigger asChild>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            className="gap-1.5"
+                                                                            disabled={processingId === document.id}
+                                                                            aria-label={`Restore ${document.original_name}`}
+                                                                        >
+                                                                            <RotateCcw className="h-3.5 w-3.5" />
+                                                                            Restore
+                                                                        </Button>
+                                                                    </AlertDialogTrigger>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Restore to My Vault</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Restore this document?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    "{document.original_name}" will be moved back to your vault.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleRestore(document.id)}>
                                                                     Restore
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>Restore to My Vault</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
 
                                                     <AlertDialog>
                                                         <AlertDialogTrigger asChild>
@@ -337,9 +322,10 @@ export default function TrashIndex({ documents }: Props) {
                                                         </AlertDialogTrigger>
                                                         <AlertDialogContent>
                                                             <AlertDialogHeader>
-                                                                <AlertDialogTitle>Delete Permanently?</AlertDialogTitle>
+                                                                <AlertDialogTitle>Permanently delete this document?</AlertDialogTitle>
                                                                 <AlertDialogDescription>
-                                                                    This action cannot be undone. The document and its encrypted file will be permanently deleted from the server.
+                                                                    "{document.original_name}" will be permanently deleted and cannot be recovered.
+                                                                    This action cannot be undone.
                                                                 </AlertDialogDescription>
                                                             </AlertDialogHeader>
                                                             <AlertDialogFooter>
@@ -348,7 +334,7 @@ export default function TrashIndex({ documents }: Props) {
                                                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                                                     onClick={() => handlePermanentDelete(document.id)}
                                                                 >
-                                                                    Delete Permanently
+                                                                    Delete Forever
                                                                 </AlertDialogAction>
                                                             </AlertDialogFooter>
                                                         </AlertDialogContent>
@@ -381,36 +367,6 @@ export default function TrashIndex({ documents }: Props) {
                                                             Restore Selected
                                                         </Button>
                                                     )}
-
-                                                    <AlertDialog>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="text-destructive hover:bg-destructive/10"
-                                                                aria-label={`Empty trash and permanently delete ${documents.length} document${documents.length !== 1 ? 's' : ''}`}
-                                                            >
-                                                                Empty Trash
-                                                            </Button>
-                                                        </AlertDialogTrigger>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Empty Trash?</AlertDialogTitle>
-                                                                <AlertDialogDescription>
-                                                                    This will permanently delete all {documents.length} document(s) in your trash. This cannot be undone.
-                                                                </AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                <AlertDialogAction
-                                                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                                                    onClick={handleEmptyTrash}
-                                                                >
-                                                                    Empty Trash
-                                                                </AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
                                                 </div>
                                             </div>
                                         </TableCell>

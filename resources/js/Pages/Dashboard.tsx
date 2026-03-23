@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { TimeBasedGreeting } from '@/components/TimeBasedGreeting';
 import { Separator } from '@/components/ui/separator';
 import {
     Table,
@@ -426,9 +427,10 @@ export default function Dashboard({
                                             <p className="text-sm font-medium uppercase tracking-[0.22em] text-muted-foreground">
                                                 Overview
                                             </p>
-                                            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-                                                {getGreeting()}, {firstName} <span>{getGreetingEmoji()}</span>
-                                            </h1>
+                                            <div className="space-y-1">
+                                                <h1 className="text-3xl font-semibold tracking-tight text-foreground">Dashboard</h1>
+                                                <TimeBasedGreeting firstName={firstName} />
+                                            </div>
                                         </div>
                                         <div className="flex flex-wrap items-center gap-3">
                                             <span className={cn('inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold', status.className)}>

@@ -26,6 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { FileTypeBadge } from '@/components/FileTypeBadge';
+import { PermissionBadge, type Permission } from '@/components/PermissionBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -48,8 +49,6 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-type Permission = 'view_only' | 'download' | 'full_access';
-
 interface ShareItem {
     id: number;
     permission: Permission;
@@ -71,7 +70,7 @@ interface ShareItem {
 interface Props extends PageProps {
     shares: PaginatedResponse<ShareItem>;
     filters: {
-        include_expired?: boolean;
+        show_expired?: boolean;
     };
 }
 
@@ -116,32 +115,6 @@ function getFileIcon(mimeType: string) {
     return <File className="h-7 w-7 text-primary" />;
 }
 
-function getPermissionLabel(permission: Permission) {
-    switch (permission) {
-        case 'view_only':
-            return 'View Only';
-        case 'download':
-            return 'Download';
-        case 'full_access':
-            return 'Full Access';
-    }
-}
-
-function getPermissionBadge(permission: Permission) {
-    switch (permission) {
-        case 'view_only':
-            return <Badge variant="outline" className="text-xs">View Only</Badge>;
-        case 'download':
-            return (
-                <Badge variant="outline" className="border-primary/20 bg-primary/10 text-xs text-primary">
-                    Download
-                </Badge>
-            );
-        case 'full_access':
-            return <Badge className="bg-primary text-xs text-primary-foreground">Full Access</Badge>;
-    }
-}
-
 const avatarColors = ['bg-amber-600', 'bg-blue-600', 'bg-emerald-600', 'bg-violet-600', 'bg-orange-600', 'bg-teal-600'];
 
 function getAvatarColor(name: string) {
@@ -170,96 +143,91 @@ function formatRelative(value: string) {
 function FilterPanel({
     permissionFilters,
     setPermissionFilters,
-    sharedByFilter,
-    setSharedByFilter,
+    expiringSoon,
+    onToggleExpiringSoon,
     showExpired,
     onToggleShowExpired,
+    hasActiveFilters,
     clearFilters,
 }: {
     permissionFilters: Record<Permission, boolean>;
     setPermissionFilters: React.Dispatch<React.SetStateAction<Record<Permission, boolean>>>;
-    sharedByFilter: string;
-    setSharedByFilter: React.Dispatch<React.SetStateAction<string>>;
+    expiringSoon: boolean;
+    onToggleExpiringSoon: (checked: boolean) => void;
     showExpired: boolean;
     onToggleShowExpired: (checked: boolean) => void;
+    hasActiveFilters: boolean;
     clearFilters: () => void;
 }) {
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 p-1">
             <div className="space-y-3">
                 <p className="text-sm font-medium text-foreground">Permission</p>
-                <div className="flex items-center gap-2">
-                    <Checkbox
-                        id="view_only"
-                        checked={permissionFilters.view_only}
-                        onCheckedChange={(checked) =>
-                            setPermissionFilters((current) => ({
-                                ...current,
-                                view_only: checked === true,
-                            }))
-                        }
-                    />
-                    <Label htmlFor="view_only" className="cursor-pointer text-sm font-normal">View Only</Label>
+                <div className="space-y-2">
+                    {(['view_only', 'download', 'full_access'] as const).map((permission) => (
+                        <div key={permission} className="flex items-center gap-2">
+                            <Checkbox
+                                id={`filter-${permission}`}
+                                checked={permissionFilters[permission]}
+                                onCheckedChange={(checked) =>
+                                    setPermissionFilters((current) => ({
+                                        ...current,
+                                        [permission]: checked === true,
+                                    }))
+                                }
+                            />
+                            <Label htmlFor={`filter-${permission}`} className="cursor-pointer">
+                                <PermissionBadge permission={permission} />
+                            </Label>
+                        </div>
+                    ))}
                 </div>
-                <div className="flex items-center gap-2">
-                    <Checkbox
-                        id="download"
-                        checked={permissionFilters.download}
-                        onCheckedChange={(checked) =>
-                            setPermissionFilters((current) => ({
-                                ...current,
-                                download: checked === true,
-                            }))
-                        }
-                    />
-                    <Label htmlFor="download" className="cursor-pointer text-sm font-normal">Download</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Checkbox
-                        id="full_access"
-                        checked={permissionFilters.full_access}
-                        onCheckedChange={(checked) =>
-                            setPermissionFilters((current) => ({
-                                ...current,
-                                full_access: checked === true,
-                            }))
-                        }
-                    />
-                    <Label htmlFor="full_access" className="cursor-pointer text-sm font-normal">Full Access</Label>
-                </div>
-            </div>
-
-            <div className="space-y-2">
-                <p className="text-sm font-medium text-foreground">Shared by</p>
-                <Input
-                    value={sharedByFilter}
-                    onChange={(event) => setSharedByFilter(event.target.value)}
-                    placeholder="Name or email"
-                    aria-label="Filter shares by sender name or email"
-                    className="bg-background"
-                />
             </div>
 
             <Separator />
 
-            <div className="flex items-center gap-2">
-                <Checkbox id="show-expired" checked={showExpired} onCheckedChange={(checked) => onToggleShowExpired(checked === true)} />
-                <Label htmlFor="show-expired" className="cursor-pointer text-sm font-normal">Show expired shares</Label>
+            <div className="space-y-3">
+                <p className="text-sm font-medium text-foreground">Expiry</p>
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                        <Checkbox
+                            id="filter-expiring-soon"
+                            checked={expiringSoon}
+                            onCheckedChange={(checked) => onToggleExpiringSoon(checked === true)}
+                        />
+                        <Label htmlFor="filter-expiring-soon" className="cursor-pointer text-sm font-normal">
+                            Expiring soon
+                        </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Checkbox
+                            id="filter-show-expired"
+                            checked={showExpired}
+                            onCheckedChange={(checked) => onToggleShowExpired(checked === true)}
+                        />
+                        <Label htmlFor="filter-show-expired" className="cursor-pointer text-sm font-normal">
+                            Show expired
+                        </Label>
+                    </div>
+                </div>
             </div>
 
-            <Separator />
-
-            <Button type="button" variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={clearFilters}>
-                Clear Filters
-            </Button>
+            {hasActiveFilters && (
+                <>
+                    <Separator />
+                    <Button type="button" variant="ghost" size="sm" className="h-8 w-full text-muted-foreground" onClick={clearFilters}>
+                        Clear filters
+                    </Button>
+                </>
+            )}
         </div>
     );
 }
 
 export default function SharedWithMe({ shares, filters }: Props) {
     const [search, setSearch] = useState('');
-    const [sharedByFilter, setSharedByFilter] = useState('');
-    const showExpired = filters.include_expired === true;
+    const [expiringSoon, setExpiringSoon] = useState(false);
+    const showExpired = filters.show_expired === true;
     const [permissionFilters, setPermissionFilters] = useState<Record<Permission, boolean>>({
         view_only: false,
         download: false,
@@ -270,13 +238,13 @@ export default function SharedWithMe({ shares, filters }: Props) {
         Number(permissionFilters.view_only) +
         Number(permissionFilters.download) +
         Number(permissionFilters.full_access) +
-        Number(sharedByFilter.trim().length > 0) +
+        Number(expiringSoon) +
         Number(showExpired);
+    const hasActiveFilters = activeFilterCount > 0;
     const isEmpty = shares.total === 0;
 
     const filteredShares = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
-        const normalizedSharedBy = sharedByFilter.trim().toLowerCase();
         const activePermissions = (Object.entries(permissionFilters) as Array<[Permission, boolean]>)
             .filter(([, enabled]) => enabled)
             .map(([permission]) => permission);
@@ -284,14 +252,15 @@ export default function SharedWithMe({ shares, filters }: Props) {
         return shares.data.filter((share) => {
             if (normalizedSearch && !share.document.original_name.toLowerCase().includes(normalizedSearch)) return false;
             if (activePermissions.length > 0 && !activePermissions.includes(share.permission)) return false;
-            if (normalizedSharedBy) {
-                const haystack = `${share.shared_by.name} ${share.shared_by.email}`.toLowerCase();
-                if (!haystack.includes(normalizedSharedBy)) return false;
+            if (expiringSoon) {
+                if (!share.expires_at || isShareExpired(share.expires_at)) return false;
+                const remainingDays = daysRemaining(share.expires_at);
+                if (remainingDays > 7) return false;
             }
 
             return true;
         });
-    }, [permissionFilters, search, shares.data, sharedByFilter]);
+    }, [expiringSoon, permissionFilters, search, shares.data]);
 
     const clearFilters = () => {
         setPermissionFilters({
@@ -299,14 +268,14 @@ export default function SharedWithMe({ shares, filters }: Props) {
             download: false,
             full_access: false,
         });
-        setSharedByFilter('');
+        setExpiringSoon(false);
         router.get(route('shared.index'), {}, { preserveScroll: true, preserveState: true, replace: true });
     };
 
     const toggleShowExpired = (checked: boolean) => {
         router.get(
             route('shared.index'),
-            checked ? { include_expired: 1 } : {},
+            checked ? { show_expired: 1 } : {},
             {
                 preserveScroll: true,
                 preserveState: true,
@@ -340,30 +309,6 @@ export default function SharedWithMe({ shares, filters }: Props) {
                             </BreadcrumbList>
                         </Breadcrumb>
                     </div>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className="relative shrink-0 gap-2">
-                                <SlidersHorizontal className="h-4 w-4" />
-                                Filter
-                                {activeFilterCount > 0 && (
-                                    <Badge className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary p-0 text-xs text-primary-foreground">
-                                        {activeFilterCount}
-                                    </Badge>
-                                )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="end">
-                            <FilterPanel
-                                permissionFilters={permissionFilters}
-                                setPermissionFilters={setPermissionFilters}
-                                sharedByFilter={sharedByFilter}
-                                setSharedByFilter={setSharedByFilter}
-                                showExpired={showExpired}
-                                onToggleShowExpired={toggleShowExpired}
-                                clearFilters={clearFilters}
-                            />
-                        </PopoverContent>
-                    </Popover>
                 </div>
             }
         >
@@ -407,9 +352,9 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                         />
                                     </div>
                                     <div className="flex items-center gap-3 self-end sm:self-auto">
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="outline" className="relative gap-2">
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" className="relative gap-2">
                                                     <SlidersHorizontal className="h-4 w-4" />
                                                     Filter
                                                     {activeFilterCount > 0 && (
@@ -423,10 +368,11 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                                 <FilterPanel
                                                     permissionFilters={permissionFilters}
                                                     setPermissionFilters={setPermissionFilters}
-                                                    sharedByFilter={sharedByFilter}
-                                                    setSharedByFilter={setSharedByFilter}
+                                                    expiringSoon={expiringSoon}
+                                                    onToggleExpiringSoon={setExpiringSoon}
                                                     showExpired={showExpired}
                                                     onToggleShowExpired={toggleShowExpired}
+                                                    hasActiveFilters={hasActiveFilters}
                                                     clearFilters={clearFilters}
                                                 />
                                             </PopoverContent>
@@ -471,7 +417,7 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        {getPermissionBadge(share.permission)}
+                                                        <PermissionBadge permission={share.permission} />
                                                     </CardHeader>
 
                                                     <CardContent className="space-y-3 pt-0">

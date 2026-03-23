@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Document;
 use App\Models\User;
+use App\Services\AuditDescriptionService;
 use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,11 @@ class AdminController extends Controller
     public function __construct(AuditService $auditService)
     {
         $this->auditService = $auditService;
+    }
+
+    protected function auditDescriptionService(): AuditDescriptionService
+    {
+        return app(AuditDescriptionService::class);
     }
 
     /**
@@ -47,7 +53,7 @@ class AdminController extends Controller
                 ->limit(10)
                 ->get()
                 ->map(fn ($log) => [
-                    'action' => $log->action,
+                    'action' => strtolower($log->action),
                     'ip_address' => $log->ip_address,
                     'created_at' => $log->created_at,
                     'user' => $log->user ? [
@@ -82,6 +88,10 @@ class AdminController extends Controller
             $query->where('is_active', $request->status === 'active');
         }
 
+        if ($request->input('verification') === 'unverified') {
+            $query->whereNull('email_verified_at');
+        }
+
         return Inertia::render('Admin/Users/Index', [
             'users' => $query->paginate(15)->withQueryString()
                 ->through(fn ($user) => [
@@ -94,7 +104,7 @@ class AdminController extends Controller
                     'role' => $user->roles->first()?->name ?? 'user',
                     'avatar_url' => $user->avatar_url,
                 ]),
-            'filters' => $request->only(['search', 'role', 'status']),
+            'filters' => $request->only(['search', 'role', 'status', 'verification']),
         ]);
     }
 
@@ -188,6 +198,7 @@ class AdminController extends Controller
                 ->through(fn (AuditLog $log) => [
                     'id' => $log->id,
                     'action' => $log->action,
+                    'description' => $this->auditDescriptionService()->generate($log),
                     'metadata' => $log->metadata,
                     'ip_address' => $log->ip_address,
                     'created_at' => $log->created_at,
@@ -207,6 +218,7 @@ class AdminController extends Controller
     public function exportAuditLogs(Request $request)
     {
         $logs = $this->auditLogsQuery($request)->get([
+            'id',
             'action',
             'ip_address',
             'metadata',
@@ -224,7 +236,7 @@ class AdminController extends Controller
                     $log->action,
                     $log->user_id,
                     $log->ip_address,
-                    json_encode($log->metadata),
+                    $this->auditDescriptionService()->generate($log),
                 ]);
             }
 
@@ -242,6 +254,7 @@ class AdminController extends Controller
 
         $pdf = Pdf::loadView('pdf.audit-log', [
             'logs' => $logs,
+            'auditDescriptionService' => $this->auditDescriptionService(),
             'userName' => auth()->user()->name,
             'isAdmin' => true,
             'dateRange' => $this->formatDateRange($request),

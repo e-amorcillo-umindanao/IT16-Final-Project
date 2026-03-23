@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\AuditLog;
+use App\Services\AuditDescriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -12,6 +13,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AuditLogController extends Controller
 {
+    public function __construct(
+        private readonly AuditDescriptionService $auditDescriptionService,
+    ) {
+    }
+
     /**
      * Display a listing of the user's activity logs.
      */
@@ -27,6 +33,7 @@ class AuditLogController extends Controller
                 ->through(fn (AuditLog $log) => [
                     'id' => $log->id,
                     'action' => $log->action,
+                    'description' => $this->auditDescriptionService->generate($log),
                     'metadata' => $log->metadata,
                     'ip_address' => $log->ip_address,
                     'created_at' => $log->created_at,
@@ -41,6 +48,7 @@ class AuditLogController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $logs = $this->personalLogsQuery($request, Auth::id())->get([
+            'id',
             'action',
             'ip_address',
             'metadata',
@@ -56,7 +64,7 @@ class AuditLogController extends Controller
                     $log->created_at->toIso8601String(),
                     $log->action,
                     $log->ip_address,
-                    json_encode($log->metadata),
+                    $this->auditDescriptionService->generate($log),
                 ]);
             }
 
@@ -75,6 +83,7 @@ class AuditLogController extends Controller
 
         $pdf = Pdf::loadView('pdf.audit-log', [
             'logs' => $logs,
+            'auditDescriptionService' => $this->auditDescriptionService,
             'userName' => $user->name,
             'isAdmin' => false,
             'dateRange' => $this->formatDateRange($request),

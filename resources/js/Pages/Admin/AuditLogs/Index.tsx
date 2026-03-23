@@ -27,25 +27,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { getAuditActionBadge } from '@/lib/auditActionBadge';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { format } from 'date-fns';
 import {
     Activity,
-    AlertTriangle,
     CalendarIcon,
     Download,
     FileDown,
-    Lock,
-    LogIn,
-    LogOut,
-    Share2,
-    ShieldAlert,
     ShieldCheck,
     SlidersHorizontal,
     Terminal,
-    Trash2,
-    Upload,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -67,6 +60,7 @@ type AuditAction =
 interface AuditLogRow {
     id: number;
     action: AuditAction;
+    description: string;
     metadata: Record<string, any> | null;
     ip_address: string | null;
     created_at: string;
@@ -129,153 +123,6 @@ function parseDateValue(value: string) {
 
 function formatDateValue(date?: Date) {
     return date ? format(date, 'yyyy-MM-dd') : '';
-}
-
-function getActionBadge(action: AuditAction) {
-    switch (action) {
-        case 'login_success':
-            return { icon: LogIn, label: 'LOGIN SUCCESS', className: 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20' };
-        case 'login_failed':
-            return { icon: LogIn, label: 'LOGIN FAILED', className: 'bg-destructive/15 text-destructive border-destructive/20' };
-        case 'logout':
-            return { icon: LogOut, label: 'LOGOUT', className: 'bg-muted text-muted-foreground border-border' };
-        case 'document_uploaded':
-            return { icon: Upload, label: 'UPLOADED', className: 'bg-primary/15 text-primary border-primary/20' };
-        case 'document_downloaded':
-            return { icon: Download, label: 'DOWNLOADED', className: 'bg-primary/15 text-primary border-primary/20' };
-        case 'document_shared':
-            return { icon: Share2, label: 'SHARED', className: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20' };
-        case 'document_deleted':
-            return { icon: Trash2, label: 'DELETED', className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20' };
-        case '2fa_enabled':
-        case 'two_factor_enabled':
-            return { icon: ShieldCheck, label: '2FA ENABLED', className: 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20' };
-        case 'account_locked':
-            return { icon: Lock, label: 'LOCKED', className: 'bg-destructive/15 text-destructive border-destructive/20' };
-        case 'integrity_violation':
-            return { icon: ShieldAlert, label: 'INTEGRITY VIOLATION', className: 'bg-destructive/15 text-destructive border-destructive/20' };
-        default:
-            return {
-                icon: Activity,
-                label: action.replace(/_/g, ' ').toUpperCase(),
-                className: 'bg-muted text-muted-foreground border-border',
-            };
-    }
-}
-
-function getTargetDetails(action: string, metadata: Record<string, any> | null) {
-    const documentName = metadata?.document_name ?? metadata?.original_name;
-    const documentLabel = documentName ? `"${documentName}"` : 'a document';
-    const location = metadata?.location as { city?: string; country?: string } | undefined;
-
-    switch (action) {
-        case 'login_success':
-            return {
-                primary: location?.city
-                    ? `Signed in from ${[location.city, location.country].filter(Boolean).join(', ')}`
-                    : 'Signed in successfully',
-                secondary: metadata?.two_factor !== undefined ? `2FA: ${metadata.two_factor ? 'Enabled' : 'Disabled'}` : null,
-            };
-        case 'login_failed':
-            return { primary: 'Failed login attempt', secondary: null };
-        case 'document_uploaded':
-            return {
-                primary: `Uploaded ${documentLabel}`,
-                secondary: null,
-            };
-        case 'document_downloaded':
-            return {
-                primary: `Downloaded ${documentLabel}`,
-                secondary: metadata?.method === 'bulk_download' ? 'Included in bulk download' : null,
-            };
-        case 'document_shared':
-            return {
-                primary: metadata?.shared_with
-                    ? `Shared ${documentLabel} with ${metadata.shared_with}`
-                    : `Shared ${documentLabel}`,
-                secondary: null,
-            };
-        case 'document_deleted':
-            return {
-                primary: `Moved ${documentLabel} to trash`,
-                secondary: null,
-            };
-        case 'document_restored':
-            return {
-                primary: `Restored ${documentLabel}`,
-                secondary: null,
-            };
-        case 'document_starred':
-            return {
-                primary: `Starred ${documentLabel}`,
-                secondary: null,
-            };
-        case 'document_unstarred':
-            return {
-                primary: `Unstarred ${documentLabel}`,
-                secondary: null,
-            };
-        case 'share_link_generated':
-            return {
-                primary: typeof metadata?.expires_hours === 'number'
-                    ? `Generated share link for ${documentLabel} (${metadata.expires_hours}h)`
-                    : `Generated share link for ${documentLabel}`,
-                secondary: null,
-            };
-        case 'share_link_accessed':
-            return {
-                primary: `Share link accessed for ${documentLabel}`,
-                secondary: null,
-            };
-        case 'share_revoked':
-            return {
-                primary: metadata?.revoked_from
-                    ? `Revoked access to ${documentLabel} from ${metadata.revoked_from}`
-                    : `Revoked access to ${documentLabel}`,
-                secondary: null,
-            };
-        case 'account_locked':
-            return { primary: 'Account locked after failed attempts', secondary: null };
-        case 'integrity_violation':
-            return {
-                primary: `Integrity check failed for ${documentLabel}`,
-                secondary: typeof metadata?.reason === 'string' ? metadata.reason : null,
-            };
-        case 'logout':
-            return {
-                primary: metadata?.ip_address ? `Signed out from ${metadata.ip_address}` : 'Signed out',
-                secondary: null,
-            };
-        case '2fa_enabled':
-        case 'two_factor_enabled':
-            return { primary: 'Two-factor authentication enabled', secondary: null };
-        case '2fa_disabled':
-        case 'two_factor_disabled':
-            return { primary: 'Two-factor authentication disabled', secondary: null };
-        case 'password_changed':
-            return { primary: 'Password updated', secondary: null };
-        case 'profile_updated':
-            return { primary: 'Profile information updated', secondary: null };
-        case 'session_revoked':
-        case 'session_terminated':
-            return { primary: 'Active session revoked', secondary: null };
-        case 'bulk_download':
-            return {
-                primary: typeof metadata?.document_count === 'number'
-                    ? `Downloaded ${metadata.document_count} documents as ZIP`
-                    : 'Bulk download performed',
-                secondary: null,
-            };
-        case 'bulk_delete':
-            return {
-                primary: typeof metadata?.document_count === 'number'
-                    ? `Moved ${metadata.document_count} documents to trash`
-                    : 'Bulk delete performed',
-                secondary: null,
-            };
-        default:
-            return { primary: action.replace(/_/g, ' '), secondary: null };
-    }
 }
 
 function AuditPagination({
@@ -604,12 +451,14 @@ export default function AdminAuditLogsIndex({ logs, filters }: Props) {
                                     </TableHeader>
                                     <TableBody>
                                         {logs.data.map((log) => {
-                                            const actionBadge = getActionBadge(log.action);
-                                            const details = getTargetDetails(log.action, log.metadata);
+                                            const actionBadge = getAuditActionBadge(log.action);
                                             const ActionIcon = actionBadge.icon;
-                                            const location = (log.metadata as Record<string, any> | null)?.location as
-                                                | { city?: string; country?: string }
-                                                | undefined;
+                                            const location = (log.metadata as Record<string, any> | null)?.location;
+                                            const locationLabel = typeof location === 'string'
+                                                ? location
+                                                : location && typeof location === 'object'
+                                                  ? [location.city, location.region, location.country].filter(Boolean).join(', ')
+                                                  : null;
 
                                             return (
                                                 <TableRow key={log.id} className="hover:bg-muted/50">
@@ -647,31 +496,26 @@ export default function AdminAuditLogsIndex({ logs, filters }: Props) {
                                                     <TableCell>
                                                         <Badge
                                                             variant="outline"
-                                                            className={`gap-1 text-xs font-semibold uppercase tracking-wide ${actionBadge.className}`}
+                                                            className={`gap-1 text-xs font-medium uppercase tracking-wide ${actionBadge.className}`}
                                                         >
                                                             <ActionIcon className="h-3 w-3" />
                                                             {actionBadge.label}
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm text-foreground">{details.primary}</span>
-                                                            {details.secondary && (
-                                                                <span className="text-xs text-muted-foreground">{details.secondary}</span>
-                                                            )}
-                                                        </div>
+                                                        <span className="text-sm text-foreground">{log.description}</span>
                                                     </TableCell>
                                                     <TableCell>
                                                         <TooltipProvider>
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <span className="cursor-help rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                                                                        {log.ip_address || '—'}
+                                                                        {log.ip_address || '-'}
                                                                     </span>
                                                                 </TooltipTrigger>
-                                                                {location && (
+                                                                {locationLabel && (
                                                                     <TooltipContent>
-                                                                        <p>{[location.city, location.country].filter(Boolean).join(', ')}</p>
+                                                                        <p>{locationLabel}</p>
                                                                     </TooltipContent>
                                                                 )}
                                                             </Tooltip>

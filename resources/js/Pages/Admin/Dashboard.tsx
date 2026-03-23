@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { getAuditActionBadge } from '@/lib/auditActionBadge';
 import { Head, Link } from '@inertiajs/react';
 import { format } from 'date-fns';
 import {
@@ -45,6 +46,11 @@ interface ActivityItem {
 }
 
 interface Props {
+    auth: {
+        user: {
+            name: string;
+        };
+    };
     stats: Stats;
     recent_activity: ActivityItem[];
 }
@@ -75,54 +81,6 @@ function formatStorage(bytes: number) {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
-function getActionBadge(action: string) {
-    switch (action) {
-        case 'login_success':
-            return (
-                <Badge className="bg-green-500/15 text-green-700 dark:text-green-400">
-                    LOGIN SUCCESS
-                </Badge>
-            );
-        case 'login_failed':
-            return <Badge className="bg-destructive/15 text-destructive">LOGIN FAILED</Badge>;
-        case 'logout':
-            return (
-                <Badge variant="outline" className="bg-muted text-muted-foreground">
-                    LOGOUT
-                </Badge>
-            );
-        case 'document_uploaded':
-            return <Badge className="bg-primary/15 text-primary">DOCUMENT UPLOADED</Badge>;
-        case 'document_downloaded':
-            return <Badge className="bg-primary/15 text-primary">DOCUMENT DOWNLOADED</Badge>;
-        case 'document_shared':
-            return (
-                <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400">
-                    DOCUMENT SHARED
-                </Badge>
-            );
-        case 'document_deleted':
-            return (
-                <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                    DOCUMENT DELETED
-                </Badge>
-            );
-        case 'two_factor_enabled':
-        case '2fa_enabled':
-            return (
-                <Badge className="bg-green-500/15 text-green-700 dark:text-green-400">
-                    2FA ENABLED
-                </Badge>
-            );
-        case 'account_locked':
-            return <Badge className="bg-destructive/15 text-destructive">ACCOUNT LOCKED</Badge>;
-        case 'integrity_violation':
-            return <Badge className="bg-destructive/15 text-destructive">INTEGRITY VIOLATION</Badge>;
-        default:
-            return <Badge className="bg-muted text-muted-foreground">{action.toUpperCase()}</Badge>;
-    }
 }
 
 function StatCard({
@@ -173,13 +131,12 @@ function StatCard({
     );
 }
 
-export default function AdminDashboard({ stats, recent_activity }: Props) {
+export default function AdminDashboard({ auth, stats, recent_activity }: Props) {
     return (
         <AuthenticatedLayout
             header={
                 <div className="space-y-1">
                     <h2 className="text-2xl font-semibold text-foreground">Admin Dashboard</h2>
-                    <p className="text-sm text-muted-foreground">System overview and security monitoring.</p>
                     <Breadcrumb>
                         <BreadcrumbList>
                             <BreadcrumbItem>
@@ -228,7 +185,7 @@ export default function AdminDashboard({ stats, recent_activity }: Props) {
                             tooltip="Total encrypted storage usage"
                         />
                         <StatCard
-                            href={route('admin.audit-logs')}
+                            href={route('admin.audit-logs', { action: 'login_failed' })}
                             label="Failed Logins (24h)"
                             value={stats.failed_logins_24h}
                             subLabel="Security authentication attempts"
@@ -237,7 +194,7 @@ export default function AdminDashboard({ stats, recent_activity }: Props) {
                             warning={stats.failed_logins_24h > 0}
                         />
                         <StatCard
-                            href={route('admin.users')}
+                            href={route('admin.users', { verification: 'unverified' })}
                             label="Pending Verifications"
                             value={stats.pending_verifications}
                             subLabel="Users without verified email"
@@ -320,7 +277,20 @@ export default function AdminDashboard({ stats, recent_activity }: Props) {
                                                         </div>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>{getActionBadge(log.action)}</TableCell>
+                                                <TableCell>
+                                                    {(() => {
+                                                        const badge = getAuditActionBadge(log.action);
+
+                                                        return (
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={`text-xs font-medium uppercase tracking-wide ${badge.className}`}
+                                                            >
+                                                                {badge.label}
+                                                            </Badge>
+                                                        );
+                                                    })()}
+                                                </TableCell>
                                                 <TableCell>
                                                     <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
                                                         {log.ip_address ?? '-'}

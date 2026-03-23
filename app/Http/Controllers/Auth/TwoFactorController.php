@@ -7,7 +7,6 @@ use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
 use PragmaRX\Google2FA\Google2FA;
@@ -63,7 +62,13 @@ class TwoFactorController extends Controller
         $user = $request->user();
         $secret = $request->session()->get('2fa_setup_secret');
 
-        if (!$secret || !$this->google2fa->verifyKey($secret, $request->code)) {
+        if (empty($secret) || strlen($secret) < 16) {
+            return redirect()->route('two-factor.setup')->withErrors([
+                'code' => 'Your setup session has expired. Please scan the QR code again.',
+            ]);
+        }
+
+        if (!$this->google2fa->verifyKey($secret, $request->code)) {
             return back()->withErrors(['code' => 'The provided verification code was invalid.']);
         }
 
@@ -91,10 +96,12 @@ class TwoFactorController extends Controller
 
         $user = $request->user();
 
-        $user->update([
-            'two_factor_secret' => null,
-            'two_factor_enabled' => false,
-        ]);
+        if ($user->two_factor_enabled || !empty($user->two_factor_secret)) {
+            $user->update([
+                'two_factor_secret' => null,
+                'two_factor_enabled' => false,
+            ]);
+        }
 
         $request->session()->forget('2fa_verified');
 
@@ -114,6 +121,27 @@ class TwoFactorController extends Controller
             return redirect()->intended(route('dashboard'));
         }
 
+        if (!$user->hasTwoFactorSecretValid()) {
+            $user->update([
+                'two_factor_secret' => null,
+                'two_factor_enabled' => false,
+            ]);
+
+            $request->session()->forget('2fa_verified');
+
+            $this->auditService->log('2fa_corrupt_reset', $user, [
+                'reason' => 'two_factor_secret was null or too short during challenge',
+            ]);
+
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')->withErrors([
+                'email' => 'Your two-factor authentication setup is invalid and has been reset. Please log in again and re-enable 2FA from your profile settings.',
+            ]);
+        }
+
         return Inertia::render('Auth/TwoFactorChallenge');
     }
 
@@ -128,13 +156,35 @@ class TwoFactorController extends Controller
 
         $user = Auth::user();
 
+        if (!$user->hasTwoFactorSecretValid()) {
+            $user->update([
+                'two_factor_secret' => null,
+                'two_factor_enabled' => false,
+            ]);
+
+            $request->session()->forget('2fa_verified');
+
+            $this->auditService->log('2fa_corrupt_reset', $user, [
+                'reason' => 'two_factor_secret was null or too short during verify',
+            ]);
+
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')->withErrors([
+                'code' => 'Your two-factor authentication setup is invalid and has been reset. Please log in again and re-enable 2FA from your profile settings.',
+            ]);
+        }
+
         if (!$this->google2fa->verifyKey($user->two_factor_secret, $request->code)) {
             $this->auditService->log('2fa_failed', $user);
             return back()->withErrors(['code' => 'The provided verification code was invalid.']);
         }
 
         $request->session()->put('2fa_verified', true);
-        
+        $this->auditService->log('2fa_verified', $user);
+
         $intendedUrl = $request->session()->pull('auth.intended_url', route('dashboard'));
 
         return redirect()->to($intendedUrl);

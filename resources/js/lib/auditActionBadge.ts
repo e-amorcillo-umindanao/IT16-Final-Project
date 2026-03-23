@@ -1,0 +1,60 @@
+import {
+    Activity,
+    Download,
+    FileClock,
+    FileWarning,
+    KeyRound,
+    Lock,
+    LogIn,
+    LogOut,
+    ShieldAlert,
+    ShieldCheck,
+    ShieldOff,
+    Share2,
+    Trash2,
+    Upload,
+    type LucideIcon,
+} from 'lucide-react';
+
+type AuditBadge = {
+    icon: LucideIcon;
+    label: string;
+    className: string;
+};
+
+export const AUDIT_ACTION_BADGES: Record<string, AuditBadge> = {
+    login_success: { icon: LogIn, label: 'Login success', className: 'border-transparent bg-green-500/15 text-green-700 dark:text-green-400' },
+    document_uploaded: { icon: Upload, label: 'Uploaded', className: 'border-transparent bg-green-500/15 text-green-700 dark:text-green-400' },
+    document_restored: { icon: Upload, label: 'Restored', className: 'border-transparent bg-green-500/15 text-green-700 dark:text-green-400' },
+    '2fa_enabled': { icon: ShieldCheck, label: '2FA enabled', className: 'border-transparent bg-green-500/15 text-green-700 dark:text-green-400' },
+    two_factor_enabled: { icon: ShieldCheck, label: '2FA enabled', className: 'border-transparent bg-green-500/15 text-green-700 dark:text-green-400' },
+    '2fa_verified': { icon: ShieldCheck, label: '2FA verified', className: 'border-transparent bg-green-500/15 text-green-700 dark:text-green-400' },
+    document_shared: { icon: Share2, label: 'Shared', className: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400' },
+    share_link_generated: { icon: Share2, label: 'Share link', className: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400' },
+    document_downloaded: { icon: Download, label: 'Downloaded', className: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400' },
+    document_starred: { icon: Activity, label: 'Starred', className: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400' },
+    logout: { icon: LogOut, label: 'Logout', className: 'border-transparent bg-muted text-muted-foreground' },
+    '2fa_disabled': { icon: ShieldOff, label: '2FA disabled', className: 'border-transparent bg-muted text-muted-foreground' },
+    two_factor_disabled: { icon: ShieldOff, label: '2FA disabled', className: 'border-transparent bg-muted text-muted-foreground' },
+    document_deleted: { icon: Trash2, label: 'Deleted', className: 'border-transparent bg-muted text-muted-foreground' },
+    profile_updated: { icon: Activity, label: 'Profile updated', className: 'border-transparent bg-muted text-muted-foreground' },
+    password_changed: { icon: KeyRound, label: 'Password changed', className: 'border-transparent bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+    login_failed: { icon: LogIn, label: 'Login failed', className: 'border-transparent bg-destructive/15 text-destructive' },
+    '2fa_failed': { icon: ShieldAlert, label: '2FA failed', className: 'border-transparent bg-destructive/15 text-destructive' },
+    account_locked: { icon: Lock, label: 'Account locked', className: 'border-transparent bg-destructive/15 text-destructive' },
+    malware_detected: { icon: FileWarning, label: 'Malware blocked', className: 'border-transparent bg-destructive/15 text-destructive' },
+    document_scan_blocked: { icon: FileWarning, label: 'Malware blocked', className: 'border-transparent bg-destructive/15 text-destructive' },
+    integrity_violation: { icon: ShieldAlert, label: 'Integrity failed', className: 'border-transparent bg-destructive/15 text-destructive' },
+    '2fa_corrupt_reset': { icon: ShieldAlert, label: '2FA reset', className: 'border-transparent bg-destructive/15 text-destructive' },
+    share_revoked: { icon: Share2, label: 'Share revoked', className: 'border-transparent bg-destructive/15 text-destructive' },
+    session_revoked: { icon: FileClock, label: 'Session revoked', className: 'border-transparent bg-destructive/15 text-destructive' },
+    session_terminated: { icon: FileClock, label: 'Session terminated', className: 'border-transparent bg-destructive/15 text-destructive' },
+};
+
+export function getAuditActionBadge(action: string): AuditBadge {
+    return AUDIT_ACTION_BADGES[action] ?? {
+        icon: Activity,
+        label: action.replace(/_/g, ' '),
+        className: 'border-transparent bg-muted text-muted-foreground',
+    };
+}

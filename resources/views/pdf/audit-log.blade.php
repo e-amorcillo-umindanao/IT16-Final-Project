@@ -158,8 +158,7 @@
                     </td>
                     <td>
                         {{ $log->metadata['document_name']
-                            ?? $log->metadata['shared_with']
-                            ?? $log->metadata['reason']
+                            ?? $auditDescriptionService->generate($log)
                             ?? '-' }}
                     </td>
                     <td class="monospace">{{ $log->ip_address ?? '-' }}</td>
