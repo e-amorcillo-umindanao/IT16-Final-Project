@@ -36,6 +36,7 @@ interface Stats {
 
 interface ActivityItem {
     action: string;
+    category: 'security' | 'audit';
     ip_address: string | null;
     created_at: string;
     user: {
@@ -185,7 +186,7 @@ export default function AdminDashboard({ auth, stats, recent_activity }: Props) 
                             tooltip="Total encrypted storage usage"
                         />
                         <StatCard
-                            href={route('admin.audit-logs', { action: 'login_failed' })}
+                            href={route('admin.audit-logs', { category: 'security', action: 'login_failed' })}
                             label="Failed Logins (24h)"
                             value={stats.failed_logins_24h}
                             subLabel="Security authentication attempts"
@@ -212,12 +213,12 @@ export default function AdminDashboard({ auth, stats, recent_activity }: Props) 
                                         Recent System Activity
                                     </CardTitle>
                                     <p className="mt-0.5 text-xs uppercase tracking-wide text-muted-foreground">
-                                        Last 10 audit log entries across the system
+                                        Security events only · Last 10 entries
                                     </p>
                                 </div>
                             </div>
                             <Button variant="outline" size="sm" asChild>
-                                <Link href={route('admin.audit-logs')}>View All Logs</Link>
+                                <Link href={route('admin.audit-logs', { category: 'security' })}>View All Logs</Link>
                             </Button>
                         </CardHeader>
                         <CardContent className="p-0">

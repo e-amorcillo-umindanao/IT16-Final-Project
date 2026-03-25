@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditCategory;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\AuditLog;
 use App\Services\AuditDescriptionService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -33,6 +35,7 @@ class AuditLogController extends Controller
                 ->through(fn (AuditLog $log) => [
                     'id' => $log->id,
                     'action' => $log->action,
+                    'category' => $log->category,
                     'description' => $this->auditDescriptionService->generate($log),
                     'metadata' => $log->metadata,
                     'ip_address' => $log->ip_address,
@@ -41,7 +44,12 @@ class AuditLogController extends Controller
                         'original_name' => $log->auditable->original_name ?? null,
                     ] : null,
                 ]),
-            'filters' => $request->only(['action', 'from_date', 'to_date']),
+            'filters' => [
+                'category' => $this->categoryFilter($request),
+                ...$request->only(['action', 'from_date', 'to_date']),
+            ],
+            'securityCount' => $user->auditLogs()->security()->count(),
+            'auditCount' => $user->auditLogs()->audit()->count(),
         ]);
     }
 
@@ -50,6 +58,7 @@ class AuditLogController extends Controller
         $logs = $this->personalLogsQuery($request, Auth::id())->get([
             'id',
             'action',
+            'category',
             'ip_address',
             'metadata',
             'created_at',
@@ -87,16 +96,21 @@ class AuditLogController extends Controller
             'userName' => $user->name,
             'isAdmin' => false,
             'dateRange' => $this->formatDateRange($request),
+            'category' => $this->categoryFilter($request),
         ]);
 
         return $pdf->download('securevault-audit-log.pdf');
     }
 
-    private function personalLogsQuery(Request $request, int $userId)
+    private function personalLogsQuery(Request $request, int $userId): Builder
     {
         $query = AuditLog::where('user_id', $userId)
             ->with(['auditable' => fn ($query) => $query->withTrashed()])
             ->orderByDesc('created_at');
+
+        if (($category = $this->categoryFilter($request)) !== 'all') {
+            $query->where('category', $category);
+        }
 
         if ($request->filled('action')) {
             $query->where('action', $request->action);
@@ -111,6 +125,15 @@ class AuditLogController extends Controller
         }
 
         return $query;
+    }
+
+    private function categoryFilter(Request $request): string
+    {
+        $category = $request->input('category', 'all');
+
+        return in_array($category, ['all', AuditCategory::Security->value, AuditCategory::Audit->value], true)
+            ? $category
+            : 'all';
     }
 
     private function formatDateRange(Request $request): ?string

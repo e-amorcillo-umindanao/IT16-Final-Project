@@ -1,3 +1,4 @@
+import { AuditCategoryTabs } from '@/components/AuditCategoryTabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -60,6 +61,7 @@ type AuditAction =
 interface AuditLogRow {
     id: number;
     action: AuditAction;
+    category: 'security' | 'audit';
     description: string;
     metadata: Record<string, any> | null;
     ip_address: string | null;
@@ -77,11 +79,14 @@ interface AuditLogRow {
 interface Props extends PageProps {
     logs: PaginatedResponse<AuditLogRow>;
     filters: {
+        category?: string;
         action?: string;
         from_date?: string;
         to_date?: string;
         user?: string;
     };
+    securityCount: number;
+    auditCount: number;
 }
 
 const ACTION_OPTIONS = [
@@ -202,8 +207,9 @@ function AuditPagination({
     );
 }
 
-export default function AdminAuditLogsIndex({ logs, filters }: Props) {
+export default function AdminAuditLogsIndex({ logs, filters, securityCount }: Props) {
     const [localFilters, setLocalFilters] = useState<Props['filters']>({
+        category: filters.category ?? 'all',
         action: filters.action ?? '',
         from_date: filters.from_date ?? '',
         to_date: filters.to_date ?? '',
@@ -213,6 +219,17 @@ export default function AdminAuditLogsIndex({ logs, filters }: Props) {
     const [toDate, setToDate] = useState<Date | undefined>(parseDateValue(filters.to_date ?? ''));
     const [fromDateOpen, setFromDateOpen] = useState(false);
     const [toDateOpen, setToDateOpen] = useState(false);
+    const category = localFilters.category ?? 'all';
+    const title = category === 'security'
+        ? 'Security Events'
+        : category === 'audit'
+          ? 'General Activity'
+          : 'Global Activity Trail';
+    const subtitle = category === 'security'
+        ? 'Security incidents, authentication, and session controls'
+        : category === 'audit'
+          ? 'Document, sharing, and administration activity'
+          : 'Combined system-wide security and activity history';
 
     const exportQuery = Object.fromEntries(
         Object.entries(localFilters).filter(([, value]) => value !== undefined && value !== '')
@@ -226,13 +243,27 @@ export default function AdminAuditLogsIndex({ logs, filters }: Props) {
     };
 
     const resetFilters = () => {
-        const reset = { action: '', from_date: '', to_date: '', user: '' };
+        const reset = { category: 'all', action: '', from_date: '', to_date: '', user: '' };
         setLocalFilters(reset);
         setFromDate(undefined);
         setToDate(undefined);
         setFromDateOpen(false);
         setToDateOpen(false);
         router.get(route('admin.audit-logs'), {}, { preserveState: false });
+    };
+
+    const setCategory = (value: string) => {
+        const nextFilters = {
+            ...localFilters,
+            category: value,
+        };
+
+        setLocalFilters(nextFilters);
+        router.get(route('admin.audit-logs'), nextFilters, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
     };
 
     return (
@@ -262,6 +293,11 @@ export default function AdminAuditLogsIndex({ logs, filters }: Props) {
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
                     <Card>
                         <CardContent className="pt-5">
+                            <AuditCategoryTabs
+                                value={category}
+                                onChange={setCategory}
+                                securityCount={securityCount}
+                            />
                             <div className="flex flex-wrap items-end gap-6">
                                 <div className="flex flex-col gap-1.5">
                                     <Label htmlFor="action" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -406,9 +442,9 @@ export default function AdminAuditLogsIndex({ logs, filters }: Props) {
                             <div className="flex items-center gap-2">
                                 <ShieldCheck className="h-4 w-4 text-primary" />
                                 <div>
-                                    <CardTitle className="font-semibold text-foreground">Security Audit Trail</CardTitle>
+                                    <CardTitle className="font-semibold text-foreground">{title}</CardTitle>
                                     <p className="mt-0.5 text-xs uppercase tracking-wide text-muted-foreground">
-                                        {logs.total} total entries
+                                        {subtitle} · {logs.total} total entries
                                     </p>
                                 </div>
                             </div>
@@ -494,13 +530,26 @@ export default function AdminAuditLogsIndex({ logs, filters }: Props) {
                                                         )}
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={`gap-1 text-xs font-medium uppercase tracking-wide ${actionBadge.className}`}
-                                                        >
-                                                            <ActionIcon className="h-3 w-3" />
-                                                            {actionBadge.label}
-                                                        </Badge>
+                                                        <div className="flex items-center gap-2">
+                                                            {category === 'all' && (
+                                                                <span
+                                                                    className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                                                        log.category === 'security'
+                                                                            ? 'bg-destructive/10 text-destructive'
+                                                                            : 'bg-muted text-muted-foreground'
+                                                                    }`}
+                                                                >
+                                                                    {log.category === 'security' ? 'SEC' : 'AUD'}
+                                                                </span>
+                                                            )}
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={`gap-1 text-xs font-medium uppercase tracking-wide ${actionBadge.className}`}
+                                                            >
+                                                                <ActionIcon className="h-3 w-3" />
+                                                                {actionBadge.label}
+                                                            </Badge>
+                                                        </div>
                                                     </TableCell>
                                                     <TableCell>
                                                         <span className="text-sm text-foreground">{log.description}</span>

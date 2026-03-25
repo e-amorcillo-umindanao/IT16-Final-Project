@@ -115,6 +115,7 @@
     <div class="meta">
         <span><strong>User:</strong> {{ $userName }}</span>
         <span><strong>Total Entries:</strong> {{ $logs->count() }}</span>
+        <span><strong>Category:</strong> {{ ucfirst($category === 'all' ? 'All Events' : $category . ' Events') }}</span>
         @if($dateRange)
             <span><strong>Period:</strong> {{ $dateRange }}</span>
         @endif

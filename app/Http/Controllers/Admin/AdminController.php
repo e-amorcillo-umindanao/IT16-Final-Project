@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AuditCategory;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
@@ -9,6 +10,7 @@ use App\Models\Document;
 use App\Models\User;
 use App\Services\AuditDescriptionService;
 use App\Services\AuditService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -49,11 +51,13 @@ class AdminController extends Controller
                 'pending_verifications' => User::whereNull('email_verified_at')->count(),
             ],
             'recent_activity' => AuditLog::with('user')
+                ->security()
                 ->orderByDesc('created_at')
                 ->limit(10)
                 ->get()
                 ->map(fn ($log) => [
                     'action' => strtolower($log->action),
+                    'category' => $log->category,
                     'ip_address' => $log->ip_address,
                     'created_at' => $log->created_at,
                     'user' => $log->user ? [
@@ -198,6 +202,7 @@ class AdminController extends Controller
                 ->through(fn (AuditLog $log) => [
                     'id' => $log->id,
                     'action' => $log->action,
+                    'category' => $log->category,
                     'description' => $this->auditDescriptionService()->generate($log),
                     'metadata' => $log->metadata,
                     'ip_address' => $log->ip_address,
@@ -211,7 +216,12 @@ class AdminController extends Controller
                         'avatar_url' => $log->user->avatar_url,
                     ] : null,
                 ]),
-            'filters' => $request->only(['action', 'from_date', 'to_date', 'user']),
+            'filters' => [
+                'category' => $this->categoryFilter($request),
+                ...$request->only(['action', 'from_date', 'to_date', 'user']),
+            ],
+            'securityCount' => AuditLog::security()->count(),
+            'auditCount' => AuditLog::audit()->count(),
         ]);
     }
 
@@ -220,6 +230,7 @@ class AdminController extends Controller
         $logs = $this->auditLogsQuery($request)->get([
             'id',
             'action',
+            'category',
             'ip_address',
             'metadata',
             'created_at',
@@ -258,15 +269,20 @@ class AdminController extends Controller
             'userName' => auth()->user()->name,
             'isAdmin' => true,
             'dateRange' => $this->formatDateRange($request),
+            'category' => $this->categoryFilter($request),
         ]);
 
         return $pdf->download('securevault-admin-audit-log.pdf');
     }
 
-    private function auditLogsQuery(Request $request)
+    private function auditLogsQuery(Request $request): Builder
     {
         $query = AuditLog::with(['user', 'auditable' => fn ($query) => $query->withTrashed()])
             ->orderByDesc('created_at');
+
+        if (($category = $this->categoryFilter($request)) !== 'all') {
+            $query->where('category', $category);
+        }
 
         if ($request->filled('action')) {
             $query->where('action', $request->action);
@@ -288,6 +304,15 @@ class AdminController extends Controller
         }
 
         return $query;
+    }
+
+    private function categoryFilter(Request $request): string
+    {
+        $category = $request->input('category', 'all');
+
+        return in_array($category, ['all', AuditCategory::Security->value, AuditCategory::Audit->value], true)
+            ? $category
+            : 'all';
     }
 
     private function formatDateRange(Request $request): ?string

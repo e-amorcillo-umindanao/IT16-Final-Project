@@ -40,7 +40,10 @@ return [
     ],
 
     'virustotal' => [
-        'api_key' => env('VIRUSTOTAL_API_KEY'),
+        'key' => env('VIRUSTOTAL_API_KEY'),
+        'timeout' => (int) env('VIRUSTOTAL_TIMEOUT', 30),
+        'poll_interval' => (int) env('VIRUSTOTAL_POLL_INTERVAL', 3),
+        'max_wait' => (int) env('VIRUSTOTAL_MAX_WAIT', 60),
     ],
 
 ];

@@ -45,6 +45,7 @@ export interface AuditLog {
     user_id?: number;
     document_id?: number;
     action: string;
+    category?: 'security' | 'audit';
     table_name?: string;
     record_id?: number;
     old_values?: any;
