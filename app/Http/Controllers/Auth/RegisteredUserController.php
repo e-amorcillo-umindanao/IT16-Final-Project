@@ -3,20 +3,20 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Rules\NotPwnedPassword;
+use Spatie\Permission\Models\Role;
 
 class RegisteredUserController extends Controller
 {
+    private const GENERIC_REGISTRATION_STATUS = 'If your email can be registered, we have sent the next steps to your inbox.';
+
     /**
      * Display the registration view.
      */
@@ -28,37 +28,59 @@ class RegisteredUserController extends Controller
     /**
      * Handle an incoming registration request.
      *
-     * @throws ValidationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(RegisterRequest $request): RedirectResponse
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
-            'password' => [
-                'required', 
-                'confirmed', 
-                Rules\Password::min(8)
-                    ->letters()
-                    ->mixedCase()
-                    ->numbers()
-                    ->symbols(),
-                new NotPwnedPassword(),
-            ],
-        ]);
+        $validated = $request->validated();
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+        if (!$request->verifyRecaptcha('register')) {
+            return back()->withErrors([
+                'recaptcha_token' => 'Bot verification failed. Please try again.',
+            ]);
+        }
 
-        $user->assignRole('user');
+        $email = mb_strtolower($validated['email']);
 
-        event(new Registered($user));
+        if (User::query()->where('email', $email)->exists()) {
+            return $this->registrationAcceptedResponse();
+        }
 
-        Auth::login($user);
+        try {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $email,
+                'password' => Hash::make($validated['password']),
+            ]);
 
-        return redirect(route('dashboard', absolute: false));
+            // Auto-verify until SMTP is configured. Remove this when email delivery is enabled.
+            $user->markEmailAsVerified();
+
+            $userRole = Role::findOrCreate('user', config('auth.defaults.guard', 'web'));
+
+            $user->assignRole($userRole);
+
+            event(new Registered($user));
+        } catch (QueryException $exception) {
+            if (!$this->isDuplicateEmailException($exception)) {
+                throw $exception;
+            }
+        }
+
+        return $this->registrationAcceptedResponse();
+    }
+
+    private function registrationAcceptedResponse(): RedirectResponse
+    {
+        return redirect()->route('login')->with('status', self::GENERIC_REGISTRATION_STATUS);
+    }
+
+    private function isDuplicateEmailException(QueryException $exception): bool
+    {
+        $errorInfo = $exception->errorInfo ?? [];
+        $message = strtolower($exception->getMessage());
+
+        return in_array($errorInfo[1] ?? null, [19, 1062, 1555, 2067], true)
+            || str_contains($message, 'unique')
+            || str_contains($message, 'duplicate');
     }
 }

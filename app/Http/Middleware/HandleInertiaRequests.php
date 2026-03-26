@@ -44,6 +44,7 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success') ?? $request->session()->get('status'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'recaptchaSiteKey' => config('services.recaptcha.site_key'),
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),

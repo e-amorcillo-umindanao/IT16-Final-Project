@@ -13,7 +13,10 @@ return [
     |
     */
 
-    'default' => env('QUEUE_CONNECTION', 'database'),
+    'default' => env(
+        'QUEUE_CONNECTION',
+        env('APP_ENV', 'production') === 'local' ? 'deferred' : 'database'
+    ),
 
     /*
     |--------------------------------------------------------------------------

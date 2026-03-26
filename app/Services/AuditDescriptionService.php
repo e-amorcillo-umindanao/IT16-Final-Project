@@ -19,6 +19,7 @@ class AuditDescriptionService
             'login_failed' => $location
                 ? "Failed sign-in attempt from {$location}"
                 : 'Failed sign-in attempt',
+            'login_blocked_inactive' => 'Sign-in blocked - account is inactive',
             'account_locked' => $location
                 ? "Account locked after repeated failures from {$location}"
                 : 'Account locked after repeated failed attempts',
@@ -28,6 +29,9 @@ class AuditDescriptionService
             '2fa_verified' => 'Two-factor authentication verified',
             '2fa_failed' => 'Invalid 2FA code submitted',
             '2fa_corrupt_reset' => '2FA setup was invalid and has been reset',
+            'bot_detected' => isset($meta['form_action'])
+                ? "Bot verification failed on {$meta['form_action']} form"
+                : 'Bot verification failed',
             'document_uploaded' => $documentName
                 ? "Uploaded '{$documentName}'"
                 : 'Uploaded a document',
@@ -55,14 +59,28 @@ class AuditDescriptionService
             'share_revoked' => $documentName
                 ? "Revoked share for '{$documentName}'"
                 : 'Revoked a document share',
-            'share_link_generated' => ($documentName && isset($meta['expires_hours']))
+            'bulk_download' => isset($meta['count'])
+                ? "Downloaded {$meta['count']} document(s) as ZIP"
+                : 'Downloaded multiple document(s) as ZIP',
+            'signed_url_generated' => ($documentName && isset($meta['expires_hours']))
                 ? "Generated share link for '{$documentName}' ({$meta['expires_hours']}h)"
                 : 'Generated a signed share link',
-            'malware_detected', 'document_scan_blocked' => $documentName
+            'signed_url_accessed' => $documentName
+                ? "Accessed share link for '{$documentName}'"
+                : 'Accessed a share link',
+            'malware_detected' => $documentName
+                ? ((isset($meta['detected_at']) && $meta['detected_at'] === 'async_queue')
+                    ? "Malicious file '{$documentName}' detected after upload and removed"
+                    : "Blocked upload of '{$documentName}' - malware detected")
+                : 'Blocked a malicious file upload',
+            'document_scan_blocked' => $documentName
                 ? "Blocked upload of '{$documentName}' - malware detected"
                 : 'Blocked a malicious file upload',
             'password_changed' => 'Password changed',
             'profile_updated' => 'Profile information updated',
+            'user_role_changed' => isset($meta['new_role'], $meta['target_name'])
+                ? "Changed role of {$meta['target_name']} to {$meta['new_role']}"
+                : 'Changed a user role',
             default => ucwords(str_replace('_', ' ', $log->action)),
         };
     }

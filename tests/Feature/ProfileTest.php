@@ -73,11 +73,12 @@ class ProfileTest extends TestCase
     {
         $user = User::factory()->create([
             'two_factor_enabled' => true,
-            'two_factor_secret' => 'SECRET123',
+            'two_factor_secret' => 'ABCDEFGHIJKLMNOP',
         ]);
 
         $response = $this
             ->actingAs($user)
+            ->withSession(['2fa_verified' => true])
             ->delete('/two-factor');
 
         $response
@@ -124,5 +125,22 @@ class ProfileTest extends TestCase
             ->assertRedirect('/profile');
 
         $this->assertNotNull($user->fresh());
+    }
+
+    public function test_deactivated_users_are_logged_out_on_their_next_authenticated_request(): void
+    {
+        $user = User::factory()->create([
+            'is_active' => false,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get('/profile');
+
+        $response
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('email');
+
+        $this->assertGuest();
     }
 }

@@ -1,11 +1,13 @@
 import AppLogo from '@/components/AppLogo';
 import PasswordStrengthBar from '@/components/PasswordStrengthBar';
 import GuestLayout from '@/Layouts/GuestLayout';
+import { getRecaptchaToken } from '@/lib/recaptcha';
+import { PageProps } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     Eye,
@@ -17,21 +19,41 @@ import {
 import { FormEventHandler, useState } from 'react';
 
 export default function Register() {
-    const { data, setData, post, processing, errors, reset } = useForm({
+    const { recaptchaSiteKey } = usePage<PageProps>().props;
+    const { data, setData, post, processing, errors, reset, transform } = useForm({
         name: '',
         email: '',
         password: '',
         password_confirmation: '',
+        recaptcha_token: '',
     });
 
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
-    const submit: FormEventHandler = (e) => {
+    const submit: FormEventHandler = async (e) => {
         e.preventDefault();
 
+        let token = '';
+
+        if (recaptchaSiteKey) {
+            try {
+                token = await getRecaptchaToken(recaptchaSiteKey, 'register');
+            } catch {
+                token = '';
+            }
+        }
+
+        transform((form) => ({
+            ...form,
+            recaptcha_token: token,
+        }));
+
         post(route('register'), {
-            onFinish: () => reset('password', 'password_confirmation'),
+            onFinish: () => {
+                transform((form) => form);
+                reset('password', 'password_confirmation', 'recaptcha_token');
+            },
         });
     };
 
@@ -227,6 +249,12 @@ export default function Register() {
                                 </div>
                             )}
 
+                        {errors.recaptcha_token && (
+                            <p className="text-sm text-destructive">
+                                {errors.recaptcha_token}
+                            </p>
+                        )}
+
                         <Button
                             type="submit"
                             className="mt-2 h-12 w-full gap-2 rounded-lg bg-primary font-semibold text-primary-foreground"
@@ -244,6 +272,29 @@ export default function Register() {
                                 </>
                             )}
                         </Button>
+
+                        {recaptchaSiteKey && (
+                            <p className="text-center text-xs text-muted-foreground">
+                                Protected by reCAPTCHA.{' '}
+                                <a
+                                    href="https://policies.google.com/privacy"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline hover:text-foreground"
+                                >
+                                    Privacy
+                                </a>{' '}
+                                &amp;{' '}
+                                <a
+                                    href="https://policies.google.com/terms"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline hover:text-foreground"
+                                >
+                                    Terms
+                                </a>
+                            </p>
+                        )}
 
                         <p className="text-center text-sm text-muted-foreground">
                             Already have an account?{' '}

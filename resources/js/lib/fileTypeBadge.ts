@@ -20,47 +20,47 @@ interface BadgeConfig {
 const FILE_TYPE_CONFIG: Record<FileType, BadgeConfig> = {
     pdf: {
         label: 'PDF',
-        className: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-transparent',
+        className: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-transparent',
     },
     docx: {
         label: 'DOCX',
-        className: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-transparent',
+        className: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-transparent',
     },
     doc: {
         label: 'DOC',
-        className: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-transparent',
+        className: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-transparent',
     },
     xlsx: {
         label: 'XLSX',
-        className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-transparent',
+        className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-transparent',
     },
     xls: {
         label: 'XLS',
-        className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-transparent',
+        className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-transparent',
     },
     image: {
         label: 'IMAGE',
-        className: 'bg-teal-500/15 text-teal-700 dark:text-teal-400 border-transparent',
+        className: 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-transparent',
     },
     png: {
         label: 'PNG',
-        className: 'bg-teal-500/15 text-teal-700 dark:text-teal-400 border-transparent',
+        className: 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-transparent',
     },
     jpg: {
         label: 'JPG',
-        className: 'bg-teal-500/15 text-teal-700 dark:text-teal-400 border-transparent',
+        className: 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-transparent',
     },
     jpeg: {
-        label: 'JPEG',
-        className: 'bg-teal-500/15 text-teal-700 dark:text-teal-400 border-transparent',
+        label: 'JPG',
+        className: 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-transparent',
     },
     gif: {
-        label: 'GIF',
-        className: 'bg-teal-500/15 text-teal-700 dark:text-teal-400 border-transparent',
+        label: 'IMAGE',
+        className: 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-transparent',
     },
     webp: {
-        label: 'WEBP',
-        className: 'bg-teal-500/15 text-teal-700 dark:text-teal-400 border-transparent',
+        label: 'IMAGE',
+        className: 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-transparent',
     },
     unknown: {
         label: 'FILE',
@@ -77,6 +77,7 @@ export function getFileTypeBadgeConfig(mimeType: string): BadgeConfig {
     if (mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') return FILE_TYPE_CONFIG.xlsx;
     if (mime === 'application/vnd.ms-excel') return FILE_TYPE_CONFIG.xls;
     if (mime.startsWith('image/png')) return FILE_TYPE_CONFIG.png;
+    if (mime.startsWith('image/jpg')) return FILE_TYPE_CONFIG.jpg;
     if (mime.startsWith('image/jpeg')) return FILE_TYPE_CONFIG.jpg;
     if (mime.startsWith('image/gif')) return FILE_TYPE_CONFIG.gif;
     if (mime.startsWith('image/webp')) return FILE_TYPE_CONFIG.webp;

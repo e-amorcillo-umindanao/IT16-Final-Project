@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { getRecaptchaToken } from '@/lib/recaptcha';
+import { PageProps } from '@/types';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     CheckCircle,
@@ -15,14 +17,36 @@ import {
 import { FormEventHandler } from 'react';
 
 export default function ForgotPassword({ status }: { status?: string }) {
-    const { data, setData, post, processing, errors } = useForm({
+    const { recaptchaSiteKey } = usePage<PageProps>().props;
+    const { data, setData, post, processing, errors, reset, transform } = useForm({
         email: '',
+        recaptcha_token: '',
     });
 
-    const submit: FormEventHandler = (e) => {
+    const submit: FormEventHandler = async (e) => {
         e.preventDefault();
 
-        post(route('password.email'));
+        let token = '';
+
+        if (recaptchaSiteKey) {
+            try {
+                token = await getRecaptchaToken(recaptchaSiteKey, 'forgot_password');
+            } catch {
+                token = '';
+            }
+        }
+
+        transform((form) => ({
+            ...form,
+            recaptcha_token: token,
+        }));
+
+        post(route('password.email'), {
+            onFinish: () => {
+                transform((form) => form);
+                reset('recaptcha_token');
+            },
+        });
     };
 
     return (
@@ -83,6 +107,11 @@ export default function ForgotPassword({ status }: { status?: string }) {
                                     {errors.email}
                                 </p>
                             )}
+                            {errors.recaptcha_token && (
+                                <p className="text-sm text-destructive">
+                                    {errors.recaptcha_token}
+                                </p>
+                            )}
                         </div>
 
                         <Button
@@ -99,6 +128,29 @@ export default function ForgotPassword({ status }: { status?: string }) {
                                 'Send Reset Link'
                             )}
                         </Button>
+
+                        {recaptchaSiteKey && (
+                            <p className="text-center text-xs text-muted-foreground">
+                                Protected by reCAPTCHA.{' '}
+                                <a
+                                    href="https://policies.google.com/privacy"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline hover:text-foreground"
+                                >
+                                    Privacy
+                                </a>{' '}
+                                &amp;{' '}
+                                <a
+                                    href="https://policies.google.com/terms"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline hover:text-foreground"
+                                >
+                                    Terms
+                                </a>
+                            </p>
+                        )}
                     </form>
 
                     <div className="text-center">

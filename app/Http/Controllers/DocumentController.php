@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ScanDocumentWithVirusTotal;
 use App\Models\AuditLog;
 use App\Models\Document;
 use App\Services\AuditService;
@@ -17,7 +18,6 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Services\VirusTotalService;
 
 class DocumentController extends Controller
 {
@@ -88,19 +88,6 @@ class DocumentController extends Controller
         ]);
 
         $file = $request->file('document');
-
-        // VirusTotal Scan
-        $scan = app(VirusTotalService::class)->scan($file);
-        if ($scan['malicious'] > 0 || $scan['suspicious'] > 0) {
-            $this->auditService->log('document_scan_blocked', null, [
-                'filename'  => $file->getClientOriginalName(),
-                'malicious' => $scan['malicious'],
-                'suspicious'=> $scan['suspicious'],
-            ]);
-            return back()->withErrors([
-                'document' => "Upload blocked: VirusTotal flagged this file ({$scan['malicious']} malicious, {$scan['suspicious']} suspicious detections).",
-            ]);
-        }
         
         // Encrypt content
         $encryptedData = $this->encryptionService->encryptFile($file->getRealPath());
@@ -123,12 +110,13 @@ class DocumentController extends Controller
             'file_hash' => $encryptedData['original_hash'],
             'encryption_iv' => $encryptedData['iv'],
             'description' => $request->description,
-            'scan_result' => $this->normalizeScanResult($scan),
+            'scan_result' => 'pending',
         ]);
 
         $this->auditService->log('document_uploaded', $document);
+        ScanDocumentWithVirusTotal::dispatch($document);
 
-        return redirect()->route('documents.index')->with('success', 'Document uploaded and encrypted successfully.');
+        return redirect()->route('documents.index')->with('success', 'Document uploaded and queued for malware scanning.');
     }
 
     /**
@@ -149,6 +137,7 @@ class DocumentController extends Controller
             ->map(fn ($log) => [
                 'action' => $log->action,
                 'created_at' => $log->created_at,
+                'metadata' => $log->metadata,
                 'user' => $log->user ? [
                     'name' => $log->user->name,
                     'email' => $log->user->email,
@@ -198,6 +187,19 @@ class DocumentController extends Controller
     public function download(Document $document)
     {
         $this->authorize('download', $document);
+        $scanResult = $this->normalizeScanResult($document->scan_result);
+
+        if ($scanResult === 'pending') {
+            $message = 'This file is still being scanned for malware. Please try again in a moment.';
+
+            return back()
+                ->withErrors(['download' => $message])
+                ->with('error', $message);
+        }
+
+        if ($scanResult === 'malicious') {
+            abort(403, 'This file has been flagged as malicious and cannot be downloaded.');
+        }
 
         $filePath = config('securevault.vault_path') . '/' . $document->encrypted_name;
 
@@ -263,6 +265,26 @@ class DocumentController extends Controller
             ], 404);
         }
 
+        $pendingDocument = $documents->first(
+            fn (Document $document) => $this->normalizeScanResult($document->scan_result) === 'pending'
+        );
+
+        if ($pendingDocument) {
+            return response()->json([
+                'error' => 'One or more selected files are still being scanned for malware. Please try again in a moment.',
+            ], 409);
+        }
+
+        $maliciousDocument = $documents->first(
+            fn (Document $document) => $this->normalizeScanResult($document->scan_result) === 'malicious'
+        );
+
+        if ($maliciousDocument) {
+            return response()->json([
+                'error' => 'One or more selected files have been flagged as malicious and cannot be downloaded.',
+            ], 403);
+        }
+
         $tempDirectory = storage_path('app/temp');
         $zipPath = $tempDirectory . '/bulk_' . uniqid('', true) . '.zip';
 
@@ -321,6 +343,7 @@ class DocumentController extends Controller
         $zip->close();
 
         $this->auditService->log('bulk_download', null, [
+            'count' => $documents->count(),
             'document_count' => $documents->count(),
         ]);
 
@@ -377,7 +400,7 @@ class DocumentController extends Controller
             ['document' => $document->id]
         );
 
-        $this->auditService->log('share_link_generated', $document, [
+        $this->auditService->log('signed_url_generated', $document, [
             'document_name' => $document->original_name,
             'expires_hours' => $validated['expires_hours'],
         ]);
@@ -389,7 +412,7 @@ class DocumentController extends Controller
 
     public function accessViaLink(Request $request, Document $document): Response
     {
-        $this->auditService->log('share_link_accessed', $document, [
+        $this->auditService->log('signed_url_accessed', $document, [
             'document_name' => $document->original_name,
             'signed_url_expires_at' => $request->query('expires'),
         ]);
@@ -554,7 +577,7 @@ class DocumentController extends Controller
 
     private function normalizeScanResult(mixed $scanResult): string
     {
-        if (is_string($scanResult) && in_array($scanResult, ['clean', 'unscanned', 'unavailable', 'malicious'], true)) {
+        if (is_string($scanResult) && in_array($scanResult, ['pending', 'clean', 'unscanned', 'unavailable', 'malicious'], true)) {
             return $scanResult;
         }
 
@@ -562,6 +585,10 @@ class DocumentController extends Controller
             $status = $scanResult['status'] ?? null;
             $malicious = (int) ($scanResult['malicious'] ?? 0);
             $suspicious = (int) ($scanResult['suspicious'] ?? 0);
+
+            if ($status === 'pending') {
+                return 'pending';
+            }
 
             if ($status === 'completed') {
                 return ($malicious > 0 || $suspicious > 0) ? 'malicious' : 'clean';

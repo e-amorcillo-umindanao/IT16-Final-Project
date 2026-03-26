@@ -37,8 +37,8 @@ return new class extends Migration
                 'all_sessions_terminated',
                 'password_changed',
                 'pwned_password_rejected',
-                'share_link_generated',
-                'share_link_accessed',
+                'signed_url_generated',
+                'signed_url_accessed',
             ])
             ->update(['category' => 'security']);
     }

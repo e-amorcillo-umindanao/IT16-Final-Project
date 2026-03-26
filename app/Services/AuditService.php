@@ -35,8 +35,9 @@ class AuditService
         'all_sessions_terminated' => AuditCategory::Security,
         'password_changed' => AuditCategory::Security,
         'pwned_password_rejected' => AuditCategory::Security,
-        'share_link_generated' => AuditCategory::Security,
-        'share_link_accessed' => AuditCategory::Security,
+        'bot_detected' => AuditCategory::Security,
+        'signed_url_generated' => AuditCategory::Security,
+        'signed_url_accessed' => AuditCategory::Security,
 
         'request' => AuditCategory::Audit,
         'profile_updated' => AuditCategory::Audit,
@@ -112,6 +113,7 @@ class AuditService
             auditableId: $auditableId,
             ipAddress: $ipAddress,
             createdAt: $createdAt,
+            metadata: $metadata,
             previousHash: $previousHash,
         );
 
@@ -149,6 +151,7 @@ class AuditService
                 auditableId: $log->auditable_id,
                 ipAddress: $log->ip_address,
                 createdAt: $log->created_at,
+                metadata: is_array($log->metadata) ? $log->metadata : null,
                 previousHash: $log->previous_hash,
             );
 
@@ -192,8 +195,11 @@ class AuditService
         mixed $auditableId,
         string $ipAddress,
         CarbonInterface $createdAt,
+        ?array $metadata,
         ?string $previousHash,
     ): string {
+        $metadataJson = $this->encodeMetadataForHash($metadata);
+
         $dataToHash = implode('|', [
             $action,
             $category,
@@ -202,9 +208,44 @@ class AuditService
             $auditableId ?? 'none',
             $ipAddress,
             $createdAt->toDateTimeString(),
+            $metadataJson,
             $previousHash ?? 'initial',
         ]);
 
         return hash_hmac('sha256', $dataToHash, config('app.key'));
+    }
+
+    private function encodeMetadataForHash(?array $metadata): string
+    {
+        if (empty($metadata)) {
+            return '';
+        }
+
+        $normalizedMetadata = $this->sortMetadataKeysRecursively($metadata);
+
+        return json_encode(
+            $normalizedMetadata,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        ) ?: '';
+    }
+
+    private function sortMetadataKeysRecursively(array $value): array
+    {
+        if (array_is_list($value)) {
+            return array_map(
+                fn (mixed $item) => is_array($item) ? $this->sortMetadataKeysRecursively($item) : $item,
+                $value,
+            );
+        }
+
+        ksort($value);
+
+        foreach ($value as $key => $item) {
+            if (is_array($item)) {
+                $value[$key] = $this->sortMetadataKeysRecursively($item);
+            }
+        }
+
+        return $value;
     }
 }

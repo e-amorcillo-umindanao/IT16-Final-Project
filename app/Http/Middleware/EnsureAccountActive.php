@@ -18,14 +18,14 @@ class EnsureAccountActive
     {
         $user = $request->user();
 
-        if ($user && !$user->is_active) {
+        if ($user && $user->is_active === false) {
             Auth::logout();
 
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
             return redirect()->route('login')->withErrors([
-                'email' => 'Your account is inactive. Please contact security.',
+                'email' => 'Your account has been deactivated.',
             ]);
         }
 

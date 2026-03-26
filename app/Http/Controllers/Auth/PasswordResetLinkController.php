@@ -3,15 +3,16 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class PasswordResetLinkController extends Controller
 {
+    private const GENERIC_RESET_STATUS = 'If that email address is in our system, we have sent a password reset link.';
+
     /**
      * Display the password reset link request view.
      */
@@ -25,27 +26,21 @@ class PasswordResetLinkController extends Controller
     /**
      * Handle an incoming password reset link request.
      *
-     * @throws ValidationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(ForgotPasswordRequest $request): RedirectResponse
     {
-        $request->validate([
-            'email' => 'required|email',
-        ]);
+        $validated = $request->validated();
 
-        // We will send the password reset link to this user. Once we have attempted
-        // to send the link, we will examine the response then see the message we
-        // need to show to the user. Finally, we'll send out a proper response.
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
-
-        if ($status == Password::RESET_LINK_SENT) {
-            return back()->with('status', __($status));
+        if (!$request->verifyRecaptcha('forgot_password')) {
+            return back()->withErrors([
+                'recaptcha_token' => 'Bot verification failed. Please try again.',
+            ]);
         }
 
-        throw ValidationException::withMessages([
-            'email' => [trans($status)],
+        Password::sendResetLink([
+            'email' => $validated['email'],
         ]);
+
+        return back()->with('status', self::GENERIC_RESET_STATUS);
     }
 }

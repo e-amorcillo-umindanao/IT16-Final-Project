@@ -63,11 +63,13 @@ class AdminDocumentController extends Controller
                 'original_name' => $doc->original_name,
                 'mime_type' => $doc->mime_type,
                 'file_size' => $doc->file_size,
+                'scan_result' => is_string($doc->scan_result) ? $doc->scan_result : 'unscanned',
                 'created_at' => $doc->created_at,
                 'has_integrity_violation' => isset($violatedIds[$doc->id]),
                 'user' => [
                     'name' => $doc->user->name,
                     'email' => $doc->user->email,
+                    'avatar_url' => $doc->user->avatar_url,
                 ],
             ]),
             'filters' => $request->only(['search', 'type', 'owner']),

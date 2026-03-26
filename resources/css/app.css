@@ -193,10 +193,50 @@
 }
 
 @layer utilities {
+  .guest-layout-surface {
+    background-color: var(--background);
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--muted-foreground) 15%, transparent) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .secure-progress::-webkit-progress-bar {
+    background-color: color-mix(in srgb, var(--primary) 20%, transparent);
+    border-radius: inherit;
+  }
+
+  .secure-progress::-webkit-progress-value {
+    background-color: var(--primary);
+    border-radius: inherit;
+    transition: inline-size 150ms ease;
+  }
+
+  .secure-progress::-moz-progress-bar {
+    background-color: var(--primary);
+    border-radius: inherit;
+    transition: inline-size 150ms ease;
+  }
+
   .rdp-day,
   .rdp-day_button {
     min-width: 2.25rem;
     min-height: 2.25rem;
+  }
+
+  .rdp-month_grid {
+    width: 100%;
+  }
+
+  .rdp-weekdays,
+  .rdp-head_row {
+    display: flex;
+    width: 100%;
+  }
+
+  .rdp-weekday,
+  .rdp-head_cell {
+    flex: 1 0 2.25rem;
+    width: 2.25rem;
+    text-align: center;
   }
 
   .rdp-day_button {

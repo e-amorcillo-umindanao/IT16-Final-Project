@@ -77,8 +77,19 @@ class ProfileController extends Controller
      */
     public function updatePassword(Request $request, AuditService $auditService): RedirectResponse
     {
-        $validator = Validator::make($request->all(), [
+        $validatedCurrentPassword = $request->validate([
             'current_password' => ['required'],
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($validatedCurrentPassword['current_password'], $user->password)) {
+            return Redirect::back()->withErrors([
+                'current_password' => 'The current password is incorrect.',
+            ]);
+        }
+
+        $validator = Validator::make($request->all(), [
             'password' => [
                 'required',
                 'confirmed',
@@ -107,13 +118,6 @@ class ProfileController extends Controller
         });
 
         $validated = $validator->validate();
-        $user = $request->user();
-
-        if (!Hash::check($validated['current_password'], $user->password)) {
-            return Redirect::back()->withErrors([
-                'current_password' => 'The current password is incorrect.',
-            ]);
-        }
 
         $user->update([
             'password' => Hash::make($validated['password']),

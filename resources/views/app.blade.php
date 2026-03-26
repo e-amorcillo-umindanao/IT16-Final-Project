@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
+        @php($cspNonce = \Illuminate\Support\Facades\Vite::cspNonce())
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
-        <script>
+        <script @if ($cspNonce) nonce="{{ $cspNonce }}" @endif>
             (function () {
                 const stored = localStorage.getItem('securevault_theme');
                 const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -16,8 +17,16 @@
                 document.documentElement.style.colorScheme = shouldUseDark ? 'dark' : 'light';
             })();
         </script>
+        @if (config('services.recaptcha.site_key'))
+            <script
+                src="https://www.google.com/recaptcha/api.js?render={{ config('services.recaptcha.site_key') }}"
+                async
+                defer
+                @if ($cspNonce) nonce="{{ $cspNonce }}" @endif
+            ></script>
+        @endif
         <!-- Scripts -->
-        @routes
+        @routes(null, $cspNonce)
         @viteReactRefresh
         @vite(['resources/js/app.tsx', "resources/js/Pages/{$page['component']}.tsx"])
         @inertiaHead

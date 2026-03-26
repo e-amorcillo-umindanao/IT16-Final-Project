@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -9,7 +10,7 @@ import {
     BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
     Pagination,
@@ -23,6 +24,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileTypeBadge } from '@/components/FileTypeBadge';
+import { ScanBadge, type ScanResult } from '@/components/ScanBadge';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -46,6 +48,7 @@ interface AdminDocumentRow {
     original_name: string;
     mime_type: string;
     file_size: number;
+    scan_result: ScanResult;
     created_at: string;
     has_integrity_violation: boolean;
     user: {
@@ -137,10 +140,6 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
         router.visit(`/documents/${documentId}`);
     };
 
-    const handleExport = () => {
-        window.location.assign(route('admin.documents.export'));
-    };
-
     const stopRowNavigation = (event: MouseEvent<Element>) => {
         event.stopPropagation();
     };
@@ -148,31 +147,21 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-1">
-                        <h2 className="text-2xl font-semibold text-foreground">All Documents</h2>
-                        <p className="text-sm text-muted-foreground">
-                            Read-only audit view of all uploaded documents within the system.
-                        </p>
-                        <Breadcrumb>
-                            <BreadcrumbList>
-                                <BreadcrumbItem>
-                                    <BreadcrumbLink asChild>
-                                        <Link href="/admin">Admin</Link>
-                                    </BreadcrumbLink>
-                                </BreadcrumbItem>
-                                <BreadcrumbSeparator />
-                                <BreadcrumbItem>
-                                    <BreadcrumbPage>All Documents</BreadcrumbPage>
-                                </BreadcrumbItem>
-                            </BreadcrumbList>
-                        </Breadcrumb>
-                    </div>
-
-                    <Button form="admin-documents-filters" type="submit" variant="outline">
-                        <SlidersHorizontal className="h-4 w-4" />
-                        Filter
-                    </Button>
+                <div className="space-y-1">
+                    <h2 className="text-2xl font-semibold text-foreground">All Documents</h2>
+                    <Breadcrumb>
+                        <BreadcrumbList>
+                            <BreadcrumbItem>
+                                <BreadcrumbLink asChild>
+                                    <Link href="/admin">Admin</Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                                <BreadcrumbPage>All Documents</BreadcrumbPage>
+                            </BreadcrumbItem>
+                        </BreadcrumbList>
+                    </Breadcrumb>
                 </div>
             }
         >
@@ -180,6 +169,13 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                    <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                        <ShieldAlert className="h-4 w-4" />
+                        <AlertDescription>
+                            You are viewing all system documents in read-only mode. Download, delete, and share controls are hidden.
+                        </AlertDescription>
+                    </Alert>
+
                     <Card>
                         <CardContent className="p-4">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -234,6 +230,10 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                 </form>
 
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                    <Button form="admin-documents-filters" type="submit" variant="outline">
+                                        <SlidersHorizontal className="h-4 w-4" />
+                                        Filter
+                                    </Button>
                                     <Button variant="outline" asChild>
                                         <a href={route('admin.documents.export')}>
                                             <Download className="h-4 w-4" />
@@ -250,13 +250,6 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                     </Card>
 
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
-                            <CardTitle className="font-semibold text-foreground">All Documents</CardTitle>
-                            <Button variant="outline" size="sm" onClick={handleExport} className="gap-2">
-                                <Download className="h-4 w-4" />
-                                Export CSV
-                            </Button>
-                        </CardHeader>
                         <CardContent className="p-0">
                             <Table>
                                 <TableHeader>
@@ -264,6 +257,7 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                         <TableHead>Document Name</TableHead>
                                         <TableHead>Owner</TableHead>
                                         <TableHead>Type</TableHead>
+                                        <TableHead>Scan Status</TableHead>
                                         <TableHead>Size</TableHead>
                                         <TableHead>Uploaded Date</TableHead>
                                         <TableHead>Encryption Status</TableHead>
@@ -273,7 +267,7 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                 <TableBody>
                                     {documents.data.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                                            <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
                                                 No documents found.
                                             </TableCell>
                                         </TableRow>
@@ -318,6 +312,9 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                                     <TableCell>
                                                         <FileTypeBadge mimeType={doc.mime_type} />
                                                     </TableCell>
+                                                    <TableCell>
+                                                        <ScanBadge result={doc.scan_result} />
+                                                    </TableCell>
                                                     <TableCell className="text-sm text-muted-foreground">
                                                         {formatFileSize(doc.file_size)}
                                                     </TableCell>
@@ -329,7 +326,7 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                                         {doc.has_integrity_violation ? (
                                                             <Badge
                                                                 variant="outline"
-                                                                className="gap-1 border-destructive/20 bg-destructive/10 text-xs text-destructive"
+                                                                className="gap-1 border-0 bg-destructive/15 text-xs text-destructive"
                                                             >
                                                                 <ShieldAlert className="h-3 w-3" />
                                                                 Integrity Flag
@@ -337,7 +334,7 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                                         ) : (
                                                             <Badge
                                                                 variant="outline"
-                                                                className="gap-1 border-green-500/20 bg-green-500/10 text-xs text-green-700 dark:text-green-400"
+                                                                className="gap-1 border-0 bg-green-500/15 text-xs text-green-700 dark:text-green-400"
                                                             >
                                                                 <Lock className="h-3 w-3" />
                                                                 Encrypted

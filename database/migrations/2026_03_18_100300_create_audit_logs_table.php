@@ -14,6 +14,7 @@ return new class extends Migration
             $table->string('action', 50)->index();
             $table->string('auditable_type', 255)->nullable();
             $table->unsignedBigInteger('auditable_id')->nullable();
+            // Hash payload v2 includes category and metadata; legacy rows may need a chain restart in dev/demo.
             $table->json('metadata')->nullable();
             $table->string('ip_address', 45);
             $table->string('user_agent', 500)->nullable();

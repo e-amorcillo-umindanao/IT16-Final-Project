@@ -161,6 +161,7 @@ class AdminController extends Controller
 
         $this->auditService->log('user_role_changed', $user, [
             'new_role' => $request->role,
+            'target_name' => $user->name,
         ]);
 
         return back()->with('success', 'User role updated successfully.');

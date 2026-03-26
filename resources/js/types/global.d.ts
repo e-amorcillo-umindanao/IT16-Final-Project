@@ -6,6 +6,13 @@ import { PageProps as AppPageProps } from './';
 declare global {
     interface Window {
         axios: AxiosInstance;
+        grecaptcha?: {
+            ready: (cb: () => void) => void;
+            execute: (
+                siteKey: string,
+                options: { action: string }
+            ) => Promise<string>;
+        };
     }
 
     /* eslint-disable no-var */

@@ -211,6 +211,10 @@ export default function Dashboard({
                 return 'Download';
             case 'document_shared':
                 return 'Shared';
+            case 'signed_url_generated':
+                return 'Share Link';
+            case 'signed_url_accessed':
+                return 'Link Accessed';
             case 'share_revoked':
                 return 'Share Revoked';
             case 'document_deleted':
@@ -272,11 +276,11 @@ export default function Dashboard({
                 return `Starred ${documentLabel}`;
             case 'document_unstarred':
                 return `Unstarred ${documentLabel}`;
-            case 'share_link_generated':
+            case 'signed_url_generated':
                 return typeof metadata.expires_hours === 'number'
                     ? `Generated share link for ${documentLabel} (${metadata.expires_hours}h)`
                     : `Generated share link for ${documentLabel}`;
-            case 'share_link_accessed':
+            case 'signed_url_accessed':
                 return `Share link accessed for ${documentLabel}`;
             case 'share_revoked':
                 return typeof metadata.revoked_from === 'string'

@@ -90,4 +90,52 @@ class TwoFactorTest extends TestCase
         $this->assertFalse($user->fresh()->two_factor_enabled);
         $this->assertNull($user->fresh()->two_factor_secret);
     }
+
+    public function test_authenticated_routes_redirect_to_the_two_factor_challenge_until_verified(): void
+    {
+        $user = User::factory()->create([
+            'two_factor_enabled' => true,
+            'two_factor_secret' => 'ABCDEFGHIJKLMNOP',
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('dashboard'));
+
+        $response->assertRedirect(route('two-factor.challenge'));
+    }
+
+    public function test_two_factor_challenge_route_can_be_accessed_without_a_redirect_loop(): void
+    {
+        $user = User::factory()->create([
+            'two_factor_enabled' => true,
+            'two_factor_secret' => 'ABCDEFGHIJKLMNOP',
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('two-factor.challenge'));
+
+        $response->assertOk();
+    }
+
+    public function test_middleware_resets_corrupt_two_factor_state_on_protected_routes(): void
+    {
+        $user = User::factory()->create([
+            'two_factor_enabled' => true,
+            'two_factor_secret' => '',
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get('/profile');
+
+        $response
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('email');
+
+        $this->assertGuest();
+        $this->assertFalse($user->fresh()->two_factor_enabled);
+        $this->assertNull($user->fresh()->two_factor_secret);
+    }
 }

@@ -41,6 +41,24 @@ php artisan boost:install
 
 Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
 
+## SecureVault Notes
+
+### Async VirusTotal Scanning
+
+SecureVault saves uploaded files immediately after encryption and dispatches a background queue job to scan the stored vault file with VirusTotal. New uploads start with `scan_result = pending`, and downloads are blocked until the scan resolves to `clean`, `malicious`, or `unavailable`.
+
+If the queued scan flags a file as malicious, the document is soft-deleted and a `malware_detected` security audit event is recorded. If VirusTotal is unavailable, the queued job marks the file as `unavailable` so the app preserves its fail-open resilience policy.
+
+If `QUEUE_CONNECTION` is not explicitly set, SecureVault defaults to `deferred` in local development and `database` in production.
+
+For local development, `deferred` is the simplest setup. That runs queued work automatically after the HTTP response, so uploads do not require a separate `queue:work` terminal while still using the queue system.
+
+For production, use a real queue backend such as `database` or `redis` and keep a worker running so scans execute out-of-process:
+
+```bash
+php artisan queue:work --tries=3 --timeout=60
+```
+
 ## Contributing
 
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).

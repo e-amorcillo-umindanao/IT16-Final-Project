@@ -82,13 +82,14 @@ function Calendar({
             : "[&>svg]:text-muted-foreground flex h-8 items-center gap-1 rounded-md pl-2 pr-1 text-sm [&>svg]:size-3.5",
           defaultClassNames.caption_label
         ),
+        month_grid: cn("w-full border-collapse", defaultClassNames.month_grid),
         table: "w-full border-collapse",
-        weekdays: cn("flex", defaultClassNames.weekdays),
+        weekdays: cn("flex w-full", defaultClassNames.weekdays),
         weekday: cn(
-          "text-muted-foreground w-[--cell-size] select-none rounded-md text-[0.8rem] font-normal",
+          "text-muted-foreground flex-1 basis-[--cell-size] select-none rounded-md text-center text-[0.8rem] font-normal",
           defaultClassNames.weekday
         ),
-        week: cn("mt-2 flex w-full gap-0.5", defaultClassNames.week),
+        week: cn("mt-2 flex w-full", defaultClassNames.week),
         week_number_header: cn(
           "w-[--cell-size] select-none",
           defaultClassNames.week_number_header
@@ -120,6 +121,12 @@ function Calendar({
           defaultClassNames.disabled
         ),
         hidden: cn("invisible", defaultClassNames.hidden),
+        head_row: "flex w-full",
+        head_cell:
+          "text-muted-foreground flex-1 basis-[--cell-size] select-none rounded-md text-center text-[0.8rem] font-normal",
+        row: "mt-2 flex w-full",
+        cell:
+          "group/day relative h-[--cell-size] w-[--cell-size] select-none p-0 text-center text-sm",
         ...classNames,
       }}
       components={{

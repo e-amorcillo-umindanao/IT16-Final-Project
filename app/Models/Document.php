@@ -41,7 +41,8 @@ class Document extends Model
             'description' => 'encrypted',
             'file_size' => 'integer',
             'is_starred' => 'boolean',
-            'scan_result' => 'array',
+            // VirusTotal result: pending, clean, unscanned, unavailable, or malicious.
+            'scan_result' => 'string',
         ];
     }
 

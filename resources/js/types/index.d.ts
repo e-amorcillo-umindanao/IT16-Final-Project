@@ -96,5 +96,6 @@ export type PageProps<
         success?: string | null;
         error?: string | null;
     };
+    recaptchaSiteKey?: string | null;
     ziggy: Config & { location: string };
 };

@@ -6,6 +6,7 @@ use App\Enums\AuditCategory;
 use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AuditLogCategoryTest extends TestCase
@@ -49,5 +50,94 @@ class AuditLogCategoryTest extends TestCase
 
         $this->assertStringContainsString('login_success', $csv);
         $this->assertStringNotContainsString('document_uploaded', $csv);
+    }
+
+    public function test_new_audit_entries_with_metadata_pass_chain_verification(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user);
+
+        $auditService = app(AuditService::class);
+
+        $auditService->log('login_success', $user, [
+            'location' => [
+                'country' => 'PH',
+                'city' => 'Davao',
+            ],
+            'device' => 'desktop',
+        ]);
+        $auditService->log('document_uploaded', null, [
+            'document_name' => 'contract.pdf',
+            'tags' => ['legal', 'signed'],
+        ]);
+
+        $this->assertSame([
+            'valid' => true,
+            'broken_at' => null,
+        ], $auditService->verifyChainIntegrity());
+    }
+
+    public function test_metadata_tampering_breaks_the_hash_chain(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user);
+
+        $auditService = app(AuditService::class);
+
+        $firstLog = $auditService->log('login_success', $user, [
+            'location' => [
+                'country' => 'PH',
+                'city' => 'Davao',
+            ],
+        ]);
+        $auditService->log('document_uploaded', null, [
+            'document_name' => 'report.pdf',
+        ]);
+
+        DB::table('audit_logs')
+            ->where('id', $firstLog->id)
+            ->update([
+                'metadata' => json_encode([
+                    'location' => [
+                        'city' => 'Cebu',
+                        'country' => 'PH',
+                    ],
+                    'ip_address' => '127.0.0.1',
+                ]),
+            ]);
+
+        $result = $auditService->verifyChainIntegrity();
+
+        $this->assertFalse($result['valid']);
+        $this->assertSame($firstLog->id, $result['broken_at']);
+    }
+
+    public function test_category_tampering_breaks_the_hash_chain(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user);
+
+        $auditService = app(AuditService::class);
+
+        $auditService->log('login_success', $user, [
+            'location' => 'Davao, PH',
+        ]);
+        $secondLog = $auditService->log('document_uploaded', null, [
+            'document_name' => 'evidence.pdf',
+        ]);
+
+        DB::table('audit_logs')
+            ->where('id', $secondLog->id)
+            ->update([
+                'category' => AuditCategory::Security->value,
+            ]);
+
+        $result = $auditService->verifyChainIntegrity();
+
+        $this->assertFalse($result['valid']);
+        $this->assertSame($secondLog->id, $result['broken_at']);
     }
 }

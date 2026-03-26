@@ -24,11 +24,9 @@ Route::get('/', function () {
 
 use App\Http\Controllers\DashboardController;
 
-Route::get('/dashboard', [DashboardController::class, 'index'])
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard');
+Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'throttle:general'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
@@ -43,7 +41,10 @@ Route::middleware('auth')->group(function () {
         ->name('documents.bulk-download');
     Route::delete('/documents/bulk-delete', [DocumentController::class, 'bulkDelete'])
         ->name('documents.bulk-delete');
-    Route::resource('documents', DocumentController::class);
+    Route::post('/documents', [DocumentController::class, 'store'])
+        ->middleware('throttle:upload')
+        ->name('documents.store');
+    Route::resource('documents', DocumentController::class)->except('store');
     Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
     Route::patch('/documents/{document}/star', [DocumentController::class, 'toggleStar'])->name('documents.star');
     Route::post('/documents/{document}/share-link', [DocumentController::class, 'generateShareLink'])
@@ -65,7 +66,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/activity', [AuditLogController::class, 'index'])->name('activity.index');
     Route::get('/activity/export', [AuditLogController::class, 'export'])->name('activity.export');
     Route::get('/activity/export/pdf', [AuditLogController::class, 'exportPdf'])->name('activity.export-pdf');
-    Route::get('/search', [SearchController::class, 'search'])->name('search');
+    Route::get('/search', [SearchController::class, 'search'])
+        ->middleware('throttle:search')
+        ->name('search');
 
     Route::post('/vault/unlock', function (Request $request) {
         $request->validate([
@@ -77,7 +80,7 @@ Route::middleware('auth')->group(function () {
         }
 
         return response()->json(['error' => 'Invalid password'], 401);
-    })->name('vault.unlock');
+    })->middleware('throttle:vault-unlock')->name('vault.unlock');
 
     // Administration
     Route::prefix('admin')->name('admin.')->group(function () {

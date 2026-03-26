@@ -328,7 +328,19 @@ export default function Index({ documents, flash }: Props) {
             });
 
             if (!response.ok) {
-                throw new Error('Bulk download failed');
+                let message = 'Bulk download failed. Please try again.';
+
+                try {
+                    const payload = await response.json();
+
+                    if (typeof payload?.error === 'string' && payload.error !== '') {
+                        message = payload.error;
+                    }
+                } catch {
+                    // Ignore malformed responses and fall back to the default message.
+                }
+
+                throw new Error(message);
             }
 
             const blob = await response.blob();
@@ -344,8 +356,12 @@ export default function Index({ documents, flash }: Props) {
 
             setSelected([]);
             toast.success(`${selectedIds.length} document(s) downloaded as ZIP.`);
-        } catch {
-            toast.error('Bulk download failed. Please try again.');
+        } catch (error) {
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Bulk download failed. Please try again.'
+            );
         } finally {
             setBulkDownloading(false);
         }
