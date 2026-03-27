@@ -1,3 +1,5 @@
+import InputError from '@/components/InputError';
+import UserAvatar from '@/components/UserAvatar';
 import { Button } from '@/components/ui/button';
 import {
     AlertDialog,
@@ -30,15 +32,18 @@ import { PageProps } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { formatDistanceToNow } from 'date-fns';
 import {
+    Camera,
     ChevronRight,
     KeyRound,
+    Loader2,
     Monitor,
     Shield,
     ShieldAlert,
     ShieldCheck,
+    Trash2,
     User,
 } from 'lucide-react';
-import { FormEvent, useMemo } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 type RecentSession = {
@@ -118,11 +123,21 @@ export default function Edit({
         password: '',
         password_confirmation: '',
     });
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+    const [avatarUploadProgress, setAvatarUploadProgress] = useState<number | null>(null);
+    const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+    const [isAvatarRemoving, setIsAvatarRemoving] = useState(false);
+    const [avatarError, setAvatarError] = useState<string | null>(null);
 
     const passwordStrength = useMemo(
         () => getPasswordStrength(passwordForm.data.password),
         [passwordForm.data.password],
     );
+    const currentAvatarUrl = auth.user.avatar_url ?? null;
+    const displayedAvatarUrl = avatarPreviewUrl ?? currentAvatarUrl;
+    const hasCustomAvatar = Boolean(currentAvatarUrl);
+    const isAvatarBusy = isAvatarUploading || isAvatarRemoving;
     const passwordConfirmationError =
         passwordForm.errors.password_confirmation ||
         (passwordForm.errors.password?.toLowerCase().includes('confirmation')
@@ -133,6 +148,24 @@ export default function Edit({
         !passwordForm.errors.password.toLowerCase().includes('confirmation')
             ? passwordForm.errors.password
             : undefined;
+
+    useEffect(() => {
+        return () => {
+            if (avatarPreviewUrl) {
+                URL.revokeObjectURL(avatarPreviewUrl);
+            }
+        };
+    }, [avatarPreviewUrl]);
+
+    const replaceAvatarPreview = (nextUrl: string | null) => {
+        setAvatarPreviewUrl((currentUrl) => {
+            if (currentUrl) {
+                URL.revokeObjectURL(currentUrl);
+            }
+
+            return nextUrl;
+        });
+    };
 
     const submitProfile = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -153,6 +186,68 @@ export default function Edit({
             onSuccess: () => {
                 passwordForm.reset();
                 toast.success('Password updated successfully.');
+            },
+        });
+    };
+
+    const triggerAvatarFilePicker = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleAvatarSelected = (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+
+        if (!file) {
+            return;
+        }
+
+        replaceAvatarPreview(URL.createObjectURL(file));
+        setAvatarError(null);
+        setIsAvatarUploading(true);
+        setAvatarUploadProgress(0);
+
+        router.post(
+            route('profile.avatar.update'),
+            {
+                _method: 'put',
+                avatar: file,
+            },
+            {
+                forceFormData: true,
+                preserveScroll: true,
+                onProgress: (progress) => {
+                    setAvatarUploadProgress(progress?.percentage ?? 0);
+                },
+                onSuccess: () => {
+                    replaceAvatarPreview(null);
+                    setAvatarError(null);
+                },
+                onError: (errors) => {
+                    setAvatarError(typeof errors.avatar === 'string' ? errors.avatar : null);
+                },
+                onFinish: () => {
+                    setIsAvatarUploading(false);
+                    setAvatarUploadProgress(null);
+
+                    if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                    }
+                },
+            },
+        );
+    };
+
+    const removeAvatar = () => {
+        setAvatarError(null);
+        setIsAvatarRemoving(true);
+
+        router.delete(route('profile.avatar.destroy'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                replaceAvatarPreview(null);
+            },
+            onFinish: () => {
+                setIsAvatarRemoving(false);
             },
         });
     };
@@ -372,6 +467,105 @@ export default function Edit({
                         </div>
 
                         <div className="space-y-6 lg:col-span-1">
+                            <Card>
+                                <CardHeader className="border-b border-border pb-4">
+                                    <CardTitle className="text-sm font-semibold text-foreground">
+                                        Profile Picture
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-5">
+                                    <div className="flex flex-col items-center gap-4 text-center">
+                                        <UserAvatar
+                                            user={auth.user}
+                                            avatarUrl={displayedAvatarUrl}
+                                            size="2xl"
+                                        />
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-medium text-foreground">
+                                                {auth.user.name}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <Input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        className="hidden"
+                                        onChange={handleAvatarSelected}
+                                    />
+
+                                    <div className="flex flex-col gap-2">
+                                        <Button
+                                            type="button"
+                                            className="w-full gap-2 bg-primary text-primary-foreground"
+                                            disabled={isAvatarBusy}
+                                            onClick={triggerAvatarFilePicker}
+                                        >
+                                            {isAvatarUploading ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Camera className="h-4 w-4" />
+                                            )}
+                                            {isAvatarUploading ? 'Uploading...' : 'Upload Photo'}
+                                        </Button>
+
+                                        {hasCustomAvatar && (
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        className="w-full gap-2 border-destructive/50 text-destructive hover:bg-destructive/10"
+                                                        disabled={isAvatarBusy}
+                                                    >
+                                                        {isAvatarRemoving ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="h-4 w-4" />
+                                                        )}
+                                                        {isAvatarRemoving ? 'Removing...' : 'Remove Photo'}
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Remove profile picture?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Your custom profile picture will be deleted and SecureVault will fall back to Gravatar or initials.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction
+                                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                            onClick={removeAvatar}
+                                                        >
+                                                            Remove Photo
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        )}
+                                    </div>
+
+                                    {(isAvatarUploading || avatarUploadProgress !== null) && (
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                <span>Upload progress</span>
+                                                <span>{Math.round(avatarUploadProgress ?? 0)}%</span>
+                                            </div>
+                                            <Progress value={avatarUploadProgress ?? 0} className="h-2" />
+                                        </div>
+                                    )}
+
+                                    <InputError message={avatarError ?? undefined} />
+
+                                    <p className="text-xs text-muted-foreground">
+                                        JPG, PNG, or WebP only. Max raw upload 8 MB. Images larger than 512x512 are resized automatically. Minimum source size 50x50 pixels.
+                                    </p>
+                                </CardContent>
+                            </Card>
+
                             {!two_factor_enabled ? (
                                 <Card className="border-amber-500/30 bg-amber-500/10">
                                     <CardContent className="space-y-4 pt-5">

@@ -1,5 +1,6 @@
 import { AuditCategoryTabs } from '@/components/AuditCategoryTabs';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import UserAvatar from '@/components/UserAvatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
     Breadcrumb,
@@ -102,19 +103,6 @@ const ACTION_OPTIONS = [
     { value: 'account_locked', label: 'Account Locked' },
     { value: 'integrity_violation', label: 'Integrity Violation' },
 ];
-
-const avatarColors = ['bg-amber-600', 'bg-blue-600', 'bg-emerald-600', 'bg-violet-600', 'bg-orange-600', 'bg-teal-600'];
-
-function getAvatarColor(name: string) {
-    return avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
-}
-
-function getInitials(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    const first = parts[0]?.[0] ?? '';
-    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
-    return `${first}${last}`.toUpperCase();
-}
 
 function parseDateValue(value: string) {
     if (!value) {
@@ -505,12 +493,7 @@ export default function AdminAuditLogsIndex({ logs, filters, securityCount }: Pr
                                                     <TableCell>
                                                         {log.user ? (
                                                             <div className="flex items-center gap-2.5">
-                                                                <Avatar className="h-8 w-8">
-                                                                    <AvatarImage src={log.user.avatar_url ?? undefined} alt={log.user.name} />
-                                                                    <AvatarFallback className={`text-xs text-white ${getAvatarColor(log.user.name)}`}>
-                                                                        {getInitials(log.user.name)}
-                                                                    </AvatarFallback>
-                                                                </Avatar>
+                                                                <UserAvatar user={log.user} size="md" />
                                                                 <div>
                                                                     <div className="text-sm font-medium text-foreground">{log.user.name}</div>
                                                                     <div className="text-xs text-muted-foreground">{log.user.email}</div>

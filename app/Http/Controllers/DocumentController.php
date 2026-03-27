@@ -126,7 +126,7 @@ class DocumentController extends Controller
     {
         $this->authorize('view', $document);
 
-        $document->load('user:id,name');
+        $document->load('user:id,name,email,avatar_path');
 
         $auditTrail = AuditLog::where('auditable_type', Document::class)
             ->where('auditable_id', $document->id)
@@ -172,6 +172,7 @@ class DocumentController extends Controller
                 'user_id' => $document->user_id,
                 'is_starred' => (bool) $document->is_starred,
                 'owner_name' => $document->user->name,
+                'owner_email' => $document->user->email,
                 'owner_avatar_url' => $document->user->avatar_url,
                 'scan_result' => $this->normalizeScanResult($document->scan_result),
             ],

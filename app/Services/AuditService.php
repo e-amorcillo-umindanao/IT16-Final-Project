@@ -38,6 +38,7 @@ class AuditService
         'bot_detected' => AuditCategory::Security,
         'signed_url_generated' => AuditCategory::Security,
         'signed_url_accessed' => AuditCategory::Security,
+        'audit_integrity_check' => AuditCategory::Security,
 
         'request' => AuditCategory::Audit,
         'profile_updated' => AuditCategory::Audit,
@@ -61,19 +62,13 @@ class AuditService
 
     /**
      * Log an immutable audit entry with HMAC hash chaining.
-     *
-     * @param string $action
-     * @param Model|null $auditable
-     * @param array|null $metadata
-     * @return AuditLog
      */
     public function log(
         string $action,
         ?Model $auditable = null,
         ?array $metadata = null,
         AuditCategory|string|null $categoryOverride = null,
-    ): AuditLog
-    {
+    ): AuditLog {
         $userId = Auth::id();
         $ipAddress = Request::ip() ?? '0.0.0.0';
         $userAgent = Request::userAgent();
@@ -87,20 +82,20 @@ class AuditService
         $auditableType = $auditable ? get_class($auditable) : null;
         $auditableId = $auditable ? $auditable->getKey() : null;
 
-        if (!array_key_exists('ip_address', $metadata)) {
+        if (! array_key_exists('ip_address', $metadata)) {
             $metadata['ip_address'] = $ipAddress;
         }
 
         if ($auditable) {
             $originalName = $auditable->getAttribute('original_name');
 
-            if (is_string($originalName) && $originalName !== '' && !array_key_exists('document_name', $metadata)) {
+            if (is_string($originalName) && $originalName !== '' && ! array_key_exists('document_name', $metadata)) {
                 $metadata['document_name'] = $originalName;
             }
 
             $twoFactorEnabled = $auditable->getAttribute('two_factor_enabled');
 
-            if (is_bool($twoFactorEnabled) && !array_key_exists('two_factor', $metadata)) {
+            if (is_bool($twoFactorEnabled) && ! array_key_exists('two_factor', $metadata)) {
                 $metadata['two_factor'] = $twoFactorEnabled;
             }
         }
@@ -135,7 +130,6 @@ class AuditService
     /**
      * Verify the integrity of the audit log chain for the last N entries.
      *
-     * @param int|null $limit
      * @return array ['valid' => bool, 'broken_at' => ?int]
      */
     public function verifyChainIntegrity(?int $limit = 100): array
@@ -143,19 +137,9 @@ class AuditService
         $logs = AuditLog::orderBy('id', 'desc')->limit($limit)->get()->reverse();
 
         foreach ($logs as $log) {
-            $expectedHash = $this->buildHash(
-                action: $log->action,
-                category: $log->category ?? AuditCategory::Audit->value,
-                userId: $log->user_id,
-                auditableType: $log->auditable_type,
-                auditableId: $log->auditable_id,
-                ipAddress: $log->ip_address,
-                createdAt: $log->created_at,
-                metadata: is_array($log->metadata) ? $log->metadata : null,
-                previousHash: $log->previous_hash,
-            );
+            $expectedHash = $this->hashForAuditLog($log);
 
-            if (!hash_equals($expectedHash, $log->hash)) {
+            if (! hash_equals($expectedHash, $log->hash)) {
                 return [
                     'valid' => false,
                     'broken_at' => $log->id,
@@ -172,6 +156,21 @@ class AuditService
     public function categoryForAction(string $action): AuditCategory
     {
         return self::ACTION_CATEGORIES[$action] ?? AuditCategory::Audit;
+    }
+
+    public function hashForAuditLog(AuditLog $log, ?string $previousHash = null): string
+    {
+        return $this->buildHash(
+            action: $log->action,
+            category: $log->category ?? AuditCategory::Audit->value,
+            userId: $log->user_id,
+            auditableType: $log->auditable_type,
+            auditableId: $log->auditable_id,
+            ipAddress: $log->ip_address ?? '0.0.0.0',
+            createdAt: $log->created_at,
+            metadata: is_array($log->metadata) ? $log->metadata : null,
+            previousHash: $previousHash ?? $log->previous_hash,
+        );
     }
 
     private function resolveCategoryValue(string $action, AuditCategory|string|null $categoryOverride): string

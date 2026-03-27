@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Services\AuditDescriptionService;
+use App\Services\AuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use ReflectionClass;
 use Tests\TestCase;
@@ -14,7 +15,7 @@ class AuditActionConsistencyTest extends TestCase
 
     public function test_badge_map_covers_every_audit_action_constant(): void
     {
-        $serviceReflection = new ReflectionClass(\App\Services\AuditService::class);
+        $serviceReflection = new ReflectionClass(AuditService::class);
         $actionCategories = $serviceReflection->getConstant('ACTION_CATEGORIES');
 
         $badgeFile = file_get_contents(resource_path('js/lib/auditActionBadge.ts'));
@@ -93,5 +94,48 @@ class AuditActionConsistencyTest extends TestCase
         ]));
 
         $this->assertSame('Changed role of John Doe to Admin', $description);
+    }
+
+    public function test_audit_integrity_check_description_uses_scope_and_result_summary(): void
+    {
+        $description = app(AuditDescriptionService::class)->generate(new AuditLog([
+            'action' => 'audit_integrity_check',
+            'metadata' => [
+                'scope' => 'full',
+                'total_checked' => 1247,
+                'failed' => 0,
+            ],
+        ]));
+
+        $this->assertSame(
+            'Verified audit log integrity (full chain - 1,247 entries, all passed)',
+            $description,
+        );
+    }
+
+    public function test_profile_updated_description_uses_avatar_action_details_when_present(): void
+    {
+        $uploadedDescription = app(AuditDescriptionService::class)->generate(new AuditLog([
+            'action' => 'profile_updated',
+            'metadata' => [
+                'action_detail' => 'avatar_uploaded',
+            ],
+        ]));
+
+        $removedDescription = app(AuditDescriptionService::class)->generate(new AuditLog([
+            'action' => 'profile_updated',
+            'metadata' => [
+                'action_detail' => 'avatar_removed',
+            ],
+        ]));
+
+        $defaultDescription = app(AuditDescriptionService::class)->generate(new AuditLog([
+            'action' => 'profile_updated',
+            'metadata' => [],
+        ]));
+
+        $this->assertSame('Updated profile picture', $uploadedDescription);
+        $this->assertSame('Removed profile picture', $removedDescription);
+        $this->assertSame('Updated profile information', $defaultDescription);
     }
 }

@@ -32,6 +32,7 @@ class AuditDescriptionService
             'bot_detected' => isset($meta['form_action'])
                 ? "Bot verification failed on {$meta['form_action']} form"
                 : 'Bot verification failed',
+            'audit_integrity_check' => $this->describeIntegrityCheck($meta),
             'document_uploaded' => $documentName
                 ? "Uploaded '{$documentName}'"
                 : 'Uploaded a document',
@@ -77,11 +78,48 @@ class AuditDescriptionService
                 ? "Blocked upload of '{$documentName}' - malware detected"
                 : 'Blocked a malicious file upload',
             'password_changed' => 'Password changed',
-            'profile_updated' => 'Profile information updated',
+            'profile_updated' => $this->describeProfileUpdate($meta),
             'user_role_changed' => isset($meta['new_role'], $meta['target_name'])
                 ? "Changed role of {$meta['target_name']} to {$meta['new_role']}"
                 : 'Changed a user role',
             default => ucwords(str_replace('_', ' ', $log->action)),
+        };
+    }
+
+    private function describeIntegrityCheck(array $metadata): string
+    {
+        $scope = ($metadata['scope'] ?? 'full') === 'recent'
+            ? 'recent 500 entries'
+            : 'full chain';
+
+        $totalChecked = isset($metadata['total_checked'])
+            ? number_format((int) $metadata['total_checked'])
+            : null;
+        $failedCount = isset($metadata['failed'])
+            ? (int) $metadata['failed']
+            : null;
+
+        if ($totalChecked === null) {
+            return 'Verified audit log integrity';
+        }
+
+        $summary = $failedCount === null
+            ? null
+            : ($failedCount === 0
+                ? 'all passed'
+                : number_format($failedCount).' failures detected');
+
+        return $summary === null
+            ? "Verified audit log integrity ({$scope} - {$totalChecked} entries)"
+            : "Verified audit log integrity ({$scope} - {$totalChecked} entries, {$summary})";
+    }
+
+    private function describeProfileUpdate(array $metadata): string
+    {
+        return match ($metadata['action_detail'] ?? null) {
+            'avatar_uploaded' => 'Updated profile picture',
+            'avatar_removed' => 'Removed profile picture',
+            default => 'Updated profile information',
         };
     }
 
@@ -91,7 +129,7 @@ class AuditDescriptionService
             return $location;
         }
 
-        if (!is_array($location)) {
+        if (! is_array($location)) {
             return null;
         }
 

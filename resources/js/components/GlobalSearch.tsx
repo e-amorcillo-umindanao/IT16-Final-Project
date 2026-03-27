@@ -8,7 +8,7 @@ import {
     CommandSeparator,
 } from '@/components/ui/command';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import GravatarAvatar from '@/components/GravatarAvatar';
+import UserAvatar from '@/components/UserAvatar';
 import { getAuditActionBadge } from '@/lib/auditActionBadge';
 import { cn } from '@/lib/utils';
 import { router } from '@inertiajs/react';
@@ -92,6 +92,18 @@ export default function GlobalSearch({ auth }: GlobalSearchProps) {
     const documentsGroupRef = useRef<HTMLDivElement | null>(null);
     const logsGroupRef = useRef<HTMLDivElement | null>(null);
     const usersGroupRef = useRef<HTMLDivElement | null>(null);
+    const emptyStateSubtitle = canViewUsers
+        ? 'Search by document name, audit action, metadata, user name, or email.'
+        : 'Search by document name, audit action, or metadata.';
+    const searchDescription = canViewUsers
+        ? 'Search across your vault, activity trail, and admin records.'
+        : 'Search across your vault and activity trail.';
+    const searchPlaceholder = canViewUsers
+        ? 'Search documents, logs, users...'
+        : 'Search documents, logs...';
+    const searchAriaLabel = canViewUsers
+        ? 'Search documents, activity logs, and users'
+        : 'Search documents and activity logs';
 
     const visibleTabs = useMemo(
         () => (canViewUsers ? (['documents', 'logs', 'users'] as SearchTab[]) : (['documents', 'logs'] as SearchTab[])),
@@ -274,7 +286,7 @@ export default function GlobalSearch({ auth }: GlobalSearchProps) {
                 </div>
                 <p className="mt-5 text-base font-medium text-foreground">Start with at least 2 characters</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                    Search by document name, audit action, metadata, user name, or email.
+                    {emptyStateSubtitle}
                 </p>
             </div>
         </div>
@@ -396,8 +408,8 @@ export default function GlobalSearch({ auth }: GlobalSearchProps) {
                             onSelect={handleSelectUser}
                             className="mx-2 gap-3 rounded-md px-3 py-3 data-[selected=true]:bg-muted data-[selected=true]:text-foreground"
                         >
-                            <GravatarAvatar
-                                name={user.name}
+                            <UserAvatar
+                                user={user}
                                 avatarUrl={user.avatar_url ?? null}
                                 size="sm"
                                 className="border border-border/60"
@@ -423,7 +435,7 @@ export default function GlobalSearch({ auth }: GlobalSearchProps) {
                 aria-label="Open global search"
             >
                 <Search className="h-4 w-4 shrink-0" />
-                <span className="flex-1 truncate text-left text-sm">Search documents, logs, users...</span>
+                <span className="flex-1 truncate text-left text-sm">{searchPlaceholder}</span>
                 <kbd className="hidden select-none items-center rounded-md border border-border bg-muted px-2 py-1 font-mono text-[11px] text-muted-foreground sm:inline-flex">
                     {shortcutHint}
                 </kbd>
@@ -443,7 +455,7 @@ export default function GlobalSearch({ auth }: GlobalSearchProps) {
                                             Global Search
                                         </DialogTitle>
                                         <DialogDescription className="mt-1 text-sm text-muted-foreground">
-                                            Search across your vault, activity trail, and admin records.
+                                            {searchDescription}
                                         </DialogDescription>
                                     </div>
                                 </div>
@@ -477,8 +489,8 @@ export default function GlobalSearch({ auth }: GlobalSearchProps) {
                                             setErrorState('none');
                                         }
                                     }}
-                                    placeholder="Search documents, logs, users..."
-                                    aria-label="Search documents, activity logs, and users"
+                                    placeholder={searchPlaceholder}
+                                    aria-label={searchAriaLabel}
                                 />
                             </div>
 

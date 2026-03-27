@@ -1,6 +1,6 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import UserAvatar from '@/components/UserAvatar';
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -65,24 +65,6 @@ interface Props extends PageProps {
         type?: string;
         owner?: string;
     };
-}
-
-const avatarColors = [
-    'bg-amber-600',
-    'bg-blue-600',
-    'bg-emerald-600',
-    'bg-violet-600',
-    'bg-orange-600',
-    'bg-teal-600',
-];
-
-const getAvatarColor = (name: string) => avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
-
-function getInitials(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    const first = parts[0]?.[0] ?? '';
-    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
-    return `${first}${last}`.toUpperCase();
 }
 
 function formatFileSize(bytes: number) {
@@ -294,15 +276,7 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
-                                                            <Avatar className="h-7 w-7">
-                                                                <AvatarImage
-                                                                    src={doc.user.avatar_url ?? undefined}
-                                                                    alt={doc.user.name}
-                                                                />
-                                                                <AvatarFallback className={`text-xs text-white ${getAvatarColor(doc.user.name)}`}>
-                                                                    {getInitials(doc.user.name)}
-                                                                </AvatarFallback>
-                                                            </Avatar>
+                                                            <UserAvatar user={doc.user} size="sm" />
                                                             <div>
                                                                 <div className="text-sm text-foreground">{doc.user.name}</div>
                                                                 <div className="text-xs text-muted-foreground">{doc.user.email}</div>

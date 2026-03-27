@@ -10,7 +10,7 @@ export function TimeBasedGreeting({ firstName, className }: TimeBasedGreetingPro
         const hour = new Date().getHours();
 
         if (hour < 12) return { greeting: 'Good morning', emoji: '☀️' };
-        if (hour < 17) return { greeting: 'Good afternoon', emoji: '🌤️' };
+        if (hour < 18) return { greeting: 'Good afternoon', emoji: '🌤️' };
 
         return { greeting: 'Good evening', emoji: '🌙' };
     }, []);

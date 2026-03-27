@@ -4,6 +4,7 @@ export interface User {
     id: number;
     name: string;
     email: string;
+    avatar_path?: string | null;
     avatar_url?: string | null;
     email_verified_at?: string;
     two_factor_secret?: string;

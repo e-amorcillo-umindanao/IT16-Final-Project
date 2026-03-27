@@ -2,23 +2,23 @@
 
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminDocumentController;
+use App\Http\Controllers\Admin\AuditIntegrityController;
+use App\Http\Controllers\AvatarController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\ShareController;
-use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::get('/', function () {
     if (auth()->check()) {
         return redirect()->route('dashboard');
     }
-    
+
     return redirect()->route('login');
 });
 
@@ -29,6 +29,8 @@ Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'throttle
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/avatar', [AvatarController::class, 'update'])->name('profile.avatar.update');
+    Route::delete('/profile/avatar', [AvatarController::class, 'destroy'])->name('profile.avatar.destroy');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::delete('/two-factor', [ProfileController::class, 'destroyTwoFactor'])->name('two-factor.destroy');
@@ -49,7 +51,7 @@ Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'throttle
     Route::patch('/documents/{document}/star', [DocumentController::class, 'toggleStar'])->name('documents.star');
     Route::post('/documents/{document}/share-link', [DocumentController::class, 'generateShareLink'])
         ->name('documents.share-link');
-    
+
     // Trash
     Route::get('/trash', [DocumentController::class, 'trash'])->name('documents.trash');
     Route::post('/trash/{id}/restore', [DocumentController::class, 'restore'])->name('documents.restore');
@@ -114,6 +116,12 @@ Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'throttle
         Route::get('/audit-logs', [AdminController::class, 'auditLogs'])
             ->middleware('permission:view_audit_logs')
             ->name('audit-logs');
+        Route::get('/audit-integrity', [AuditIntegrityController::class, 'index'])
+            ->middleware('permission:view_audit_logs')
+            ->name('audit-integrity');
+        Route::post('/audit-integrity/verify', [AuditIntegrityController::class, 'verify'])
+            ->middleware('permission:view_audit_logs')
+            ->name('audit-integrity.verify');
         Route::get('/audit-logs/export', [AdminController::class, 'exportAuditLogs'])
             ->middleware('permission:view_audit_logs')
             ->name('audit-logs.export');

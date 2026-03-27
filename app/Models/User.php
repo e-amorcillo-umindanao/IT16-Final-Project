@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements MustVerifyEmail
@@ -24,6 +25,7 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $fillable = [
         'name',
         'email',
+        'avatar_path',
         'password',
         'two_factor_secret',
         'two_factor_enabled',
@@ -145,12 +147,23 @@ class User extends Authenticatable implements MustVerifyEmail
             && strlen($this->two_factor_secret) >= 16;
     }
 
-    /**
-     * Get the user's Gravatar URL.
-     */
-    public function getAvatarUrlAttribute(): string
+    public function getAvatarUrlAttribute(): ?string
     {
-        $hash = md5(strtolower(trim($this->email)));
-        return "https://www.gravatar.com/avatar/{$hash}?s=80&d=404";
+        if (! is_string($this->avatar_path) || $this->avatar_path === '') {
+            return null;
+        }
+
+        $url = Storage::disk('public')->url($this->avatar_path);
+        $parsedUrl = parse_url($url);
+
+        if ($parsedUrl === false || ! isset($parsedUrl['host'])) {
+            return $url;
+        }
+
+        $path = $parsedUrl['path'] ?? $url;
+        $query = isset($parsedUrl['query']) ? '?'.$parsedUrl['query'] : '';
+        $fragment = isset($parsedUrl['fragment']) ? '#'.$parsedUrl['fragment'] : '';
+
+        return $path.$query.$fragment;
     }
 }

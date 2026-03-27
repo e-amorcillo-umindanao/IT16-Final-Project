@@ -1,4 +1,3 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
     Breadcrumb,
@@ -11,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TimeBasedGreeting } from '@/components/TimeBasedGreeting';
+import UserAvatar from '@/components/UserAvatar';
 import { Separator } from '@/components/ui/separator';
 import {
     Table,
@@ -334,29 +334,6 @@ export default function Dashboard({
         }
     };
 
-    const avatarColors = [
-        'bg-amber-600',
-        'bg-blue-600',
-        'bg-emerald-600',
-        'bg-violet-600',
-        'bg-orange-600',
-        'bg-teal-600',
-    ];
-
-    const getAvatarColor = (name: string) =>
-        avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
-
-    const getInitials = (name: string) => {
-        const parts = name.trim().split(/\s+/).filter(Boolean);
-        const first = parts[0]?.[0] ?? '';
-        const last =
-            parts.length > 1
-                ? parts[parts.length - 1]?.[0] ?? ''
-                : parts[0]?.[1] ?? '';
-
-        return `${first}${last}`.toUpperCase();
-    };
-
     const statCards = [
         {
             label: 'Documents',
@@ -622,12 +599,7 @@ export default function Dashboard({
                                                 key={`${entry.action}-${entry.created_at}-${index}`}
                                                 className="flex items-start gap-3"
                                             >
-                                                <Avatar className="h-8 w-8">
-                                                    <AvatarImage src={user.avatar_url ?? undefined} alt={user.name} />
-                                                    <AvatarFallback className={cn('text-xs font-semibold text-white', getAvatarColor(user.name))}>
-                                                        {getInitials(user.name)}
-                                                    </AvatarFallback>
-                                                </Avatar>
+                                                <UserAvatar user={user} size="md" />
                                                 <div className="min-w-0 flex-1 space-y-1">
                                                     <div className="flex items-center gap-2">
                                                         <Badge

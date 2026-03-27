@@ -10,8 +10,8 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import UserAvatar from '@/components/UserAvatar';
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -76,6 +76,7 @@ interface DocumentDetails {
     user_id: number;
     is_starred: boolean;
     owner_name: string;
+    owner_email: string;
     owner_avatar_url: string | null;
     scan_result: ScanResult;
 }
@@ -107,27 +108,6 @@ interface Props extends PageProps {
     auditTrail: AuditTrailEntry[];
     shares: ShareItem[];
     userPermission: UserPermission;
-}
-
-const avatarColors = [
-    'bg-amber-600',
-    'bg-blue-600',
-    'bg-emerald-600',
-    'bg-violet-600',
-    'bg-orange-600',
-    'bg-teal-600',
-];
-
-function getAvatarColor(name: string) {
-    return avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
-}
-
-function getInitials(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    const first = parts[0]?.[0] ?? '';
-    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
-
-    return `${first}${last}`.toUpperCase();
 }
 
 function formatBytes(bytes: number) {
@@ -456,12 +436,14 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
                                             Uploaded By
                                         </p>
                                         <div className="flex items-center gap-2">
-                                            <Avatar className="h-6 w-6">
-                                                <AvatarImage src={document.owner_avatar_url ?? undefined} alt={document.owner_name} />
-                                                <AvatarFallback className={`text-[10px] text-white ${getAvatarColor(document.owner_name)}`}>
-                                                    {getInitials(document.owner_name)}
-                                                </AvatarFallback>
-                                            </Avatar>
+                                            <UserAvatar
+                                                user={{
+                                                    name: document.owner_name,
+                                                    email: document.owner_email,
+                                                    avatar_url: document.owner_avatar_url,
+                                                }}
+                                                size="xs"
+                                            />
                                             <span className="font-semibold text-foreground">{document.owner_name}</span>
                                         </div>
                                     </CardContent>
@@ -557,12 +539,14 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
                                                         <TableRow key={`${entry.action}-${entry.created_at}-${index}`} className="hover:bg-muted/50">
                                                             <TableCell>
                                                                 <div className="flex items-center gap-2.5">
-                                                                    <Avatar className="h-7 w-7">
-                                                                        <AvatarImage src={entry.user?.avatar_url ?? undefined} alt={userName} />
-                                                                        <AvatarFallback className={`text-xs text-white ${getAvatarColor(userName)}`}>
-                                                                            {getInitials(userName)}
-                                                                        </AvatarFallback>
-                                                                    </Avatar>
+                                                                    <UserAvatar
+                                                                        user={{
+                                                                            name: userName,
+                                                                            email: entry.user?.email ?? null,
+                                                                            avatar_url: entry.user?.avatar_url ?? null,
+                                                                        }}
+                                                                        size="sm"
+                                                                    />
                                                                     <span className="text-sm font-medium text-foreground">{userName}</span>
                                                                 </div>
                                                             </TableCell>
@@ -730,12 +714,11 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
                                                     {shares.map((share) => (
                                                         <div key={share.id} className="flex items-center justify-between gap-3">
                                                             <div className="flex min-w-0 items-center gap-2.5">
-                                                                <Avatar className="h-8 w-8 flex-shrink-0">
-                                                                    <AvatarImage src={share.user.avatar_url ?? undefined} alt={share.user.name} />
-                                                                    <AvatarFallback className={`text-xs text-white ${getAvatarColor(share.user.name)}`}>
-                                                                        {getInitials(share.user.name)}
-                                                                    </AvatarFallback>
-                                                                </Avatar>
+                                                                <UserAvatar
+                                                                    user={share.user}
+                                                                    size="md"
+                                                                    className="flex-shrink-0"
+                                                                />
                                                                 <div className="min-w-0">
                                                                     <p className="truncate text-sm font-medium text-foreground">
                                                                         {share.user.name}

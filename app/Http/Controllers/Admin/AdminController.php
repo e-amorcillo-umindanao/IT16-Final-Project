@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -387,6 +388,7 @@ class AdminController extends Controller
                 'sessions.user_agent',
                 'users.name as user_name',
                 'users.email as user_email',
+                'users.avatar_path as user_avatar_path',
             ]);
 
         return Inertia::render('Admin/Sessions/Index', [
@@ -397,7 +399,9 @@ class AdminController extends Controller
                 'user_agent' => $session->user_agent,
                 'user_name' => $session->user_name,
                 'user_email' => $session->user_email,
-                'user_avatar_url' => 'https://www.gravatar.com/avatar/' . md5(strtolower(trim($session->user_email))) . '?s=80&d=404',
+                'user_avatar_url' => $session->user_avatar_path
+                    ? Storage::disk('public')->url($session->user_avatar_path)
+                    : null,
             ]),
             'currentSessionId' => $request->session()->getId(),
         ]);

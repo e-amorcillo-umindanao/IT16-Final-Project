@@ -32,6 +32,7 @@ export const AUDIT_ACTION_BADGES: Record<string, AuditBadge> = {
     document_shared: { icon: Share2, label: 'Shared', className: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400' },
     signed_url_generated: { icon: Share2, label: 'Share link generated', className: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400' },
     signed_url_accessed: { icon: Share2, label: 'Share link accessed', className: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400' },
+    audit_integrity_check: { icon: ShieldCheck, label: 'Integrity check', className: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400' },
     document_downloaded: { icon: Download, label: 'Downloaded', className: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400' },
     document_starred: { icon: Activity, label: 'Starred', className: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400' },
     document_unstarred: { icon: Activity, label: 'Unstarred', className: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400' },

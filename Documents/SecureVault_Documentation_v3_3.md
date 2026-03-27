@@ -266,7 +266,15 @@ If VirusTotal is unreachable after all retries, the job marks the file `unavaila
 
 Queue driver is environment-aware: `deferred` in local development (automatic, no worker process needed), `database` in production (requires a dedicated queue worker).
 
-#### 3.2.4 Gravatar Implementation
+#### 3.2.4 Custom Avatar Implementation
+
+SecureVault supports optional custom profile picture uploads. Avatar images are stored on the Laravel `public` disk at `storage/app/public/avatars/` using UUID-based filenames only, and the original filename is never preserved. Avatars are intentionally not encrypted and are not submitted to VirusTotal because they are non-sensitive, public-facing profile images rather than confidential vault documents.
+
+Uploaded avatars are normalized server-side before storage. Source images up to 8 MB and 8000x8000 pixels are accepted, then resized automatically to fit within a 512x512 bounding box while preserving aspect ratio. This removes the need for users to manually resize large profile images before upload.
+
+This is a deliberate and documented exception to Hard Constraint #7. Sensitive encrypted documents remain stored exclusively in `storage/app/vault/` outside the public web root. Profile avatars require direct browser access by design and therefore use the symlinked `public` storage path.
+
+Avatar resolution now follows this order: custom uploaded avatar, Gravatar URL built from the MD5 hash of the user's email address (`?d=404&s=80`), then deterministic initials fallback.
 
 User avatars are resolved from a Gravatar URL built from the MD5 hash of the user's email address. The frontend `UserAvatar` component uses shadcn's Avatar with AvatarImage for Gravatar images and AvatarFallback for deterministic initials when no Gravatar exists. The initials fallback uses a color palette of six distinct, theme-compatible colors (amber, blue, emerald, violet, orange, teal) — no pink or magenta values.
 
@@ -348,6 +356,7 @@ SecureVault follows a monolithic MVC architecture using Laravel as the backend f
 | `database/migrations/` | Database schema migrations |
 | `routes/web.php` | Route definitions with permission-based middleware |
 | `storage/app/vault/` | Encrypted document storage (outside public directory) |
+| `storage/app/public/avatars/` | Public avatar storage (intentional non-sensitive exception to Hard Constraint #7) |
 | `storage/app/temp/` | Temporary ZIP files for bulk download (auto-deleted after send) |
 | `resources/views/pdf/` | Blade templates for PDF generation |
 | `config/securevault.php` | Application-specific security configuration |

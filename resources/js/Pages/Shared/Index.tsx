@@ -1,4 +1,3 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
     Breadcrumb,
@@ -27,6 +26,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { FileTypeBadge } from '@/components/FileTypeBadge';
 import { PermissionBadge, type Permission } from '@/components/PermissionBadge';
+import UserAvatar from '@/components/UserAvatar';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -113,19 +113,6 @@ function getFileIcon(mimeType: string) {
     }
 
     return <File className="h-7 w-7 text-primary" />;
-}
-
-const avatarColors = ['bg-amber-600', 'bg-blue-600', 'bg-emerald-600', 'bg-violet-600', 'bg-orange-600', 'bg-teal-600'];
-
-function getAvatarColor(name: string) {
-    return avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
-}
-
-function getInitials(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    const first = parts[0]?.[0] ?? '';
-    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
-    return `${first}${last}`.toUpperCase();
 }
 
 function daysRemaining(value: string) {
@@ -422,12 +409,10 @@ export default function SharedWithMe({ shares, filters }: Props) {
 
                                                     <CardContent className="space-y-3 pt-0">
                                                         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                                                            <Avatar className="h-5 w-5">
-                                                                <AvatarImage src={share.shared_by.avatar_url ?? undefined} alt={share.shared_by.name} />
-                                                                <AvatarFallback className={`text-[10px] text-white ${getAvatarColor(share.shared_by.name)}`}>
-                                                                    {getInitials(share.shared_by.name)}
-                                                                </AvatarFallback>
-                                                            </Avatar>
+                                                            <UserAvatar
+                                                                user={share.shared_by}
+                                                                size="xs"
+                                                            />
                                                             <span className="truncate">Shared by {share.shared_by.name}</span>
                                                         </div>
 

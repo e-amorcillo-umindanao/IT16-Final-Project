@@ -1,6 +1,7 @@
 import AppLogo from '@/components/AppLogo';
 import GlobalSearch from '@/components/GlobalSearch';
 import ThemeToggle from '@/components/ThemeToggle';
+import UserAvatar from '@/components/UserAvatar';
 import VaultLock from '@/components/VaultLock';
 import { Link, usePage } from '@inertiajs/react';
 import { PropsWithChildren, ReactNode, useState, useEffect } from 'react';
@@ -23,7 +24,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import GravatarAvatar from '@/components/GravatarAvatar';
 
 export default function Authenticated({
     header,
@@ -209,6 +209,14 @@ export default function Authenticated({
                                     active={route().current('admin.audit-logs')} 
                                 />
                             )}
+                            {canViewAuditLogs && (
+                                <NavItem
+                                    href={route('admin.audit-integrity')}
+                                    icon={ShieldCheck}
+                                    label="Integrity Check"
+                                    active={route().current('admin.audit-integrity')}
+                                />
+                            )}
                             {canManageSessions && (
                                 <NavItem 
                                     href={route('admin.sessions')} 
@@ -224,10 +232,10 @@ export default function Authenticated({
                 {/* Sidebar Footer - User Profile */}
                 <div className="border-t border-border bg-card/40 p-4">
                     <div className={cn("flex items-center gap-3 mb-4", !isSidebarOpen && !isMobileMenuOpen && "justify-center")}>
-                        <GravatarAvatar 
-                            name={user.name} 
-                            avatarUrl={user.avatar_url} 
-                            size={isSidebarOpen || isMobileMenuOpen ? "md" : "sm"} 
+                        <UserAvatar
+                            user={user}
+                            avatarUrl={user.avatar_url}
+                            size={isSidebarOpen || isMobileMenuOpen ? "md" : "sm"}
                         />
                         {(isSidebarOpen || isMobileMenuOpen) && (
                             <div className="flex flex-col min-w-0">

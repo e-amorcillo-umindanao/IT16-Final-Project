@@ -9,7 +9,6 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
     Breadcrumb,
@@ -21,6 +20,7 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import UserAvatar from '@/components/UserAvatar';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -43,26 +43,6 @@ interface SessionRow {
 interface Props {
     sessions: SessionRow[];
     currentSessionId: string;
-}
-
-const avatarColors = [
-    'bg-amber-600',
-    'bg-blue-600',
-    'bg-emerald-600',
-    'bg-violet-600',
-    'bg-orange-600',
-    'bg-teal-600',
-];
-
-function getAvatarColor(name: string) {
-    return avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
-}
-
-function getInitials(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    const first = parts[0]?.[0] ?? '';
-    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
-    return `${first}${last}`.toUpperCase();
 }
 
 function formatLastActivity(unixTimestamp: number): string {
@@ -257,15 +237,14 @@ export default function AdminSessionsIndex({ sessions, currentSessionId }: Props
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2.5">
-                                                            <Avatar className="h-8 w-8">
-                                                                <AvatarImage
-                                                                    src={session.user_avatar_url ?? undefined}
-                                                                    alt={userName}
-                                                                />
-                                                                <AvatarFallback className={`text-xs text-white ${getAvatarColor(userName)}`}>
-                                                                    {getInitials(userName || 'U')}
-                                                                </AvatarFallback>
-                                                            </Avatar>
+                                                            <UserAvatar
+                                                                user={{
+                                                                    name: userName,
+                                                                    email: session.user_email,
+                                                                    avatar_url: session.user_avatar_url,
+                                                                }}
+                                                                size="md"
+                                                            />
                                                             <div>
                                                                 <div className="text-sm font-medium text-foreground">
                                                                     {userName}

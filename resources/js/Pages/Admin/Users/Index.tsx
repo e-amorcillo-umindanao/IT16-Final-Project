@@ -8,8 +8,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import UserAvatar from '@/components/UserAvatar';
 import { RoleBadge, normalizeRoleBadgeRole } from '@/components/RoleBadge';
 import {
     Breadcrumb,
@@ -87,26 +87,6 @@ interface Props extends PageProps {
         status?: string;
         verification?: string;
     };
-}
-
-const avatarColors = [
-    'bg-amber-600',
-    'bg-blue-600',
-    'bg-emerald-600',
-    'bg-violet-600',
-    'bg-orange-600',
-    'bg-teal-600',
-];
-
-function getAvatarColor(name: string) {
-    return avatarColors[(name.charCodeAt(0) || 0) % avatarColors.length];
-}
-
-function getInitials(name: string) {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    const first = parts[0]?.[0] ?? '';
-    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : parts[0]?.[1] ?? '';
-    return `${first}${last}`.toUpperCase();
 }
 
 function normalizeAssignableRole(roleName: string | null | undefined): AssignableRole {
@@ -359,12 +339,7 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                                             <TableRow key={user.id} className="hover:bg-muted/50">
                                                 <TableCell>
                                                     <div className="flex items-center gap-3">
-                                                        <Avatar className="h-9 w-9">
-                                                            <AvatarImage src={user.avatar_url ?? undefined} alt={user.name} />
-                                                            <AvatarFallback className={`text-xs text-white ${getAvatarColor(user.name)}`}>
-                                                                {getInitials(user.name)}
-                                                            </AvatarFallback>
-                                                        </Avatar>
+                                                        <UserAvatar user={user} size="md" />
                                                         <div>
                                                             <div className="text-sm font-medium text-foreground">{user.name}</div>
                                                             <div className="text-xs text-muted-foreground">{user.email}</div>
