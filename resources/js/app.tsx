@@ -7,7 +7,7 @@ import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot, hydrateRoot } from 'react-dom/client';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = import.meta.env.VITE_APP_NAME || 'SecureVault';
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
@@ -22,7 +22,7 @@ createInertiaApp({
                 el,
                 <ThemeProvider>
                     <App {...props} />
-                    <Toaster richColors position="top-right" />
+                    <Toaster position="top-right" />
                 </ThemeProvider>,
             );
             return;
@@ -31,7 +31,7 @@ createInertiaApp({
         createRoot(el).render(
             <ThemeProvider>
                 <App {...props} />
-                <Toaster richColors position="top-right" />
+                <Toaster position="top-right" />
             </ThemeProvider>,
         );
     },

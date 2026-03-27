@@ -21,7 +21,9 @@ class SearchController extends Controller
         $canSearchAllLogs =
             $user?->can('view_admin_dashboard') === true ||
             $user?->can('view_audit_logs') === true;
-        $canSearchUsers = $user?->can('manage_users') === true;
+        $canSearchUsers =
+            $user?->can('manage_users') === true ||
+            $user?->can('view_audit_logs') === true;
         $canViewAllDocuments = $user?->can('view_all_documents') === true;
 
         $documentsQuery = Document::query()
@@ -47,10 +49,10 @@ class SearchController extends Controller
             ->map(fn (Document $document) => [
                 'type' => 'document',
                 'id' => $document->id,
-                'title' => $document->original_name,
-                'subtitle' => $this->formatBytes($document->file_size),
-                'url' => route('documents.show', $document),
-                'icon' => 'file',
+                'original_name' => $document->original_name,
+                'mime_type' => $document->mime_type,
+                'file_size' => $document->file_size,
+                'created_at' => $document->created_at?->toIso8601String(),
             ])
             ->values();
 
@@ -74,13 +76,8 @@ class SearchController extends Controller
             ->map(fn (AuditLog $log) => [
                 'type' => 'log',
                 'id' => $log->id,
-                'title' => str($log->action)->replace('_', ' ')->title()->toString(),
-                'subtitle' => $log->metadata['document_name']
-                    ?? $log->metadata['original_name']
-                    ?? $log->created_at?->diffForHumans()
-                    ?? 'Activity log entry',
-                'url' => route('activity.index'),
-                'icon' => 'activity',
+                'action' => $log->action,
+                'created_at' => $log->created_at?->toIso8601String(),
             ])
             ->values();
 
@@ -99,10 +96,9 @@ class SearchController extends Controller
                 ->map(fn (User $searchUser) => [
                     'type' => 'user',
                     'id' => $searchUser->id,
-                    'title' => $searchUser->name,
-                    'subtitle' => $searchUser->email,
-                    'url' => route('admin.users'),
-                    'icon' => 'user',
+                    'name' => $searchUser->name,
+                    'email' => $searchUser->email,
+                    'avatar_url' => $searchUser->avatar_url,
                 ])
                 ->values();
         }
@@ -115,18 +111,5 @@ class SearchController extends Controller
             ],
             'total' => $documents->count() + $logs->count() + $users->count(),
         ]);
-    }
-
-    private function formatBytes(int $bytes): string
-    {
-        if ($bytes < 1024) {
-            return "{$bytes} B";
-        }
-
-        if ($bytes < 1024 * 1024) {
-            return number_format($bytes / 1024, 1) . ' KB';
-        }
-
-        return number_format($bytes / (1024 * 1024), 1) . ' MB';
     }
 }

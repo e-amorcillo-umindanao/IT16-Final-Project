@@ -18,12 +18,7 @@ class AdminDocumentController extends Controller
             ->orderByDesc('created_at');
 
         if ($request->filled('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('original_name', 'like', '%' . $request->search . '%')
-                    ->orWhereHas('user', fn ($u) => $u
-                        ->where('name', 'like', '%' . $request->search . '%')
-                        ->orWhere('email', 'like', '%' . $request->search . '%'));
-            });
+            $query->where('original_name', 'like', '%' . $request->search . '%');
         }
 
         if ($request->filled('type')) {

@@ -16,7 +16,6 @@ import {
     ScrollText, 
     Monitor, 
     Menu, 
-    X, 
     LogOut, 
     User as UserIcon,
     ChevronLeft,
@@ -77,27 +76,12 @@ export default function Authenticated({
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     // Close mobile menu on route change (simulated by checking route in usePage)
     const { url } = usePage();
     useEffect(() => {
         setIsMobileMenuOpen(false);
-        setIsSearchOpen(false);
     }, [url]);
-
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-                event.preventDefault();
-                setIsSearchOpen(true);
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
 
     const NavItem = ({ href, icon: Icon, label, active }: { href: string; icon: any; label: string; active: boolean }) => (
         <Link
@@ -302,7 +286,7 @@ export default function Authenticated({
                             {header}
                             <div className="hidden shrink-0 items-center gap-3 lg:flex">
                                 <div className="w-[20rem]">
-                                    <GlobalSearch open={isSearchOpen} onOpenChange={setIsSearchOpen} />
+                                    <GlobalSearch auth={auth} />
                                 </div>
                                 <ThemeToggle />
                             </div>
@@ -312,7 +296,7 @@ export default function Authenticated({
                 {!header && (
                     <div className="hidden items-center justify-end gap-3 border-b border-border bg-background px-4 py-3 lg:flex">
                         <div className="w-[20rem]">
-                            <GlobalSearch open={isSearchOpen} onOpenChange={setIsSearchOpen} />
+                            <GlobalSearch auth={auth} />
                         </div>
                         <ThemeToggle />
                     </div>

@@ -192,8 +192,8 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                         <Input
                                             value={search}
                                             onChange={(event) => setSearch(event.target.value)}
-                                            placeholder="Search by filename or owner..."
-                                            aria-label="Search documents by filename or owner"
+                                            placeholder="Search filenames..."
+                                            aria-label="Search documents by filename"
                                             className="pl-9"
                                         />
                                     </div>
@@ -223,7 +223,7 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                         <Input
                                             value={owner}
                                             onChange={(event) => setOwner(event.target.value)}
-                                            placeholder="Filter by owner name or email..."
+                                            placeholder="Owner name or email..."
                                             aria-label="Filter documents by owner name or email"
                                         />
                                     </div>
