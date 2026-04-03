@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Jobs\ScanDocumentWithVirusTotal;
 use App\Models\AuditLog;
 use App\Models\Document;
+use App\Models\DocumentVersion;
 use App\Services\AuditService;
+use App\Services\DocumentVersionService;
 use App\Services\EncryptionService;
+use App\Services\PdfWatermarkService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -25,11 +28,20 @@ class DocumentController extends Controller
 
     protected $encryptionService;
     protected $auditService;
+    protected $versionService;
+    protected $watermarkService;
 
-    public function __construct(EncryptionService $encryptionService, AuditService $auditService)
+    public function __construct(
+        EncryptionService $encryptionService,
+        AuditService $auditService,
+        DocumentVersionService $versionService,
+        PdfWatermarkService $watermarkService,
+    )
     {
         $this->encryptionService = $encryptionService;
         $this->auditService = $auditService;
+        $this->versionService = $versionService;
+        $this->watermarkService = $watermarkService;
     }
 
     /**
@@ -38,13 +50,19 @@ class DocumentController extends Controller
     public function index(Request $request): Response
     {
         $user = Auth::user();
+        $sortable = ['original_name', 'file_size', 'created_at', 'scan_result'];
+        $sort = in_array($request->string('sort')->value(), $sortable, true)
+            ? $request->string('sort')->value()
+            : 'created_at';
+        $direction = $request->string('direction')->value() === 'asc' ? 'asc' : 'desc';
 
         return Inertia::render('Documents/Index', [
             'documents' => $user->documents()
                 ->whereNull('deleted_at')
                 ->orderByDesc('is_starred')
-                ->orderByDesc('created_at')
+                ->orderBy($sort, $direction)
                 ->paginate(15)
+                ->withQueryString()
                 ->through(fn ($doc) => [
                     'id' => $doc->id,
                     'original_name' => $doc->original_name,
@@ -54,6 +72,8 @@ class DocumentController extends Controller
                     'is_starred' => (bool) $doc->is_starred,
                     'created_at' => $doc->created_at,
                 ]),
+            'sort' => $sort,
+            'direction' => $direction,
         ]);
     }
 
@@ -127,6 +147,13 @@ class DocumentController extends Controller
         $this->authorize('view', $document);
 
         $document->load('user:id,name,email,avatar_path');
+        $currentVersionAudit = AuditLog::query()
+            ->where('auditable_type', Document::class)
+            ->where('auditable_id', $document->id)
+            ->whereIn('action', ['document_uploaded', 'document_version_uploaded', 'document_version_restored'])
+            ->with('user:id,name,email,avatar_path')
+            ->latest('id')
+            ->first();
 
         $auditTrail = AuditLog::where('auditable_type', Document::class)
             ->where('auditable_id', $document->id)
@@ -160,6 +187,23 @@ class DocumentController extends Controller
                 ],
             ]);
 
+        $versions = $document->versions()
+            ->with('uploader:id,name,email,avatar_path')
+            ->orderByDesc('version_number')
+            ->get()
+            ->map(fn (DocumentVersion $version) => [
+                'id' => $version->id,
+                'version_number' => $version->version_number,
+                'original_name' => $version->original_name,
+                'file_size' => $version->file_size,
+                'created_at' => $version->created_at?->toIso8601String(),
+                'uploader' => $version->uploader ? [
+                    'name' => $version->uploader->name,
+                    'email' => $version->uploader->email,
+                    'avatar_url' => $version->uploader->avatar_url,
+                ] : null,
+            ]);
+
         return Inertia::render('Documents/Show', [
             'document' => [
                 'id' => $document->id,
@@ -169,6 +213,7 @@ class DocumentController extends Controller
                 'file_hash' => $document->file_hash,
                 'description' => $document->description,
                 'created_at' => $document->created_at,
+                'current_version' => $document->current_version,
                 'user_id' => $document->user_id,
                 'is_starred' => (bool) $document->is_starred,
                 'owner_name' => $document->user->name,
@@ -176,10 +221,89 @@ class DocumentController extends Controller
                 'owner_avatar_url' => $document->user->avatar_url,
                 'scan_result' => $this->normalizeScanResult($document->scan_result),
             ],
+            'currentVersion' => [
+                'version_number' => $document->current_version,
+                'original_name' => $document->original_name,
+                'file_size' => $document->file_size,
+                'created_at' => ($currentVersionAudit?->created_at ?? $document->created_at)?->toIso8601String(),
+                'uploader' => $currentVersionAudit?->user ? [
+                    'name' => $currentVersionAudit->user->name,
+                    'email' => $currentVersionAudit->user->email,
+                    'avatar_url' => $currentVersionAudit->user->avatar_url,
+                ] : [
+                    'name' => $document->user->name,
+                    'email' => $document->user->email,
+                    'avatar_url' => $document->user->avatar_url,
+                ],
+            ],
+            'versions' => $versions,
             'auditTrail' => $auditTrail,
             'shares' => $shares,
             'userPermission' => $this->getUserPermission($document),
         ]);
+    }
+
+    public function replace(Request $request, Document $document): RedirectResponse
+    {
+        $this->authorize('update', $document);
+
+        $request->validate([
+            'file' => [
+                'required',
+                'file',
+                'max:' . (config('securevault.max_upload_size') / 1024),
+                'mimetypes:' . implode(',', config('securevault.allowed_mimes')),
+            ],
+        ]);
+
+        $this->versionService->archiveCurrentVersion($document);
+
+        $file = $request->file('file');
+        $encryptedData = $this->encryptionService->encryptFile($file->getRealPath());
+        $encryptedName = Str::uuid()->toString().'.enc';
+        $vaultPath = config('securevault.vault_path');
+
+        if (! File::exists($vaultPath)) {
+            File::makeDirectory($vaultPath, 0755, true);
+        }
+
+        File::put($vaultPath.'/'.$encryptedName, $encryptedData['encrypted_content']);
+
+        $document->update([
+            'original_name' => $file->getClientOriginalName(),
+            'encrypted_name' => $encryptedName,
+            'mime_type' => $file->getMimeType(),
+            'file_size' => $file->getSize(),
+            'file_hash' => $encryptedData['original_hash'],
+            'encryption_iv' => $encryptedData['iv'],
+            'scan_result' => 'pending',
+            'current_version' => $document->current_version + 1,
+        ]);
+
+        ScanDocumentWithVirusTotal::dispatch($document);
+
+        $this->auditService->log('document_version_uploaded', $document, [
+            'document_name' => $document->original_name,
+            'version_number' => $document->current_version,
+        ]);
+
+        return back()->with('success', 'Document replaced successfully. The previous file was archived as a version.');
+    }
+
+    public function restoreVersion(Document $document, DocumentVersion $version): RedirectResponse
+    {
+        $this->authorize('update', $document);
+        abort_unless($version->document_id === $document->id, 404);
+
+        $restoredVersionNumber = $version->version_number;
+        $this->versionService->restoreVersion($document, $version, request()->user());
+
+        $this->auditService->log('document_version_restored', $document, [
+            'document_name' => $document->original_name,
+            'restored_to_version' => $restoredVersionNumber,
+        ]);
+
+        return back()->with('success', 'Document version restored successfully.');
     }
 
     /**
@@ -225,10 +349,28 @@ class DocumentController extends Controller
                 abort(500, 'File integrity check failed.');
             }
 
-            $this->auditService->log('document_downloaded', $document);
+            $content = $decryptedContent;
+            $watermarked = false;
 
-            return response()->streamDownload(function () use ($decryptedContent) {
-                echo $decryptedContent;
+            if ($document->mime_type === 'application/pdf') {
+                try {
+                    $content = $this->watermarkService->apply($decryptedContent, Auth::user(), $document);
+                    $watermarked = true;
+                } catch (\Throwable $exception) {
+                    Log::error('PDF watermark failed', [
+                        'document_id' => $document->id,
+                        'user_id' => Auth::id(),
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            }
+
+            $this->auditService->log('document_downloaded', $document, [
+                'watermarked' => $watermarked,
+            ]);
+
+            return response()->streamDownload(function () use ($content) {
+                echo $content;
             }, $document->original_name, [
                 'Content-Type' => $document->mime_type,
             ]);
@@ -454,13 +596,16 @@ class DocumentController extends Controller
     public function trash(Request $request): Response
     {
         $user = Auth::user();
+        $search = trim((string) $request->input('search', ''));
 
         return Inertia::render('Trash/Index', [
             'documents' => $user->documents()
                 ->onlyTrashed()
-                ->orderByDesc('deleted_at')
-                ->get(['id', 'original_name', 'mime_type', 'file_size', 'deleted_at'])
-                ->map(fn ($document) => [
+                ->when($search !== '', fn ($query) => $query->where('original_name', 'like', "%{$search}%"))
+                ->orderBy('deleted_at')
+                ->paginate(20)
+                ->withQueryString()
+                ->through(fn ($document) => [
                     'id' => $document->id,
                     'original_name' => $document->original_name,
                     'mime_type' => $document->mime_type,
@@ -468,6 +613,7 @@ class DocumentController extends Controller
                     'deleted_at' => $document->deleted_at?->toISOString(),
                     'deleted_at_human' => $document->deleted_at?->diffForHumans(),
                 ]),
+            'search' => $search,
         ]);
     }
 
@@ -552,6 +698,14 @@ class DocumentController extends Controller
 
         if (File::exists($filePath)) {
             File::delete($filePath);
+        }
+
+        foreach ($document->versions as $version) {
+            $versionPath = config('securevault.vault_path') . '/' . $version->encrypted_name;
+
+            if (File::exists($versionPath)) {
+                File::delete($versionPath);
+            }
         }
     }
 

@@ -28,11 +28,12 @@ import { FileTypeBadge } from '@/components/FileTypeBadge';
 import { PermissionBadge, type Permission } from '@/components/PermissionBadge';
 import UserAvatar from '@/components/UserAvatar';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { formatExpiry, expiryTierClass } from '@/lib/formatExpiry';
+import { cn } from '@/lib/utils';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { formatDistanceToNow } from 'date-fns';
+import { differenceInDays, formatDistanceToNow, isPast, parseISO } from 'date-fns';
 import {
-    AlertTriangle,
     Clock,
     Download,
     Eye,
@@ -59,6 +60,7 @@ interface ShareItem {
         original_name: string;
         mime_type: string;
         file_size: number;
+        scan_result: 'pending' | 'clean' | 'unscanned' | 'unavailable' | 'malicious';
     };
     shared_by: {
         name: string;
@@ -115,16 +117,8 @@ function getFileIcon(mimeType: string) {
     return <File className="h-7 w-7 text-primary" />;
 }
 
-function daysRemaining(value: string) {
-    return Math.ceil((new Date(value).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
-}
-
 function isShareExpired(value: string | null) {
-    return value ? new Date(value).getTime() < Date.now() : false;
-}
-
-function formatRelative(value: string) {
-    return formatDistanceToNow(new Date(value), { addSuffix: true });
+    return value ? isPast(parseISO(value)) : false;
 }
 
 function FilterPanel({
@@ -241,7 +235,7 @@ export default function SharedWithMe({ shares, filters }: Props) {
             if (activePermissions.length > 0 && !activePermissions.includes(share.permission)) return false;
             if (expiringSoon) {
                 if (!share.expires_at || isShareExpired(share.expires_at)) return false;
-                const remainingDays = daysRemaining(share.expires_at);
+                const remainingDays = differenceInDays(parseISO(share.expires_at), new Date());
                 if (remainingDays > 7) return false;
             }
 
@@ -384,12 +378,18 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                                         {filteredShares.map((share) => {
                                             const expired = isShareExpired(share.expires_at);
-                                            const remainingDays = share.expires_at ? daysRemaining(share.expires_at) : null;
+                                            const expiry = formatExpiry(share.expires_at);
+                                            const downloadBlocked =
+                                                share.document.scan_result === 'pending' ||
+                                                share.document.scan_result === 'malicious';
 
                                             return (
                                                 <Card
                                                     key={share.id}
-                                                    className={`transition-all ${expired ? 'opacity-50' : 'hover:border-primary/30'}`}
+                                                    className={cn(
+                                                        'border-border transition-colors duration-150 hover:border-primary/40',
+                                                        expired && 'opacity-50',
+                                                    )}
                                                 >
                                                     <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
                                                         <div className="flex items-center gap-2">
@@ -416,36 +416,23 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                                             <span className="truncate">Shared by {share.shared_by.name}</span>
                                                         </div>
 
+                                                        {expiry && (
+                                                            <div
+                                                                className={cn(
+                                                                    'mt-1 flex items-center gap-1 text-xs',
+                                                                    expiryTierClass[expiry.tier],
+                                                                )}
+                                                            >
+                                                                <Clock className="h-3 w-3" />
+                                                                <span>{expiry.label}</span>
+                                                            </div>
+                                                        )}
+
                                                     <div className="flex items-end justify-between gap-3">
                                                         <div className="space-y-1">
                                                             <p className="text-xs text-muted-foreground">
                                                                 Shared {formatDistanceToNow(new Date(share.created_at), { addSuffix: true })}
                                                             </p>
-                                                            {share.expires_at && (
-                                                                <div className="flex items-center gap-1.5">
-                                                                    {remainingDays !== null && remainingDays <= 3 ? (
-                                                                        <Badge variant="outline" className="gap-1 border-destructive/20 bg-destructive/10 text-xs text-destructive">
-                                                                            <AlertTriangle className="h-3 w-3" />
-                                                                            Expires {formatRelative(share.expires_at)}
-                                                                        </Badge>
-                                                                    ) : remainingDays !== null && remainingDays <= 7 ? (
-                                                                        <Badge variant="outline" className="gap-1 border-amber-500/20 bg-amber-500/10 text-xs text-amber-700 dark:text-amber-400">
-                                                                            <Clock className="h-3 w-3" />
-                                                                            Expires {formatRelative(share.expires_at)}
-                                                                        </Badge>
-                                                                    ) : (
-                                                                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                                            <Clock className="h-3 w-3" />
-                                                                            Expires {formatRelative(share.expires_at)}
-                                                                        </span>
-                                                                    )}
-                                                                    {expired && (
-                                                                        <Badge variant="outline" className="text-xs text-muted-foreground">
-                                                                            Expired
-                                                                        </Badge>
-                                                                    )}
-                                                                </div>
-                                                            )}
                                                         </div>
 
                                                         {expired ? (
@@ -457,6 +444,7 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                                                         <Button
                                                                             variant="ghost"
                                                                             size="icon"
+                                                                            className="h-8 w-8"
                                                                             aria-label={`View details for ${share.document.original_name}`}
                                                                             asChild
                                                                         >
@@ -466,23 +454,35 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                                                             </Link>
                                                                         </Button>
                                                                     </TooltipTrigger>
-                                                                    <TooltipContent><p>View Details</p></TooltipContent>
+                                                                    <TooltipContent><p>View document</p></TooltipContent>
                                                                 </Tooltip>
 
                                                                 {(share.permission === 'download' || share.permission === 'full_access') && (
                                                                     <Tooltip>
                                                                         <TooltipTrigger asChild>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                onClick={() => window.location.assign(route('documents.download', share.document.id))}
-                                                                                aria-label={`Download ${share.document.original_name}`}
-                                                                            >
-                                                                                <Download className="h-4 w-4" />
-                                                                                <span className="sr-only">Download</span>
-                                                                            </Button>
+                                                                            <span className="inline-flex">
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    className="h-8 w-8"
+                                                                                    disabled={downloadBlocked}
+                                                                                    onClick={() => window.location.assign(route('documents.download', share.document.id))}
+                                                                                    aria-label={`Download ${share.document.original_name}`}
+                                                                                >
+                                                                                    <Download className="h-4 w-4" />
+                                                                                    <span className="sr-only">Download</span>
+                                                                                </Button>
+                                                                            </span>
                                                                         </TooltipTrigger>
-                                                                        <TooltipContent><p>Download</p></TooltipContent>
+                                                                        <TooltipContent>
+                                                                            <p>
+                                                                                {share.document.scan_result === 'pending'
+                                                                                    ? 'Scan in progress — download unavailable'
+                                                                                    : share.document.scan_result === 'malicious'
+                                                                                      ? 'File quarantined — download blocked'
+                                                                                      : 'Download document'}
+                                                                            </p>
+                                                                        </TooltipContent>
                                                                     </Tooltip>
                                                                 )}
 
@@ -492,16 +492,17 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                                                             <Button
                                                                                 variant="ghost"
                                                                                 size="icon"
+                                                                                className="h-8 w-8"
                                                                                 aria-label={`Manage sharing for ${share.document.original_name}`}
                                                                                 asChild
                                                                             >
                                                                                 <Link href={route('documents.show', share.document.id)}>
                                                                                     <Share2 className="h-4 w-4" />
-                                                                                    <span className="sr-only">Share</span>
+                                                                                    <span className="sr-only">Manage sharing</span>
                                                                                 </Link>
                                                                             </Button>
                                                                         </TooltipTrigger>
-                                                                        <TooltipContent><p>Share</p></TooltipContent>
+                                                                        <TooltipContent><p>Manage sharing</p></TooltipContent>
                                                                     </Tooltip>
                                                                 )}
                                                             </div>

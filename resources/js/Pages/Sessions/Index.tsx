@@ -23,10 +23,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { parseUserAgent } from '@/lib/parseUserAgent';
+import { cn } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/react';
-import { Info, LogOut, Monitor } from 'lucide-react';
+import { formatDistanceToNow, fromUnixTime } from 'date-fns';
+import {
+    Info,
+    LogOut,
+    MapPin,
+    Monitor,
+    Smartphone,
+} from 'lucide-react';
 
 interface SessionRow {
     id: string;
@@ -42,15 +50,7 @@ interface Props {
 }
 
 function formatLastActivity(unixTimestamp: number): string {
-    const seconds = Math.floor(Date.now() / 1000) - unixTimestamp;
-    if (seconds < 60) return 'Just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-    return `${Math.floor(seconds / 86400)} days ago`;
-}
-
-function getActivityAge(unixTimestamp: number) {
-    return Math.floor(Date.now() / 1000 - unixTimestamp) / 60;
+    return formatDistanceToNow(fromUnixTime(unixTimestamp), { addSuffix: true }).replace(/^about /, '');
 }
 
 export default function SessionsIndex({ sessions, currentSessionId }: Props) {
@@ -115,32 +115,39 @@ export default function SessionsIndex({ sessions, currentSessionId }: Props) {
                                     <TableRow>
                                         <TableHead>Session</TableHead>
                                         <TableHead>IP Address</TableHead>
-                                        <TableHead>Last Activity</TableHead>
+                                        <TableHead>Last Active</TableHead>
+                                        <TableHead>Device</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {sessions.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="py-12 text-center text-sm text-muted-foreground">
+                                            <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
                                                 No active sessions found.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
                                         sessions.map((session) => {
                                             const isCurrentSession = session.id === currentSessionId;
+                                            const device = parseUserAgent(session.user_agent);
 
                                             return (
                                                 <TableRow
                                                     key={session.id}
-                                                    className={`hover:bg-muted/50 ${
-                                                        isCurrentSession ? 'border-l-2 border-l-primary bg-primary/5' : ''
-                                                    }`}
+                                                    className={cn(
+                                                        'hover:bg-muted/50',
+                                                        isCurrentSession && 'border-l-2 border-l-primary bg-primary/5 hover:bg-primary/10',
+                                                    )}
                                                 >
                                                     <TableCell>
                                                         <div className="flex items-center gap-2.5">
                                                             <div className="flex-shrink-0 rounded bg-muted p-1.5">
-                                                                <Monitor className="h-4 w-4 text-muted-foreground" />
+                                                                {device.isMobile ? (
+                                                                    <Smartphone className="h-4 w-4 text-muted-foreground" />
+                                                                ) : (
+                                                                    <Monitor className="h-4 w-4 text-muted-foreground" />
+                                                                )}
                                                             </div>
                                                             <div>
                                                                 <div className="flex items-center gap-2">
@@ -163,35 +170,34 @@ export default function SessionsIndex({ sessions, currentSessionId }: Props) {
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <span className="cursor-help rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                                                                        {session.ip_address ?? '-'}
-                                                                    </span>
-                                                                </TooltipTrigger>
-                                                                {session.location && (
-                                                                    <TooltipContent>
-                                                                        <p>{session.location}</p>
-                                                                    </TooltipContent>
-                                                                )}
-                                                            </Tooltip>
-                                                        </TooltipProvider>
+                                                        <div className="flex flex-col">
+                                                            <code className="text-xs font-mono text-foreground">
+                                                                {session.ip_address ?? '-'}
+                                                            </code>
+                                                            {session.location && (
+                                                                <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                                                                    <MapPin className="h-3 w-3" />
+                                                                    {session.location}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className="text-sm text-muted-foreground">
+                                                            {formatLastActivity(session.last_activity)}
+                                                        </span>
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
-                                                            <span
-                                                                className={`h-2 w-2 flex-shrink-0 rounded-full ${
-                                                                    getActivityAge(session.last_activity) < 5
-                                                                        ? 'bg-green-500'
-                                                                        : getActivityAge(session.last_activity) < 30
-                                                                          ? 'bg-amber-500'
-                                                                          : 'bg-muted-foreground'
-                                                                }`}
-                                                            />
-                                                            <span className="text-sm text-muted-foreground">
-                                                                {formatLastActivity(session.last_activity)}
-                                                            </span>
+                                                            {device.isMobile ? (
+                                                                <Smartphone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                                            ) : (
+                                                                <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                                            )}
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm text-foreground">{device.browser}</span>
+                                                                <span className="text-xs text-muted-foreground">{device.os}</span>
+                                                            </div>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="text-right">
@@ -217,7 +223,7 @@ export default function SessionsIndex({ sessions, currentSessionId }: Props) {
                                                                 </AlertDialogTrigger>
                                                                 <AlertDialogContent>
                                                                     <AlertDialogHeader>
-                                                                        <AlertDialogTitle>Revoke Session?</AlertDialogTitle>
+                                                                        <AlertDialogTitle>Revoke session?</AlertDialogTitle>
                                                                         <AlertDialogDescription>
                                                                             This will immediately end this session. The device will be logged out.
                                                                         </AlertDialogDescription>

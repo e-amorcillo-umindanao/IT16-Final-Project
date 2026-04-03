@@ -42,7 +42,7 @@ const demoAccounts = [
     {
         label: 'Super Admin',
         email: 'admin@securevault.test',
-        password: 'SecureVaultAdmin@2026',
+        password: 'SecureVault@2026',
         ariaLabel: 'Fill Super Admin credentials',
         icon: ShieldCheck,
         className:
@@ -205,7 +205,24 @@ export default function Login({
                         Authorized Access Only
                     </p>
 
-                    {status && (
+                    {status === 'deletion-scheduled' && (
+                        <Alert variant="destructive" className="mt-5">
+                            <AlertDescription>
+                                Your deletion request has been received. Your account has been deactivated.
+                                Check your email for a cancellation link valid for 30 days.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {status === 'deletion-cancelled' && (
+                        <Alert className="mt-5 border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400">
+                            <AlertDescription>
+                                Your account deletion request was cancelled. You can sign in again.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {status && status !== 'deletion-scheduled' && status !== 'deletion-cancelled' && (
                         <div className="mt-5 rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm font-medium text-green-700 dark:text-green-400">
                             {status}
                         </div>

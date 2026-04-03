@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { SortableHeader } from '@/components/SortableHeader';
 import {
     Dialog,
     DialogContent,
@@ -37,6 +38,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
     Pagination,
     PaginationContent,
@@ -51,15 +53,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { cn } from '@/lib/utils';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import {
     Download,
+    MailCheck,
+    MailX,
     MoreHorizontal,
+    PauseCircle,
+    PlayCircle,
     ScrollText,
     Search,
     Shield,
+    ShieldCheck,
     ShieldOff,
     UserCheck,
     UserX,
@@ -73,6 +81,10 @@ interface UserRow {
     name: string;
     email: string;
     is_active: boolean;
+    two_factor_enabled: boolean;
+    email_verified_at: string | null;
+    deletion_requested_at: string | null;
+    deletion_scheduled_for: string | null;
     last_login_at: string | null;
     last_login_ip: string | null;
     role: string;
@@ -87,6 +99,8 @@ interface Props extends PageProps {
         status?: string;
         verification?: string;
     };
+    sort: string;
+    direction: 'asc' | 'desc';
 }
 
 function normalizeAssignableRole(roleName: string | null | undefined): AssignableRole {
@@ -119,20 +133,33 @@ function formatRelativeTime(value: string | null) {
         return 'Never';
     }
 
-    return formatDistanceToNow(new Date(value), { addSuffix: true });
+    return formatDistanceToNow(parseISO(value), {
+        addSuffix: true,
+        includeSeconds: false,
+    }).replace(/^about /, '');
 }
 
-export default function AdminUsersIndex({ users, filters, auth }: Props) {
+export default function AdminUsersIndex({ users, filters, auth, sort, direction }: Props) {
     const authUserId = auth.user.id;
+    const isSuperAdminViewer = auth.roles?.includes('super-admin') ?? false;
     const [search, setSearch] = useState(filters.search ?? '');
     const [role, setRole] = useState(filters.role ?? 'all');
     const [status, setStatus] = useState(filters.status ?? 'all');
-    const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
+    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
     const [roleDialogOpen, setRoleDialogOpen] = useState(false);
     const [selectedRole, setSelectedRole] = useState<AssignableRole>('user');
+    const verification = filters.verification ?? '';
 
     const currentCountLabel = `Showing ${users.data.length} of ${users.total} users`;
+    const activeQuery = Object.fromEntries(
+        Object.entries({
+            search: filters.search ?? '',
+            role: filters.role ?? '',
+            status: filters.status ?? '',
+            verification,
+        }).filter(([, value]) => value !== undefined && value !== '' && value !== 'all')
+    );
 
     const submitFilters = (override?: Partial<{ search: string; role: string; status: string }>) => {
         const next = {
@@ -142,7 +169,14 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
             ...override,
         };
 
-        const query = Object.fromEntries(Object.entries(next).filter(([, value]) => value && value !== 'all'));
+        const query = Object.fromEntries(
+            Object.entries({
+                ...next,
+                verification,
+                sort,
+                direction,
+            }).filter(([, value]) => value && value !== 'all')
+        );
 
         router.get(route('admin.users'), query, {
             preserveState: true,
@@ -154,12 +188,15 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
         setSearch('');
         setRole('all');
         setStatus('all');
-        router.get(route('admin.users'), {});
+        router.get(route('admin.users'), {
+            sort,
+            direction,
+        });
     };
 
-    const openDeactivateDialog = (user: UserRow) => {
+    const handleToggleActive = (user: UserRow) => {
         setSelectedUser(user);
-        setDeactivateDialogOpen(true);
+        setStatusDialogOpen(true);
     };
 
     const openRoleDialog = (user: UserRow) => {
@@ -183,23 +220,17 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
         );
     };
 
-    const handleDeactivate = () => {
+    const handleStatusToggle = () => {
         if (!selectedUser) {
             return;
         }
 
-        router.patch(
-            route('admin.users.deactivate', selectedUser.id),
-            {},
-            {
-                preserveScroll: true,
-                onFinish: () => setDeactivateDialogOpen(false),
-            }
-        );
-    };
+        const routeName = selectedUser.is_active ? 'admin.users.deactivate' : 'admin.users.activate';
 
-    const handleActivate = (userId: number) => {
-        router.patch(route('admin.users.activate', userId), {}, { preserveScroll: true });
+        router.patch(route(routeName, selectedUser.id), {}, {
+            preserveScroll: true,
+            onFinish: () => setStatusDialogOpen(false),
+        });
     };
 
     return (
@@ -316,10 +347,31 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>User Profile</TableHead>
+                                        <TableHead>
+                                            <SortableHeader
+                                                column="name"
+                                                label="Name"
+                                                currentSort={sort}
+                                                currentDirection={direction}
+                                                routeName="admin.users"
+                                                query={activeQuery}
+                                            />
+                                        </TableHead>
                                         <TableHead>Role</TableHead>
                                         <TableHead>Status</TableHead>
-                                        <TableHead>Last Active</TableHead>
+                                        <TableHead className="text-xs">2FA</TableHead>
+                                        <TableHead className="text-xs">Verified</TableHead>
+                                        <TableHead>
+                                            <SortableHeader
+                                                column="last_login_at"
+                                                label="Last Active"
+                                                currentSort={sort}
+                                                currentDirection={direction}
+                                                defaultDirection="desc"
+                                                routeName="admin.users"
+                                                query={activeQuery}
+                                            />
+                                        </TableHead>
                                         <TableHead>Last Login IP</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
@@ -327,22 +379,54 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                                 <TableBody>
                                     {users.data.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                                            <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                                                 No users matched your current filters.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
                                         users.data.map((user) => {
                                             const isSelf = user.id === authUserId;
+                                            const pendingDeletionBadge = (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="border-destructive/30 bg-destructive/15 text-xs text-destructive"
+                                                >
+                                                    Pending Deletion
+                                                </Badge>
+                                            );
 
                                             return (
-                                            <TableRow key={user.id} className="hover:bg-muted/50">
+                                            <TableRow
+                                                key={user.id}
+                                                className={cn(
+                                                    'transition-colors hover:bg-muted/50',
+                                                    !user.is_active && 'opacity-50',
+                                                )}
+                                            >
                                                 <TableCell>
                                                     <div className="flex items-center gap-3">
                                                         <UserAvatar user={user} size="md" />
                                                         <div>
                                                             <div className="text-sm font-medium text-foreground">{user.name}</div>
                                                             <div className="text-xs text-muted-foreground">{user.email}</div>
+                                                            {user.deletion_requested_at && (
+                                                                <div className="mt-1">
+                                                                    {isSuperAdminViewer && user.deletion_scheduled_for ? (
+                                                                        <TooltipProvider>
+                                                                            <Tooltip>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <span>{pendingDeletionBadge}</span>
+                                                                                </TooltipTrigger>
+                                                                                <TooltipContent>
+                                                                                    Scheduled for {format(new Date(user.deletion_scheduled_for), 'PPP')}
+                                                                                </TooltipContent>
+                                                                            </Tooltip>
+                                                                        </TooltipProvider>
+                                                                    ) : (
+                                                                        pendingDeletionBadge
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </TableCell>
@@ -368,6 +452,42 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                                                         </Badge>
                                                     </div>
                                                 </TableCell>
+                                                <TableCell>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span className="inline-flex">
+                                                                    {user.two_factor_enabled ? (
+                                                                        <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                                                    ) : (
+                                                                        <ShieldOff className="h-4 w-4 text-muted-foreground opacity-40" />
+                                                                    )}
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                {user.two_factor_enabled ? '2FA enabled' : '2FA not enabled'}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span className="inline-flex">
+                                                                    {user.email_verified_at ? (
+                                                                        <MailCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                                                    ) : (
+                                                                        <MailX className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                                                    )}
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                {user.email_verified_at ? 'Email verified' : 'Email not verified'}
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                </TableCell>
                                                 <TableCell className="text-sm text-muted-foreground">
                                                     {formatRelativeTime(user.last_login_at)}
                                                 </TableCell>
@@ -377,58 +497,84 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                                                     </span>
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                aria-label={`Actions for ${user.name}`}
-                                                            >
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem asChild>
-                                                                <Link href={route('admin.audit-logs', { user: user.email })}>
-                                                                    <ScrollText className="mr-2 h-4 w-4" />
-                                                                    View Audit Logs
-                                                                </Link>
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            {!isSelf && (
-                                                                <>
-                                                                    {user.is_active ? (
-                                                                        <DropdownMenuItem
-                                                                            className="text-destructive focus:text-destructive"
-                                                                            onClick={() => openDeactivateDialog(user)}
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        {!isSelf && (
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="group h-8 w-8"
+                                                                            aria-label={user.is_active ? 'Deactivate user' : 'Activate user'}
+                                                                            onClick={() => handleToggleActive(user)}
                                                                         >
-                                                                            <UserX className="mr-2 h-4 w-4" />
-                                                                            Deactivate Account
-                                                                        </DropdownMenuItem>
-                                                                    ) : (
-                                                                        <DropdownMenuItem
-                                                                            className="text-green-700 focus:text-green-700"
-                                                                            onClick={() => handleActivate(user.id)}
-                                                                        >
-                                                                            <UserCheck className="mr-2 h-4 w-4" />
-                                                                            Activate Account
-                                                                        </DropdownMenuItem>
-                                                                    )}
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem onClick={() => openRoleDialog(user)}>
-                                                                        <Shield className="mr-2 h-4 w-4" />
-                                                                        Change Role
-                                                                    </DropdownMenuItem>
-                                                                </>
-                                                            )}
-                                                            {isSelf && (
-                                                                <DropdownMenuItem disabled className="text-muted-foreground">
-                                                                    <ShieldOff className="mr-2 h-4 w-4" />
-                                                                    Cannot modify own account
+                                                                            {user.is_active ? (
+                                                                                <PauseCircle className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-destructive" />
+                                                                            ) : (
+                                                                                <PlayCircle className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400" />
+                                                                            )}
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        {user.is_active ? 'Deactivate user' : 'Activate user'}
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                        )}
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    aria-label={`Actions for ${user.name}`}
+                                                                >
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem asChild>
+                                                                    <Link href={route('admin.audit-logs', { user: user.email })}>
+                                                                        <ScrollText className="mr-2 h-4 w-4" />
+                                                                        View Audit Logs
+                                                                    </Link>
                                                                 </DropdownMenuItem>
-                                                            )}
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
+                                                                <DropdownMenuSeparator />
+                                                                {!isSelf && (
+                                                                    <>
+                                                                        {user.is_active ? (
+                                                                            <DropdownMenuItem
+                                                                                className="text-destructive focus:text-destructive"
+                                                                                onClick={() => handleToggleActive(user)}
+                                                                            >
+                                                                                <UserX className="mr-2 h-4 w-4" />
+                                                                                Deactivate Account
+                                                                            </DropdownMenuItem>
+                                                                        ) : (
+                                                                            <DropdownMenuItem
+                                                                                className="text-green-700 focus:text-green-700"
+                                                                                onClick={() => handleToggleActive(user)}
+                                                                            >
+                                                                                <UserCheck className="mr-2 h-4 w-4" />
+                                                                                Activate Account
+                                                                            </DropdownMenuItem>
+                                                                        )}
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem onClick={() => openRoleDialog(user)}>
+                                                                            <Shield className="mr-2 h-4 w-4" />
+                                                                            Change Role
+                                                                        </DropdownMenuItem>
+                                                                    </>
+                                                                )}
+                                                                {isSelf && (
+                                                                    <DropdownMenuItem disabled className="text-muted-foreground">
+                                                                        <ShieldOff className="mr-2 h-4 w-4" />
+                                                                        Cannot modify own account
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                             );
@@ -471,21 +617,29 @@ export default function AdminUsersIndex({ users, filters, auth }: Props) {
                 </div>
             </div>
 
-            <AlertDialog open={deactivateDialogOpen} onOpenChange={setDeactivateDialogOpen}>
+            <AlertDialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Deactivate Account?</AlertDialogTitle>
+                        <AlertDialogTitle>
+                            {selectedUser?.is_active ? 'Deactivate Account?' : 'Activate Account?'}
+                        </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Deactivating this account will immediately end all active sessions for {selectedUser?.name}. They will not be able to log in until reactivated.
+                            {selectedUser?.is_active
+                                ? `Deactivating this account will immediately end all active sessions for ${selectedUser?.name}. They will not be able to log in until reactivated.`
+                                : `Activating this account will allow ${selectedUser?.name} to sign in again immediately.`}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            onClick={handleDeactivate}
+                            className={cn(
+                                selectedUser?.is_active
+                                    ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                                    : 'bg-green-700 text-white hover:bg-green-700/90'
+                            )}
+                            onClick={handleStatusToggle}
                         >
-                            Deactivate
+                            {selectedUser?.is_active ? 'Deactivate' : 'Activate'}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

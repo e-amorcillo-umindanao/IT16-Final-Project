@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Loader2, ShieldCheck, ShieldOff, ShieldX } from 'lucide-react';
 import type { ElementType } from 'react';
 
@@ -41,13 +42,32 @@ const config: Record<
     },
 };
 
+const tooltips: Record<ScanResult, string> = {
+    pending: 'Scan in progress — download unavailable until complete',
+    clean: 'VirusTotal found no threats in this file',
+    malicious: 'Threat detected — file has been quarantined',
+    unavailable: 'VirusTotal could not be reached — file may still be downloaded',
+    unscanned: 'File was uploaded before scanning was enabled',
+};
+
 export function ScanBadge({ result }: { result: ScanResult }) {
     const { label, icon: Icon, className, iconClassName } = config[result] ?? config.unscanned;
 
     return (
-        <Badge variant="outline" className={`gap-1 text-xs font-medium ${className}`}>
-            <Icon className={`h-3 w-3 ${iconClassName ?? ''}`.trim()} />
-            {label}
-        </Badge>
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                        <Badge variant="outline" className={`gap-1 text-xs font-medium ${className}`}>
+                            <Icon className={`h-3 w-3 ${iconClassName ?? ''}`.trim()} />
+                            {label}
+                        </Badge>
+                    </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>{tooltips[result] ?? 'Unknown scan status'}</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
     );
 }

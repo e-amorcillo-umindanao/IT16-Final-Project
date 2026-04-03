@@ -27,6 +27,9 @@ class AuditService
         '2fa_verified' => AuditCategory::Security,
         '2fa_failed' => AuditCategory::Security,
         '2fa_corrupt_reset' => AuditCategory::Security,
+        'recovery_code_used' => AuditCategory::Security,
+        'recovery_code_failed' => AuditCategory::Security,
+        'recovery_codes_regenerated' => AuditCategory::Security,
         'document_scan_blocked' => AuditCategory::Security,
         'malware_detected' => AuditCategory::Security,
         'integrity_violation' => AuditCategory::Security,
@@ -39,10 +42,19 @@ class AuditService
         'signed_url_generated' => AuditCategory::Security,
         'signed_url_accessed' => AuditCategory::Security,
         'audit_integrity_check' => AuditCategory::Security,
+        'access_blocked_ip' => AuditCategory::Security,
+        'ip_rule_added' => AuditCategory::Security,
+        'ip_rule_removed' => AuditCategory::Security,
+        'account_deletion_requested' => AuditCategory::Security,
+        'account_deletion_cancelled' => AuditCategory::Security,
+        'account_deletion_executed' => AuditCategory::Security,
 
         'request' => AuditCategory::Audit,
         'profile_updated' => AuditCategory::Audit,
+        'data_export_requested' => AuditCategory::Audit,
         'document_uploaded' => AuditCategory::Audit,
+        'document_version_uploaded' => AuditCategory::Audit,
+        'document_version_restored' => AuditCategory::Audit,
         'document_downloaded' => AuditCategory::Audit,
         'document_deleted' => AuditCategory::Audit,
         'document_restored' => AuditCategory::Audit,
@@ -69,7 +81,53 @@ class AuditService
         ?array $metadata = null,
         AuditCategory|string|null $categoryOverride = null,
     ): AuditLog {
-        $userId = Auth::id();
+        return $this->writeLog(
+            action: $action,
+            userId: Auth::id(),
+            auditable: $auditable,
+            metadata: $metadata,
+            categoryOverride: $categoryOverride,
+        );
+    }
+
+    public function logForUser(
+        Model $user,
+        string $action,
+        ?Model $auditable = null,
+        ?array $metadata = null,
+        AuditCategory|string|null $categoryOverride = null,
+    ): AuditLog {
+        return $this->writeLog(
+            action: $action,
+            userId: $user->getKey(),
+            auditable: $auditable,
+            metadata: $metadata,
+            categoryOverride: $categoryOverride,
+        );
+    }
+
+    public function logSystem(
+        string $action,
+        ?Model $auditable = null,
+        ?array $metadata = null,
+        AuditCategory|string|null $categoryOverride = null,
+    ): AuditLog {
+        return $this->writeLog(
+            action: $action,
+            userId: null,
+            auditable: $auditable,
+            metadata: $metadata,
+            categoryOverride: $categoryOverride,
+        );
+    }
+
+    private function writeLog(
+        string $action,
+        mixed $userId,
+        ?Model $auditable = null,
+        ?array $metadata = null,
+        AuditCategory|string|null $categoryOverride = null,
+    ): AuditLog {
         $ipAddress = Request::ip() ?? '0.0.0.0';
         $userAgent = Request::userAgent();
         $createdAt = now();

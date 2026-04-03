@@ -32,6 +32,7 @@ class PasswordUpdateTest extends TestCase
             ->assertRedirect('/profile');
 
         $this->assertTrue(Hash::check('StrongPass1!', $user->refresh()->password));
+        $this->assertNotNull($user->password_changed_at);
     }
 
     public function test_correct_password_must_be_provided_to_update_password(): void

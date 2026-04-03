@@ -20,7 +20,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'two-factor' => \App\Http\Middleware\EnsureTwoFactor::class,
+            'two-factor-pending' => \App\Http\Middleware\EnsureTwoFactorPending::class,
             'account-active' => \App\Http\Middleware\EnsureAccountActive::class,
+            'password-not-expired' => \App\Http\Middleware\EnsurePasswordNotExpired::class,
+            'check-ip-policy' => \App\Http\Middleware\CheckIpPolicy::class,
             'log-action' => \App\Http\Middleware\LogRequest::class,
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,

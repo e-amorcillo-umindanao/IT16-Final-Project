@@ -23,6 +23,14 @@ import {
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -73,6 +81,7 @@ interface DocumentDetails {
     file_hash: string;
     description: string | null;
     created_at: string;
+    current_version: number;
     user_id: number;
     is_starred: boolean;
     owner_name: string;
@@ -81,30 +90,47 @@ interface DocumentDetails {
     scan_result: ScanResult;
 }
 
+interface VersionUser {
+    name: string;
+    email: string;
+    avatar_url: string | null;
+}
+
 interface AuditTrailEntry {
     action: string;
     created_at: string;
     metadata: Record<string, any> | null;
-    user: {
-        name: string;
-        email: string;
-        avatar_url: string | null;
-    } | null;
+    user: VersionUser | null;
+}
+
+interface CurrentVersionDetails {
+    version_number: number;
+    original_name: string;
+    file_size: number;
+    created_at: string | null;
+    uploader: VersionUser | null;
+}
+
+interface VersionHistoryItem {
+    id: number;
+    version_number: number;
+    original_name: string;
+    file_size: number;
+    created_at: string | null;
+    uploader: VersionUser | null;
 }
 
 interface ShareItem {
     id: number;
     permission: SharePermission;
     expires_at: string | null;
-    user: {
-        name: string;
-        email: string;
-        avatar_url: string | null;
-    };
+    user: VersionUser;
 }
 
 interface Props extends PageProps {
     document: DocumentDetails;
+    currentVersion: CurrentVersionDetails;
+    versions: VersionHistoryItem[];
     auditTrail: AuditTrailEntry[];
     shares: ShareItem[];
     userPermission: UserPermission;
@@ -136,6 +162,10 @@ function getActionText(action: string, metadata: Record<string, any> | null) {
     switch (action) {
         case 'document_uploaded':
             return 'Uploaded file';
+        case 'document_version_uploaded':
+            return 'Replaced file';
+        case 'document_version_restored':
+            return 'Restored version';
         case 'document_downloaded':
             return 'Downloaded file';
         case 'document_shared':
@@ -153,6 +183,10 @@ function getActionIcon(action: string) {
     switch (action) {
         case 'document_uploaded':
             return <Upload className="inline h-3.5 w-3.5 text-primary" />;
+        case 'document_version_uploaded':
+            return <Upload className="inline h-3.5 w-3.5 text-primary" />;
+        case 'document_version_restored':
+            return <History className="inline h-3.5 w-3.5 text-blue-500" />;
         case 'document_downloaded':
             return <Download className="inline h-3.5 w-3.5 text-green-500" />;
         case 'document_shared':
@@ -184,18 +218,22 @@ function formatDateValue(date?: Date) {
     return date ? format(date, 'yyyy-MM-dd') : '';
 }
 
-export default function Show({ auth, document, auditTrail, shares, userPermission }: Props) {
+export default function Show({ auth, document, currentVersion, versions, auditTrail, shares, userPermission }: Props) {
     const [copied, setCopied] = useState(false);
     const [linkExpiry, setLinkExpiry] = useState('24');
     const [copyingLink, setCopyingLink] = useState(false);
     const [linkCopied, setLinkCopied] = useState(false);
     const [shareExpiryDate, setShareExpiryDate] = useState<Date | undefined>(undefined);
     const [shareExpiryOpen, setShareExpiryOpen] = useState(false);
+    const [replaceOpen, setReplaceOpen] = useState(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         email: '',
         permission: 'view_only' as SharePermission,
         expires_at: '',
+    });
+    const replaceForm = useForm<{ file: File | null }>({
+        file: null,
     });
 
     useEffect(() => {
@@ -217,6 +255,7 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
     }, [linkCopied]);
 
     const canManageShares = userPermission === 'owner' || userPermission === 'full_access';
+    const canReplace = userPermission === 'owner' || userPermission === 'full_access';
     const canDelete = userPermission === 'owner';
     const canDownload = userPermission === 'owner' || userPermission === 'download' || userPermission === 'full_access';
     const FileIcon = getFileIcon(document.mime_type);
@@ -295,6 +334,30 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
         }
     };
 
+    const handleReplaceSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        replaceForm.post(route('documents.replace', document.id), {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                setReplaceOpen(false);
+                replaceForm.reset();
+                replaceForm.clearErrors();
+            },
+        });
+    };
+
+    const handleRestoreVersion = (versionId: number) => {
+        router.post(
+            route('documents.versions.restore', { document: document.id, version: versionId }),
+            {},
+            {
+                preserveScroll: true,
+            },
+        );
+    };
+
     return (
         <AuthenticatedLayout
             header={
@@ -331,6 +394,78 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
+                        {canReplace && (
+                            <Dialog
+                                open={replaceOpen}
+                                onOpenChange={(open) => {
+                                    setReplaceOpen(open);
+                                    if (!open) {
+                                        replaceForm.reset();
+                                        replaceForm.clearErrors();
+                                    }
+                                }}
+                            >
+                                <Button variant="outline" className="gap-2" onClick={() => setReplaceOpen(true)}>
+                                    <Upload className="h-4 w-4" />
+                                    Replace File
+                                </Button>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Replace File</DialogTitle>
+                                        <DialogDescription>
+                                            Uploading a new file will archive the current version and mark the replacement for malware scanning.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <form onSubmit={handleReplaceSubmit} className="space-y-4">
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="replacement-file">New file</Label>
+                                            <Input
+                                                id="replacement-file"
+                                                type="file"
+                                                onChange={(event) => replaceForm.setData('file', event.target.files?.[0] ?? null)}
+                                                required
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Uploading a new file will archive the current file as a previous version.
+                                            </p>
+                                            {replaceForm.errors.file && (
+                                                <p className="text-xs text-destructive">{replaceForm.errors.file}</p>
+                                            )}
+                                        </div>
+                                        <DialogFooter>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setReplaceOpen(false);
+                                                    replaceForm.reset();
+                                                    replaceForm.clearErrors();
+                                                }}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                type="submit"
+                                                disabled={replaceForm.processing || !replaceForm.data.file}
+                                                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                                            >
+                                                {replaceForm.processing ? (
+                                                    <>
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                        Uploading...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Upload className="h-4 w-4" />
+                                                        Replace File
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </DialogFooter>
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
+                        )}
                         {canDownload && (
                             <Button
                                 className="bg-primary text-primary-foreground hover:bg-primary/90"
@@ -509,6 +644,135 @@ export default function Show({ auth, document, auditTrail, shares, userPermissio
                                     </CardContent>
                                 </Card>
                             )}
+
+                            <Card>
+                                <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
+                                    <CardTitle className="font-semibold text-foreground">Version History</CardTitle>
+                                    <History className="h-4 w-4 text-muted-foreground" />
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-5">
+                                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                            <div className="space-y-2">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <p className="text-sm font-semibold text-foreground">
+                                                        v{currentVersion.version_number} · {currentVersion.original_name}
+                                                    </p>
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                                    >
+                                                        Current
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                                                    <span>{formatBytes(currentVersion.file_size)}</span>
+                                                    <span>
+                                                        Uploaded {currentVersion.created_at ? formatRelativeTime(currentVersion.created_at) : 'Unknown'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {currentVersion.uploader && (
+                                                <div className="flex items-center gap-2">
+                                                    <UserAvatar user={currentVersion.uploader} size="sm" />
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-medium text-foreground">{currentVersion.uploader.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{currentVersion.uploader.email}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {versions.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground">
+                                            No previous versions. This is the original upload.
+                                        </p>
+                                    ) : (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Version</TableHead>
+                                                    <TableHead>Original Name</TableHead>
+                                                    <TableHead>File Size</TableHead>
+                                                    <TableHead>Uploaded By</TableHead>
+                                                    <TableHead>Uploaded At</TableHead>
+                                                    <TableHead className="text-right">Actions</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {versions.map((version) => (
+                                                    <TableRow key={version.id} className="hover:bg-muted/50">
+                                                        <TableCell className="font-medium text-foreground">
+                                                            v{version.version_number}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-foreground">
+                                                            {version.original_name}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-muted-foreground">
+                                                            {formatBytes(version.file_size)}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {version.uploader ? (
+                                                                <div className="flex items-center gap-2.5">
+                                                                    <UserAvatar user={version.uploader} size="sm" />
+                                                                    <div>
+                                                                        <p className="text-sm font-medium text-foreground">
+                                                                            {version.uploader.name}
+                                                                        </p>
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            {version.uploader.email}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-sm text-muted-foreground">Unknown</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm text-muted-foreground">
+                                                            {version.created_at
+                                                                ? format(new Date(version.created_at), 'PPP p')
+                                                                : 'Unknown'}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {canReplace ? (
+                                                                <AlertDialog>
+                                                                    <AlertDialogTrigger asChild>
+                                                                        <Button variant="outline" size="sm">
+                                                                            Restore
+                                                                        </Button>
+                                                                    </AlertDialogTrigger>
+                                                                    <AlertDialogContent>
+                                                                        <AlertDialogHeader>
+                                                                            <AlertDialogTitle>
+                                                                                Restore version {version.version_number}?
+                                                                            </AlertDialogTitle>
+                                                                            <AlertDialogDescription>
+                                                                                Restoring version {version.version_number} will archive the current file. Continue?
+                                                                            </AlertDialogDescription>
+                                                                        </AlertDialogHeader>
+                                                                        <AlertDialogFooter>
+                                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                            <AlertDialogAction
+                                                                                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                                                                                onClick={() => handleRestoreVersion(version.id)}
+                                                                            >
+                                                                                Restore Version
+                                                                            </AlertDialogAction>
+                                                                        </AlertDialogFooter>
+                                                                    </AlertDialogContent>
+                                                                </AlertDialog>
+                                                            ) : (
+                                                                <span className="text-sm text-muted-foreground">View only</span>
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    )}
+                                </CardContent>
+                            </Card>
 
                             <Card>
                                 <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">

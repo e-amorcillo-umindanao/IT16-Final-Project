@@ -20,8 +20,17 @@ import {
     BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination';
 import { Separator } from '@/components/ui/separator';
 import {
     Table,
@@ -35,8 +44,8 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { getExpiryBadge } from '@/lib/trashExpiryBadge';
+import { PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { formatDistanceToNow } from 'date-fns';
 import {
     File,
     FileText,
@@ -44,10 +53,12 @@ import {
     Image as ImageIcon,
     Info,
     RotateCcw,
+    Search,
     Sheet,
     Trash2,
+    X,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 interface TrashDocument {
     id: number;
@@ -59,7 +70,8 @@ interface TrashDocument {
 }
 
 interface Props {
-    documents: TrashDocument[];
+    documents: PaginatedResponse<TrashDocument>;
+    search: string;
 }
 
 function formatBytes(bytes: number): string {
@@ -113,24 +125,140 @@ function ExpiryStatus({ deletedAt }: { deletedAt: string }) {
     );
 }
 
-export default function TrashIndex({ documents }: Props) {
+function TrashPagination({ documents }: { documents: PaginatedResponse<TrashDocument> }) {
+    const goToPage = (url: string | null) => {
+        if (!url) {
+            return;
+        }
+
+        router.get(url, {}, { preserveScroll: true, preserveState: true });
+    };
+
+    return (
+        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3">
+            <p className="text-sm text-muted-foreground">
+                Showing {documents.from ?? 0}-{documents.to ?? 0} of {documents.total} deleted files
+            </p>
+            <Pagination className="mx-0 w-auto justify-end">
+                <PaginationContent>
+                    <PaginationItem>
+                        <PaginationPrevious
+                            href={documents.prev_page_url ?? '#'}
+                            className={!documents.prev_page_url ? 'pointer-events-none opacity-50' : ''}
+                            onClick={(event) => {
+                                event.preventDefault();
+                                goToPage(documents.prev_page_url);
+                            }}
+                        />
+                    </PaginationItem>
+                    {documents.links.slice(1, -1).map((link, index) => (
+                        <PaginationItem key={`${link.label}-${index}`}>
+                            {link.label === '...' ? (
+                                <PaginationEllipsis />
+                            ) : (
+                                <PaginationLink
+                                    href={link.url ?? '#'}
+                                    isActive={link.active}
+                                    onClick={(event) => {
+                                        event.preventDefault();
+                                        goToPage(link.url);
+                                    }}
+                                >
+                                    {link.label}
+                                </PaginationLink>
+                            )}
+                        </PaginationItem>
+                    ))}
+                    <PaginationItem>
+                        <PaginationNext
+                            href={documents.next_page_url ?? '#'}
+                            className={!documents.next_page_url ? 'pointer-events-none opacity-50' : ''}
+                            onClick={(event) => {
+                                event.preventDefault();
+                                goToPage(documents.next_page_url);
+                            }}
+                        />
+                    </PaginationItem>
+                </PaginationContent>
+            </Pagination>
+        </div>
+    );
+}
+
+export default function TrashIndex({ documents, search }: Props) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [processingId, setProcessingId] = useState<number | null>(null);
     const [isRestoringSelected, setIsRestoringSelected] = useState(false);
+    const [searchValue, setSearchValue] = useState(search);
+    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const allSelected = useMemo(
-        () => documents.length > 0 && selectedIds.length === documents.length,
-        [documents.length, selectedIds.length]
+        () => documents.data.length > 0 && selectedIds.length === documents.data.length,
+        [documents.data.length, selectedIds.length]
     );
 
     const toggleAll = (checked: boolean) => {
-        setSelectedIds(checked ? documents.map((document) => document.id) : []);
+        setSelectedIds(checked ? documents.data.map((document) => document.id) : []);
     };
 
     const toggleOne = (documentId: number, checked: boolean) => {
         setSelectedIds((current) =>
             checked ? [...current, documentId] : current.filter((id) => id !== documentId)
         );
+    };
+
+    useEffect(() => {
+        setSearchValue(search);
+    }, [search]);
+
+    useEffect(() => {
+        const currentIds = new Set(documents.data.map((document) => document.id));
+
+        setSelectedIds((current) => current.filter((id) => currentIds.has(id)));
+    }, [documents.data]);
+
+    useEffect(() => () => {
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+    }, []);
+
+    const runSearch = (value: string) => {
+        router.get(
+            route('documents.trash'),
+            value ? { search: value } : {},
+            {
+                preserveScroll: true,
+                preserveState: true,
+                replace: true,
+            },
+        );
+    };
+
+    const queueSearch = (value: string) => {
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+
+        searchTimeoutRef.current = setTimeout(() => {
+            runSearch(value);
+        }, 300);
+    };
+
+    const handleSearch = (event: ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value;
+
+        setSearchValue(value);
+        queueSearch(value);
+    };
+
+    const clearSearch = () => {
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+
+        setSearchValue('');
+        runSearch('');
     };
 
     const handleRestore = (id: number) => {
@@ -202,21 +330,40 @@ export default function TrashIndex({ documents }: Props) {
 
                     <Separator className="my-6" />
 
-                    {documents.length === 0 ? (
-                        <div className="flex min-h-[calc(100vh-24rem)] items-center justify-center">
-                            <Card className="flex w-full max-w-md flex-col items-center justify-center py-20">
-                                <CardContent className="flex flex-col items-center gap-4 pt-6 text-center">
-                                    <div className="inline-block rounded-xl bg-muted p-4">
-                                        <Trash2 className="h-12 w-12 text-muted-foreground" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-foreground">Your trash is empty</h3>
-                                        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                                            Deleted documents will appear here for 30 days before being permanently removed.
-                                        </p>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                    {(documents.total > 0 || searchValue !== '' || search !== '') && (
+                        <div className="relative w-full max-w-sm">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                value={searchValue}
+                                onChange={handleSearch}
+                                placeholder="Search deleted files..."
+                                className="pl-9 pr-9"
+                                aria-label="Search deleted files"
+                            />
+                            {searchValue && (
+                                <button
+                                    type="button"
+                                    onClick={clearSearch}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                                    aria-label="Clear search"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {documents.data.length === 0 && !search ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
+                            <Trash2 className="mb-4 h-10 w-10 opacity-20" />
+                            <p className="text-sm font-medium">Your trash is empty</p>
+                            <p className="mt-1 text-xs opacity-70">
+                                Deleted files appear here for 30 days before being permanently removed.
+                            </p>
+                        </div>
+                    ) : documents.data.length === 0 ? (
+                        <div className="py-12 text-center text-sm text-muted-foreground">
+                            No deleted files match <span className="font-medium">"{search}"</span>.
                         </div>
                     ) : (
                         <div className="overflow-hidden rounded-lg border border-border bg-card">
@@ -238,7 +385,7 @@ export default function TrashIndex({ documents }: Props) {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {documents.map((document) => (
+                                    {documents.data.map((document) => (
                                         <TableRow key={document.id} className="hover:bg-muted/50">
                                             <TableCell>
                                                 <Checkbox
@@ -351,7 +498,7 @@ export default function TrashIndex({ documents }: Props) {
                                                 <span className="text-xs text-muted-foreground">
                                                     {selectedIds.length > 0
                                                         ? `${selectedIds.length} selected`
-                                                        : `${documents.length} item(s) in trash`}
+                                                        : `${documents.total} item(s) in trash`}
                                                 </span>
                                                 <div className="flex items-center gap-3">
                                                     {selectedIds.length > 0 && (
@@ -373,6 +520,7 @@ export default function TrashIndex({ documents }: Props) {
                                     </TableRow>
                                 </TableFooter>
                             </Table>
+                            {documents.last_page > 1 && <TrashPagination documents={documents} />}
                         </div>
                     )}
                 </div>

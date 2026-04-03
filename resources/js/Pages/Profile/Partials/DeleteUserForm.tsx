@@ -18,7 +18,7 @@ export default function DeleteUserForm({
     const {
         data,
         setData,
-        delete: destroy,
+        post,
         processing,
         reset,
         errors,
@@ -34,7 +34,7 @@ export default function DeleteUserForm({
     const deleteUser: FormEventHandler = (e) => {
         e.preventDefault();
 
-        destroy(route('profile.destroy'), {
+        post(route('profile.delete-account'), {
             preserveScroll: true,
             onSuccess: () => closeModal(),
             onError: () => passwordInput.current?.focus(),

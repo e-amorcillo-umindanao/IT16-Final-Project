@@ -121,6 +121,7 @@ class ShareController extends Controller
                     'original_name' => $share->document->original_name,
                     'mime_type' => $share->document->mime_type,
                     'file_size' => $share->document->file_size,
+                    'scan_result' => $share->document->scan_result,
                 ],
                 'shared_by' => [
                     'name' => $share->sharedBy->name,

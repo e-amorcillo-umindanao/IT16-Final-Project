@@ -9,27 +9,38 @@ import {
 } from '@/components/ui/input-otp';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { AlertTriangle, Loader2, ShieldCheck } from 'lucide-react';
-import { FormEventHandler, useEffect } from 'react';
+import { FormEventHandler, useEffect, useState } from 'react';
 
 export default function TwoFactorChallenge() {
     const { data, setData, post, processing, errors } = useForm({
         code: '',
     });
+    const [autoSubmitted, setAutoSubmitted] = useState(false);
 
     const submit = () => {
-        post(route('two-factor.verify'));
+        post(route('two-factor.verify'), {
+            onError: () => setAutoSubmitted(false),
+        });
     };
 
     const handleSubmit: FormEventHandler = (e) => {
         e.preventDefault();
+        if (autoSubmitted) {
+            return;
+        }
         submit();
     };
 
     useEffect(() => {
-        if (data.code.length === 6 && !processing) {
+        if (data.code.length < 6 && autoSubmitted) {
+            setAutoSubmitted(false);
+        }
+
+        if (data.code.length === 6 && !processing && !autoSubmitted) {
+            setAutoSubmitted(true);
             submit();
         }
-    }, [data.code, processing]);
+    }, [autoSubmitted, data.code, processing]);
 
     return (
         <GuestLayout>
@@ -100,7 +111,7 @@ export default function TwoFactorChallenge() {
 
                         <Button
                             className="w-full bg-primary text-primary-foreground"
-                            disabled={processing || data.code.length < 6}
+                            disabled={processing || autoSubmitted || data.code.length < 6}
                             type="submit"
                         >
                             {processing ? (
@@ -112,6 +123,13 @@ export default function TwoFactorChallenge() {
                                 'Verify Code'
                             )}
                         </Button>
+
+                        <p className="text-center text-sm text-muted-foreground">
+                            Lost access to your authenticator?{' '}
+                            <Link href={route('two-factor.recovery')} className="text-primary underline underline-offset-4">
+                                Use a recovery code
+                            </Link>
+                        </p>
                     </form>
 
                     <Link

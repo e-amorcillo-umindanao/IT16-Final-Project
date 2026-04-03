@@ -27,6 +27,7 @@ class Document extends Model
         'file_hash',
         'description',
         'is_starred',
+        'current_version',
         'scan_result',
     ];
 
@@ -41,6 +42,7 @@ class Document extends Model
             'description' => 'encrypted',
             'file_size' => 'integer',
             'is_starred' => 'boolean',
+            'current_version' => 'integer',
             // VirusTotal result: pending, clean, unscanned, unavailable, or malicious.
             'scan_result' => 'string',
         ];
@@ -56,6 +58,11 @@ class Document extends Model
     public function shares(): HasMany
     {
         return $this->hasMany(DocumentShare::class);
+    }
+
+    public function versions(): HasMany
+    {
+        return $this->hasMany(DocumentVersion::class);
     }
 
     // ── Scopes ─────────────────────────────────────────────

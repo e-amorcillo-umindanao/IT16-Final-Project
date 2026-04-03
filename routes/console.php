@@ -9,3 +9,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('vault:purge-trash')->daily();
+Schedule::command('securevault:purge-expired-exports')->daily();
+Schedule::command('securevault:purge-deletions')->dailyAt('02:00');

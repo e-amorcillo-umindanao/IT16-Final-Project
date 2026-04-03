@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\DataExport;
 use App\Services\AuditService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,6 +26,35 @@ class ProfileController extends Controller
     public function edit(Request $request): Response
     {
         $user = $request->user();
+        $recentExports = DataExport::query()
+            ->where('user_id', $user->id)
+            ->where('created_at', '>=', now()->subDay())
+            ->whereIn('status', ['pending', 'ready'])
+            ->latest()
+            ->get();
+
+        $recentExports->each(function (DataExport $export): void {
+            if ($export->status === 'ready' && ! $export->isDownloadReady()) {
+                $export->update([
+                    'status' => 'expired',
+                ]);
+
+                $export->status = 'expired';
+            }
+        });
+
+        $latestExport = DataExport::query()
+            ->where('user_id', $user->id)
+            ->latest()
+            ->first();
+
+        if ($latestExport?->status === 'ready' && ! $latestExport->isDownloadReady()) {
+            $latestExport->update([
+                'status' => 'expired',
+            ]);
+
+            $latestExport->status = 'expired';
+        }
         $sessionCount = DB::table('sessions')
             ->where('user_id', $user->id)
             ->count();
@@ -38,6 +69,21 @@ class ProfileController extends Controller
             'mustVerifyEmail' => $user instanceof MustVerifyEmail,
             'status' => session('status'),
             'two_factor_enabled' => (bool) $user->two_factor_enabled,
+            'recovery_codes_remaining' => $user->twoFactorRecoveryCodes()->whereNull('used_at')->count(),
+            'has_pending_export' => $recentExports->contains(
+                fn (DataExport $export) => $export->status === 'pending' || $export->isDownloadReady(),
+            ),
+            'latest_export' => $latestExport ? [
+                'status' => $latestExport->status,
+                'expires_at' => $latestExport->expires_at?->toIso8601String(),
+                'download_url' => $latestExport->isDownloadReady()
+                        ? URL::temporarySignedRoute(
+                            'exports.download',
+                            $latestExport->expires_at,
+                            ['token' => $latestExport->token],
+                        )
+                        : null,
+            ] : null,
             'session_count' => $sessionCount,
             'recent_sessions' => $recentSessions->map(fn ($session) => [
                 'id' => $session->id,
@@ -121,6 +167,7 @@ class ProfileController extends Controller
 
         $user->update([
             'password' => Hash::make($validated['password']),
+            'password_changed_at' => now(),
         ]);
 
         $auditService->log('password_changed', $user);
@@ -134,6 +181,8 @@ class ProfileController extends Controller
     public function destroyTwoFactor(Request $request, AuditService $auditService): RedirectResponse
     {
         $user = $request->user();
+
+        $user->twoFactorRecoveryCodes()->delete();
 
         $user->forceFill([
             'two_factor_secret' => null,

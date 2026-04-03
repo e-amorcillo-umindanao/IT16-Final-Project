@@ -12,6 +12,7 @@ import {
     Users as UsersIcon, 
     Activity, 
     Trash2, 
+    Shield,
     ShieldCheck, 
     UserCog, 
     ScrollText, 
@@ -39,12 +40,14 @@ export default function Authenticated({
     const canViewAllDocuments = permissions.includes('view_all_documents');
     const canViewAuditLogs = permissions.includes('view_audit_logs');
     const canManageSessions = permissions.includes('manage_sessions');
+    const canManageIpRules = permissions.includes('manage_ip_rules');
     const showAdminSection =
         canViewAdminDashboard ||
         canManageUsers ||
         canViewAllDocuments ||
         canViewAuditLogs ||
-        canManageSessions;
+        canManageSessions ||
+        canManageIpRules;
 
     const getRoleLabel = () => {
         const rawRole = typeof user.role === 'string' ? user.role : null;
@@ -66,7 +69,8 @@ export default function Authenticated({
             canManageUsers ||
             canViewAllDocuments ||
             canViewAuditLogs ||
-            canManageSessions
+            canManageSessions ||
+            canManageIpRules
         ) {
             return 'Admin';
         }
@@ -215,6 +219,14 @@ export default function Authenticated({
                                     icon={ShieldCheck}
                                     label="Integrity Check"
                                     active={route().current('admin.audit-integrity')}
+                                />
+                            )}
+                            {canManageIpRules && (
+                                <NavItem
+                                    href={route('admin.ip-rules.index')}
+                                    icon={Shield}
+                                    label="IP Rules"
+                                    active={route().current('admin.ip-rules.*')}
                                 />
                             )}
                             {canManageSessions && (

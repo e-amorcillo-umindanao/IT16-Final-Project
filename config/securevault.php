@@ -26,4 +26,12 @@ return [
     ],
 
     'trash_retention_days' => 30,
+
+    'password_expiry_days' => (int) env('PASSWORD_EXPIRY_DAYS', 90),
+
+    'failed_login_warn' => (int) env('FAILED_LOGIN_WARN', 5),
+
+    'failed_login_danger' => (int) env('FAILED_LOGIN_DANGER', 20),
+
+    'storage_limit_bytes' => (int) env('STORAGE_LIMIT_BYTES', 1073741824),
 ];

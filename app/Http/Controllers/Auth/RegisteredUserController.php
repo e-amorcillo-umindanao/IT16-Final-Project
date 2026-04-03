@@ -50,6 +50,7 @@ class RegisteredUserController extends Controller
                 'name' => $validated['name'],
                 'email' => $email,
                 'password' => Hash::make($validated['password']),
+                'password_changed_at' => now(),
             ]);
 
             // Auto-verify until SMTP is configured. Remove this when email delivery is enabled.

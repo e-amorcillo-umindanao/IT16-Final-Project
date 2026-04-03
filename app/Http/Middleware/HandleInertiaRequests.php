@@ -40,6 +40,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success') ?? $request->session()->get('status'),
                 'error' => fn () => $request->session()->get('error'),
+                'recovery_codes' => fn () => $request->session()->get('recovery_codes'),
             ],
             'recaptchaSiteKey' => config('services.recaptcha.site_key'),
             'ziggy' => fn () => [

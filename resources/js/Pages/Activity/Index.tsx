@@ -1,4 +1,6 @@
 import { AuditCategoryTabs } from '@/components/AuditCategoryTabs';
+import { RelativeTime } from '@/components/RelativeTime';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import {
     Breadcrumb,
@@ -27,15 +29,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { getAuditActionBadge } from '@/lib/auditActionBadge';
+import { detectCluster } from '@/lib/detectCluster';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { format } from 'date-fns';
 import {
     Activity,
     CalendarIcon,
+    ChevronDown,
+    ChevronUp,
     Download,
     FileDown,
     ShieldCheck,
+    ShieldAlert,
     SlidersHorizontal,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -82,7 +88,18 @@ interface Props extends PageProps {
     };
     securityCount: number;
     auditCount: number;
+    direction: 'asc' | 'desc';
 }
+
+const FAILURE_ACTIONS = new Set([
+    '2fa_failed',
+    'login_failed',
+    'recovery_code_failed',
+    'account_locked',
+]);
+
+const CLUSTER_WINDOW_SECONDS = 60;
+const CLUSTER_THRESHOLD = 3;
 
 const ACTION_OPTIONS = [
     { value: 'all', label: 'All Actions' },
@@ -189,7 +206,7 @@ function ActivityPagination({
     );
 }
 
-export default function ActivityIndex({ logs, filters, securityCount }: Props) {
+export default function ActivityIndex({ logs, filters, securityCount, direction }: Props) {
     const [localFilters, setLocalFilters] = useState<Props['filters']>({
         category: filters.category ?? 'all',
         action: filters.action ?? '',
@@ -215,9 +232,26 @@ export default function ActivityIndex({ logs, filters, securityCount }: Props) {
     const exportQuery = Object.fromEntries(
         Object.entries(localFilters).filter(([, value]) => value !== undefined && value !== '')
     );
+    const activeQuery = {
+        ...exportQuery,
+        direction,
+    };
+    const hasActiveFilter = Boolean(
+        (localFilters.category && localFilters.category !== 'all')
+        || localFilters.action
+        || localFilters.from_date
+        || localFilters.to_date
+    );
+    const exportLabel = hasActiveFilter ? 'Export filtered results' : 'Export all';
+    const cluster = detectCluster(
+        logs.data,
+        FAILURE_ACTIONS,
+        CLUSTER_WINDOW_SECONDS,
+        CLUSTER_THRESHOLD,
+    );
 
     const applyFilters = () => {
-        router.get(route('activity.index'), exportQuery, {
+        router.get(route('activity.index'), activeQuery, {
             preserveState: true,
             replace: true,
         });
@@ -230,7 +264,7 @@ export default function ActivityIndex({ logs, filters, securityCount }: Props) {
         setToDate(undefined);
         setFromDateOpen(false);
         setToDateOpen(false);
-        router.get(route('activity.index'), {}, { preserveState: false });
+        router.get(route('activity.index'), { direction }, { preserveState: false });
     };
 
     const setCategory = (value: string) => {
@@ -240,10 +274,23 @@ export default function ActivityIndex({ logs, filters, securityCount }: Props) {
         };
 
         setLocalFilters(nextFilters);
-        router.get(route('activity.index'), nextFilters, {
+        router.get(route('activity.index'), { ...nextFilters, direction }, {
             preserveState: true,
             preserveScroll: true,
             replace: true,
+        });
+    };
+
+    const handleTimestampSort = () => {
+        router.get(route('activity.index'), {
+            direction: direction === 'desc' ? 'asc' : 'desc',
+            category: filters.category,
+            action: filters.action,
+            from_date: filters.from_date,
+            to_date: filters.to_date,
+        }, {
+            preserveScroll: true,
+            preserveState: true,
         });
     };
 
@@ -296,7 +343,7 @@ export default function ActivityIndex({ logs, filters, securityCount }: Props) {
                                         <SelectTrigger id="action" className="w-48 bg-background">
                                             <SelectValue placeholder="All Actions" />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="max-h-80 overflow-y-auto">
                                             {ACTION_OPTIONS.map((option) => (
                                                 <SelectItem key={option.value} value={option.value}>
                                                     {option.label}
@@ -400,6 +447,19 @@ export default function ActivityIndex({ logs, filters, securityCount }: Props) {
                         </CardContent>
                     </Card>
 
+                    {cluster.detected && (
+                        <Alert variant="destructive">
+                            <ShieldAlert className="h-4 w-4" />
+                            <AlertTitle>Rapid failure cluster detected</AlertTitle>
+                            <AlertDescription>
+                                {cluster.count} consecutive failures were recorded within{' '}
+                                {cluster.windowSeconds} seconds
+                                {cluster.ip ? ` from ${cluster.ip}` : ''}.
+                                {' '}This may indicate a brute-force attempt. Review the entries below.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
                             <div className="flex items-center gap-2">
@@ -413,15 +473,15 @@ export default function ActivityIndex({ logs, filters, securityCount }: Props) {
                             </div>
                             <div className="flex items-center gap-2">
                                 <Button variant="outline" size="sm" asChild>
-                                    <a href={route('activity.export', exportQuery)}>
+                                    <a href={route('activity.export', activeQuery)}>
                                         <Download className="h-4 w-4" />
-                                        Export CSV
+                                        {exportLabel} (CSV)
                                     </a>
                                 </Button>
                                 <Button variant="outline" size="sm" asChild>
-                                    <a href={route('activity.export-pdf', exportQuery)} target="_blank" rel="noopener noreferrer">
+                                    <a href={route('activity.export-pdf', activeQuery)} target="_blank" rel="noopener noreferrer">
                                         <FileDown className="h-4 w-4" />
-                                        Export PDF
+                                        {exportLabel} (PDF)
                                     </a>
                                 </Button>
                             </div>
@@ -441,7 +501,20 @@ export default function ActivityIndex({ logs, filters, securityCount }: Props) {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Timestamp</TableHead>
+                                            <TableHead>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleTimestampSort}
+                                                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                                                >
+                                                    Timestamp
+                                                    {direction === 'asc' ? (
+                                                        <ChevronUp className="h-3 w-3" />
+                                                    ) : (
+                                                        <ChevronDown className="h-3 w-3" />
+                                                    )}
+                                                </button>
+                                            </TableHead>
                                             <TableHead>Action</TableHead>
                                             <TableHead>Target / Details</TableHead>
                                             <TableHead>IP Address</TableHead>
@@ -461,8 +534,10 @@ export default function ActivityIndex({ logs, filters, securityCount }: Props) {
                                             return (
                                                 <TableRow key={log.id} className="hover:bg-muted/50">
                                                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                                                        <div>{format(new Date(log.created_at), 'MMM dd, yyyy')}</div>
-                                                        <div>{format(new Date(log.created_at), 'HH:mm:ss')}</div>
+                                                        <RelativeTime
+                                                            datetime={log.created_at}
+                                                            formatted={format(new Date(log.created_at), 'MMM dd, yyyy HH:mm:ss')}
+                                                        />
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
@@ -474,7 +549,7 @@ export default function ActivityIndex({ logs, filters, securityCount }: Props) {
                                                                             : 'bg-muted text-muted-foreground'
                                                                     }`}
                                                                 >
-                                                                    {log.category === 'security' ? 'SEC' : 'AUD'}
+                                                                    {log.category === 'security' ? 'Security' : 'Activity'}
                                                                 </span>
                                                             )}
                                                             <Badge

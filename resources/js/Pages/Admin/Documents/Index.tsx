@@ -25,6 +25,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileTypeBadge } from '@/components/FileTypeBadge';
 import { ScanBadge, type ScanResult } from '@/components/ScanBadge';
+import { SortableHeader } from '@/components/SortableHeader';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -48,6 +50,7 @@ interface AdminDocumentRow {
     original_name: string;
     mime_type: string;
     file_size: number;
+    file_hash: string | null;
     scan_result: ScanResult;
     created_at: string;
     has_integrity_violation: boolean;
@@ -58,13 +61,21 @@ interface AdminDocumentRow {
     };
 }
 
+interface OwnerOption {
+    id: number;
+    label: string;
+}
+
 interface Props extends PageProps {
     documents: PaginatedResponse<AdminDocumentRow>;
     filters: {
         search?: string;
         type?: string;
-        owner?: string;
     };
+    sort: string;
+    direction: 'asc' | 'desc';
+    selectedOwner: string | null;
+    users: OwnerOption[];
 }
 
 function formatFileSize(bytes: number) {
@@ -95,25 +106,37 @@ function getFileIcon(mimeType: string) {
     }
 }
 
-export default function AdminDocumentsIndex({ documents, filters }: Props) {
+export default function AdminDocumentsIndex({ documents, filters, sort, direction, selectedOwner, users }: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [type, setType] = useState(filters.type ?? 'all');
-    const [owner, setOwner] = useState(filters.owner ?? '');
+    const [ownerId, setOwnerId] = useState(selectedOwner ?? 'all');
 
     const currentCountLabel = `Showing ${documents.data.length} of ${documents.total} documents`;
+    const activeQuery = {
+        search: filters.search || undefined,
+        type: filters.type && filters.type !== 'all' ? filters.type : undefined,
+        owner_id: selectedOwner ?? undefined,
+    };
 
-    const submitFilters = (override?: Partial<{ search: string; type: string; owner: string }>) => {
+    const submitFilters = (override?: Partial<{ search: string; type: string; ownerId: string }>) => {
         const next = {
             search,
             type,
-            owner,
+            ownerId,
             ...override,
         };
 
-        const query = Object.fromEntries(Object.entries(next).filter(([, value]) => value && value !== 'all'));
+        const query = {
+            search: next.search || undefined,
+            type: next.type !== 'all' ? next.type : undefined,
+            owner_id: next.ownerId !== 'all' ? next.ownerId : undefined,
+            sort,
+            direction,
+        };
 
         router.get(route('admin.documents'), query, {
             preserveState: true,
+            preserveScroll: true,
             replace: true,
         });
     };
@@ -201,13 +224,26 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                         </Select>
                                     </div>
 
-                                    <div className="w-full lg:max-w-sm">
-                                        <Input
-                                            value={owner}
-                                            onChange={(event) => setOwner(event.target.value)}
-                                            placeholder="Owner name or email..."
-                                            aria-label="Filter documents by owner name or email"
-                                        />
+                                    <div className="w-full lg:w-[280px]">
+                                        <Select
+                                            value={ownerId}
+                                            onValueChange={(value) => {
+                                                setOwnerId(value);
+                                                submitFilters({ ownerId: value });
+                                            }}
+                                        >
+                                            <SelectTrigger aria-label="Filter documents by owner">
+                                                <SelectValue placeholder="All owners" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All owners</SelectItem>
+                                                {users.map((user) => (
+                                                    <SelectItem key={user.id} value={String(user.id)}>
+                                                        {user.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </div>
                                 </form>
 
@@ -237,19 +273,50 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Document Name</TableHead>
-                                        <TableHead>Owner</TableHead>
+                                        <TableHead>
+                                            <SortableHeader
+                                                column="owner"
+                                                label="Owner"
+                                                currentSort={sort}
+                                                currentDirection={direction}
+                                                defaultDirection="asc"
+                                                routeName="admin.documents"
+                                                query={activeQuery}
+                                            />
+                                        </TableHead>
                                         <TableHead>Type</TableHead>
                                         <TableHead>Scan Status</TableHead>
-                                        <TableHead>Size</TableHead>
-                                        <TableHead>Uploaded Date</TableHead>
-                                        <TableHead>Encryption Status</TableHead>
+                                        <TableHead>
+                                            <SortableHeader
+                                                column="file_size"
+                                                label="Size"
+                                                currentSort={sort}
+                                                currentDirection={direction}
+                                                defaultDirection="desc"
+                                                routeName="admin.documents"
+                                                query={activeQuery}
+                                            />
+                                        </TableHead>
+                                        <TableHead>
+                                            <SortableHeader
+                                                column="created_at"
+                                                label="Uploaded"
+                                                currentSort={sort}
+                                                currentDirection={direction}
+                                                defaultDirection="desc"
+                                                routeName="admin.documents"
+                                                query={activeQuery}
+                                            />
+                                        </TableHead>
+                                        <TableHead>Encryption</TableHead>
+                                        <TableHead>Integrity</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {documents.data.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
+                                            <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
                                                 No documents found.
                                             </TableCell>
                                         </TableRow>
@@ -297,23 +364,52 @@ export default function AdminDocumentsIndex({ documents, filters }: Props) {
                                                         <div>{format(new Date(doc.created_at), 'HH:mm')}</div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        {doc.has_integrity_violation ? (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="gap-1 border-0 bg-destructive/15 text-xs text-destructive"
-                                                            >
-                                                                <ShieldAlert className="h-3 w-3" />
-                                                                Integrity Flag
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="gap-1 border-0 bg-green-500/15 text-xs text-green-700 dark:text-green-400"
-                                                            >
-                                                                <Lock className="h-3 w-3" />
-                                                                Encrypted
-                                                            </Badge>
-                                                        )}
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className="gap-1 border-0 bg-emerald-500/15 text-xs text-emerald-700 dark:text-emerald-400"
+                                                                    >
+                                                                        <Lock className="h-3 w-3" />
+                                                                        Encrypted
+                                                                    </Badge>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>AES-256-CBC with unique IV per file</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    {doc.file_hash ? (
+                                                                        <Badge
+                                                                            variant="outline"
+                                                                            className="border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                                                        >
+                                                                            Hash present
+                                                                        </Badge>
+                                                                    ) : (
+                                                                        <Badge
+                                                                            variant="outline"
+                                                                            className="border-0 bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                                                        >
+                                                                            No hash
+                                                                        </Badge>
+                                                                    )}
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>
+                                                                        {doc.file_hash
+                                                                            ? 'SHA-256 hash recorded — integrity verified at download'
+                                                                            : 'No integrity hash on record for this file'}
+                                                                    </p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         <Button

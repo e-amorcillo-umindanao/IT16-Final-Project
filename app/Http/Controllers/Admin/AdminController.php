@@ -10,6 +10,8 @@ use App\Models\Document;
 use App\Models\User;
 use App\Services\AuditDescriptionService;
 use App\Services\AuditService;
+use App\Services\IpInfoService;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,6 +39,22 @@ class AdminController extends Controller
      */
     public function dashboard(): Response
     {
+        $loginEvents = AuditLog::where('action', 'login_success')
+            ->where('created_at', '>=', Carbon::now()->subDays(6)->startOfDay())
+            ->get()
+            ->groupBy(fn (AuditLog $log) => $log->created_at->toDateString());
+
+        $loginChart = collect();
+
+        for ($i = 6; $i >= 0; $i--) {
+            $date = Carbon::now()->subDays($i);
+
+            $loginChart->push([
+                'date' => $date->format('M j'),
+                'logins' => $loginEvents->get($date->toDateString())?->count() ?? 0,
+            ]);
+        }
+
         return Inertia::render('Admin/Dashboard', [
             'stats' => [
                 'total_users' => User::count(),
@@ -51,6 +69,10 @@ class AdminController extends Controller
                     ->count(),
                 'pending_verifications' => User::whereNull('email_verified_at')->count(),
             ],
+            'failed_login_warn' => config('securevault.failed_login_warn'),
+            'failed_login_danger' => config('securevault.failed_login_danger'),
+            'storage_limit' => config('securevault.storage_limit_bytes'),
+            'login_chart' => $loginChart,
             'recent_activity' => AuditLog::with('user')
                 ->security()
                 ->orderByDesc('created_at')
@@ -75,8 +97,12 @@ class AdminController extends Controller
      */
     public function users(Request $request): Response
     {
-        $query = User::with('roles')
-            ->orderBy('name');
+        $sort = in_array($request->input('sort'), ['name', 'last_login_at'], true)
+            ? $request->input('sort')
+            : 'name';
+        $direction = $request->input('direction') === 'desc' ? 'desc' : 'asc';
+
+        $query = User::with('roles');
 
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
@@ -97,19 +123,28 @@ class AdminController extends Controller
             $query->whereNull('email_verified_at');
         }
 
+        $query->orderBy($sort, $direction)
+            ->orderBy('name');
+
         return Inertia::render('Admin/Users/Index', [
-            'users' => $query->paginate(15)->withQueryString()
+            'users' => $query->paginate(20)->withQueryString()
                 ->through(fn ($user) => [
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
                     'is_active' => $user->is_active,
+                    'two_factor_enabled' => $user->two_factor_enabled,
+                    'email_verified_at' => $user->email_verified_at,
+                    'deletion_requested_at' => $user->deletion_requested_at,
+                    'deletion_scheduled_for' => $user->deletion_scheduled_for,
                     'last_login_at' => $user->last_login_at,
                     'last_login_ip' => $user->last_login_ip,
                     'role' => $user->roles->first()?->name ?? 'user',
                     'avatar_url' => $user->avatar_url,
                 ]),
             'filters' => $request->only(['search', 'role', 'status', 'verification']),
+            'sort' => $sort,
+            'direction' => $direction,
         ]);
     }
 
@@ -118,9 +153,20 @@ class AdminController extends Controller
      */
     public function activateUser(User $user): RedirectResponse
     {
-        $user->update(['is_active' => true]);
+        $clearedPendingDeletion = $user->deletion_requested_at !== null
+            || $user->deletion_scheduled_for !== null
+            || $user->getRawOriginal('deletion_cancel_token') !== null;
 
-        $this->auditService->log('user_activated', $user);
+        $user->update([
+            'is_active' => true,
+            'deletion_requested_at' => null,
+            'deletion_scheduled_for' => null,
+            'deletion_cancel_token' => null,
+        ]);
+
+        $this->auditService->log('user_activated', $user, [
+            'pending_deletion_cleared' => $clearedPendingDeletion,
+        ]);
 
         return back()->with('success', 'User activated successfully.');
     }
@@ -195,14 +241,38 @@ class AdminController extends Controller
      */
     public function auditLogs(Request $request): Response
     {
+        $direction = $this->direction($request);
         $query = $this->auditLogsQuery($request);
+        $todayLogs = AuditLog::where('created_at', '>=', Carbon::today())
+            ->get(['created_at', 'category']);
+        $hourlyChart = collect();
+
+        for ($hour = 0; $hour < 24; $hour++) {
+            $hourlyChart->push([
+                'hour' => str_pad((string) $hour, 2, '0', STR_PAD_LEFT) . ':00',
+                'security' => 0,
+                'audit' => 0,
+            ]);
+        }
+
+        $todayLogs->each(function (AuditLog $log) use ($hourlyChart): void {
+            $hour = (int) $log->created_at->format('G');
+            $key = $log->category === AuditCategory::Security->value ? 'security' : 'audit';
+            $slot = $hourlyChart->get($hour);
+
+            if (is_array($slot)) {
+                $slot[$key]++;
+                $hourlyChart->put($hour, $slot);
+            }
+        });
 
         return Inertia::render('Admin/AuditLogs/Index', [
             'logs' => $query
-                ->paginate(15)
+                ->paginate(50)
                 ->withQueryString()
                 ->through(fn (AuditLog $log) => [
                     'id' => $log->id,
+                    'user_id' => $log->user_id,
                     'action' => $log->action,
                     'category' => $log->category,
                     'description' => $this->auditDescriptionService()->generate($log),
@@ -220,10 +290,20 @@ class AdminController extends Controller
                 ]),
             'filters' => [
                 'category' => $this->categoryFilter($request),
-                ...$request->only(['action', 'from_date', 'to_date', 'user']),
+                ...$request->only(['action', 'from_date', 'to_date', 'user_id']),
             ],
             'securityCount' => AuditLog::security()->count(),
             'auditCount' => AuditLog::audit()->count(),
+            'direction' => $direction,
+            'users' => User::select(['id', 'name', 'email'])
+                ->orderBy('name')
+                ->get()
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'label' => "{$user->name} ({$user->email})",
+                ]),
+            'selectedUser' => $request->filled('user_id') ? (string) $request->input('user_id') : null,
+            'hourlyChart' => $hourlyChart->values(),
         ]);
     }
 
@@ -280,7 +360,7 @@ class AdminController extends Controller
     private function auditLogsQuery(Request $request): Builder
     {
         $query = AuditLog::with(['user', 'auditable' => fn ($query) => $query->withTrashed()])
-            ->orderByDesc('created_at');
+            ->orderBy('created_at', $this->direction($request));
 
         if (($category = $this->categoryFilter($request)) !== 'all') {
             $query->where('category', $category);
@@ -298,7 +378,9 @@ class AdminController extends Controller
             $query->whereDate('created_at', '<=', $request->to_date);
         }
 
-        if ($request->filled('user')) {
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        } elseif ($request->filled('user')) {
             $query->whereHas('user', function ($query) use ($request) {
                 $query->where('name', 'like', '%' . $request->user . '%')
                     ->orWhere('email', 'like', '%' . $request->user . '%');
@@ -315,6 +397,11 @@ class AdminController extends Controller
         return in_array($category, ['all', AuditCategory::Security->value, AuditCategory::Audit->value], true)
             ? $category
             : 'all';
+    }
+
+    private function direction(Request $request): string
+    {
+        return $request->input('direction') === 'asc' ? 'asc' : 'desc';
     }
 
     private function formatDateRange(Request $request): ?string
@@ -375,14 +462,17 @@ class AdminController extends Controller
     /**
      * Display all active sessions.
      */
-    public function sessions(Request $request): Response
+    public function sessions(Request $request, IpInfoService $ipInfoService): Response
     {
+        $selectedUser = $request->input('user_id');
         $sessionsWithUsers = DB::table(config('session.table', 'sessions'))
             ->leftJoin('users', 'sessions.user_id', '=', 'users.id')
             ->whereNotNull('sessions.user_id')
+            ->when($selectedUser, fn ($query) => $query->where('sessions.user_id', $selectedUser))
             ->orderByDesc('sessions.last_activity')
             ->get([
                 'sessions.id',
+                'sessions.user_id',
                 'sessions.ip_address',
                 'sessions.last_activity',
                 'sessions.user_agent',
@@ -394,16 +484,34 @@ class AdminController extends Controller
         return Inertia::render('Admin/Sessions/Index', [
             'sessions' => $sessionsWithUsers->map(fn ($session) => [
                 'id' => $session->id,
+                'user_id' => $session->user_id,
                 'ip_address' => $session->ip_address,
                 'last_activity' => $session->last_activity,
                 'user_agent' => $session->user_agent,
                 'user_name' => $session->user_name,
                 'user_email' => $session->user_email,
+                'location' => $this->resolveSessionLocation($session->ip_address, $ipInfoService),
                 'user_avatar_url' => $session->user_avatar_path
                     ? Storage::disk('public')->url($session->user_avatar_path)
                     : null,
             ]),
             'currentSessionId' => $request->session()->getId(),
+            'users' => DB::table(config('session.table', 'sessions'))
+                ->join('users', 'sessions.user_id', '=', 'users.id')
+                ->select('users.id', 'users.name', 'users.email')
+                ->whereNotNull('sessions.user_id')
+                ->distinct()
+                ->orderBy('users.name')
+                ->get()
+                ->map(fn ($user) => [
+                    'id' => $user->id,
+                    'label' => "{$user->name} ({$user->email})",
+                ]),
+            'selectedUser' => $request->filled('user_id') ? (string) $selectedUser : null,
+            'terminableSessionsCount' => DB::table(config('session.table', 'sessions'))
+                ->whereNotNull('user_id')
+                ->where('id', '!=', $request->session()->getId())
+                ->count(),
         ]);
     }
 
@@ -446,5 +554,29 @@ class AdminController extends Controller
         ]);
 
         return redirect()->back();
+    }
+
+    private function resolveSessionLocation(?string $ipAddress, IpInfoService $ipInfoService): ?string
+    {
+        if (! is_string($ipAddress) || $ipAddress === '') {
+            return null;
+        }
+
+        try {
+            $info = $ipInfoService->lookup($ipAddress);
+            $location = $info['location'] ?? null;
+
+            if (! is_string($location) || $location === '' || $location === 'Unknown location') {
+                return null;
+            }
+
+            if (($info['country'] ?? null) === 'DEV') {
+                return null;
+            }
+
+            return $location;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

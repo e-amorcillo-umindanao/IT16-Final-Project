@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\RecoveryCodeService;
 use App\Services\AuditService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,13 +14,11 @@ use PragmaRX\Google2FA\Google2FA;
 
 class TwoFactorController extends Controller
 {
-    protected $google2fa;
-    protected $auditService;
-
-    public function __construct(Google2FA $google2fa, AuditService $auditService)
-    {
-        $this->google2fa = $google2fa;
-        $this->auditService = $auditService;
+    public function __construct(
+        protected Google2FA $google2fa,
+        protected AuditService $auditService,
+        protected RecoveryCodeService $recoveryCodeService,
+    ) {
     }
 
     /**
@@ -79,10 +78,14 @@ class TwoFactorController extends Controller
 
         $request->session()->forget('2fa_setup_secret');
         $request->session()->put('2fa_verified', true);
+        $codes = $this->recoveryCodeService->generate($user);
 
         $this->auditService->log('2fa_enabled', $user);
 
-        return redirect()->route('profile.edit')->with('status', 'two-factor-enabled');
+        return redirect()
+            ->route('profile.edit')
+            ->with('success', 'Two-factor authentication enabled.')
+            ->with('recovery_codes', $codes);
     }
 
     /**
@@ -102,6 +105,8 @@ class TwoFactorController extends Controller
                 'two_factor_enabled' => false,
             ]);
         }
+
+        $user->twoFactorRecoveryCodes()->delete();
 
         $request->session()->forget('2fa_verified');
 
@@ -143,6 +148,58 @@ class TwoFactorController extends Controller
         }
 
         return Inertia::render('Auth/TwoFactorChallenge');
+    }
+
+    public function showRecoveryForm(): Response
+    {
+        return Inertia::render('Auth/TwoFactorRecovery');
+    }
+
+    public function verifyRecoveryCode(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'recovery_code' => ['required', 'string'],
+        ]);
+
+        $user = Auth::user();
+
+        if (! $user || ! $this->recoveryCodeService->consume($user, $request->string('recovery_code')->toString())) {
+            if ($user) {
+                $this->auditService->log('recovery_code_failed', $user);
+            }
+
+            return back()->withErrors([
+                'recovery_code' => 'Invalid or already-used recovery code.',
+            ]);
+        }
+
+        $remainingCodes = $this->recoveryCodeService->remainingCount($user);
+
+        $request->session()->put('2fa_verified', true);
+        $this->auditService->log('recovery_code_used', $user, [
+            'remaining_codes' => $remainingCodes,
+        ]);
+
+        if ($remainingCodes <= 2) {
+            $request->session()->put('recovery_codes_low', true);
+        }
+
+        $intendedUrl = $request->session()->pull('auth.intended_url', route('dashboard'));
+
+        return redirect()->to($intendedUrl);
+    }
+
+    public function regenerateCodes(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        $codes = $this->recoveryCodeService->generate($user);
+
+        $this->auditService->log('recovery_codes_regenerated', $user);
+
+        return redirect()
+            ->route('profile.edit')
+            ->with('success', 'Recovery codes regenerated.')
+            ->with('recovery_codes', $codes);
     }
 
     /**

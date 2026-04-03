@@ -1,5 +1,8 @@
 import { AuditCategoryTabs } from '@/components/AuditCategoryTabs';
+import { EventsChart } from '@/components/EventsChart';
+import { RelativeTime } from '@/components/RelativeTime';
 import UserAvatar from '@/components/UserAvatar';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -13,7 +16,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Pagination,
@@ -25,20 +27,33 @@ import {
     PaginationPrevious,
 } from '@/components/ui/pagination';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectGroup,
+    SelectItem,
+    SelectLabel,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { getAuditActionBadge } from '@/lib/auditActionBadge';
+import { detectCluster } from '@/lib/detectCluster';
+import { cn } from '@/lib/utils';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { format } from 'date-fns';
 import {
     Activity,
     CalendarIcon,
+    ChevronDown,
+    ChevronUp,
     Download,
     FileDown,
     ShieldCheck,
+    ShieldAlert,
     SlidersHorizontal,
     Terminal,
 } from 'lucide-react';
@@ -61,6 +76,7 @@ type AuditAction =
 
 interface AuditLogRow {
     id: number;
+    user_id: number | null;
     action: AuditAction;
     category: 'security' | 'audit';
     description: string;
@@ -77,6 +93,11 @@ interface AuditLogRow {
     } | null;
 }
 
+interface AuditUserOption {
+    id: number;
+    label: string;
+}
+
 interface Props extends PageProps {
     logs: PaginatedResponse<AuditLogRow>;
     filters: {
@@ -84,25 +105,104 @@ interface Props extends PageProps {
         action?: string;
         from_date?: string;
         to_date?: string;
-        user?: string;
+        user_id?: string;
     };
     securityCount: number;
     auditCount: number;
+    direction: 'asc' | 'desc';
+    users: AuditUserOption[];
+    selectedUser: string | null;
+    hourlyChart: Array<{
+        hour: string;
+        security: number;
+        audit: number;
+    }>;
 }
 
-const ACTION_OPTIONS = [
-    { value: 'all', label: 'All Actions' },
-    { value: 'login_success', label: 'Login' },
-    { value: 'login_failed', label: 'Failed Login' },
-    { value: 'document_uploaded', label: 'Upload' },
-    { value: 'document_downloaded', label: 'Download' },
-    { value: 'document_shared', label: 'Share' },
-    { value: 'document_deleted', label: 'Delete' },
-    { value: 'logout', label: 'Logout' },
-    { value: '2fa_enabled', label: '2FA Enabled' },
-    { value: 'account_locked', label: 'Account Locked' },
-    { value: 'integrity_violation', label: 'Integrity Violation' },
-];
+const FAILURE_ACTIONS = new Set([
+    '2fa_failed',
+    'login_failed',
+    'recovery_code_failed',
+    'account_locked',
+]);
+
+const CLUSTER_WINDOW_SECONDS = 60;
+const CLUSTER_THRESHOLD = 3;
+
+const ACTION_GROUPS = [
+    {
+        label: 'Authentication',
+        options: [
+            { value: 'login_success', label: 'Login success' },
+            { value: 'login_failed', label: 'Login failed' },
+            { value: 'login_blocked_inactive', label: 'Login blocked (inactive)' },
+            { value: 'logout', label: 'Logout' },
+            { value: 'account_locked', label: 'Account locked' },
+            { value: '2fa_enabled', label: '2FA enabled' },
+            { value: '2fa_disabled', label: '2FA disabled' },
+            { value: '2fa_verified', label: '2FA verified' },
+            { value: '2fa_failed', label: '2FA failed' },
+            { value: '2fa_corrupt_reset', label: '2FA corrupt reset' },
+            { value: 'recovery_code_used', label: 'Recovery code used' },
+            { value: 'recovery_code_failed', label: 'Recovery code failed' },
+            { value: 'recovery_codes_regenerated', label: 'Recovery codes regenerated' },
+            { value: 'password_changed', label: 'Password changed' },
+            { value: 'pwned_password_rejected', label: 'Pwned password rejected' },
+        ],
+    },
+    {
+        label: 'Documents',
+        options: [
+            { value: 'document_uploaded', label: 'Document uploaded' },
+            { value: 'document_version_uploaded', label: 'Version uploaded' },
+            { value: 'document_version_restored', label: 'Version restored' },
+            { value: 'document_downloaded', label: 'Document downloaded' },
+            { value: 'document_deleted', label: 'Document deleted' },
+            { value: 'document_restored', label: 'Document restored' },
+            { value: 'document_starred', label: 'Document starred' },
+            { value: 'document_unstarred', label: 'Document unstarred' },
+            { value: 'document_shared', label: 'Document shared' },
+            { value: 'share_revoked', label: 'Share revoked' },
+            { value: 'signed_url_generated', label: 'Signed URL generated' },
+            { value: 'signed_url_accessed', label: 'Signed URL accessed' },
+            { value: 'bulk_download', label: 'Bulk download' },
+            { value: 'bulk_delete', label: 'Bulk delete' },
+            { value: 'document_permanently_deleted', label: 'Document permanently deleted' },
+            { value: 'trash_emptied', label: 'Trash emptied' },
+            { value: 'auto_purged', label: 'Auto purged' },
+        ],
+    },
+    {
+        label: 'Security',
+        options: [
+            { value: 'document_scan_blocked', label: 'Document scan blocked' },
+            { value: 'malware_detected', label: 'Malware detected' },
+            { value: 'integrity_violation', label: 'Integrity violation' },
+            { value: 'bot_detected', label: 'Bot detected' },
+            { value: 'access_blocked_ip', label: 'Access blocked (IP)' },
+            { value: 'ip_rule_added', label: 'IP rule added' },
+            { value: 'ip_rule_removed', label: 'IP rule removed' },
+            { value: 'audit_integrity_check', label: 'Audit integrity check' },
+            { value: 'session_revoked', label: 'Session revoked' },
+            { value: 'session_terminated', label: 'Session terminated' },
+            { value: 'all_sessions_terminated', label: 'All sessions terminated' },
+        ],
+    },
+    {
+        label: 'Account',
+        options: [
+            { value: 'request', label: 'Request' },
+            { value: 'profile_updated', label: 'Profile updated' },
+            { value: 'data_export_requested', label: 'Data export requested' },
+            { value: 'user_activated', label: 'User activated' },
+            { value: 'user_deactivated', label: 'User deactivated' },
+            { value: 'user_role_changed', label: 'Role changed' },
+            { value: 'account_deletion_requested', label: 'Deletion requested' },
+            { value: 'account_deletion_cancelled', label: 'Deletion cancelled' },
+            { value: 'account_deletion_executed', label: 'Deletion executed' },
+        ],
+    },
+] as const;
 
 function parseDateValue(value: string) {
     if (!value) {
@@ -195,13 +295,20 @@ function AuditPagination({
     );
 }
 
-export default function AdminAuditLogsIndex({ logs, filters, securityCount }: Props) {
+export default function AdminAuditLogsIndex({
+    logs,
+    filters,
+    securityCount,
+    direction,
+    users,
+    hourlyChart,
+}: Props) {
     const [localFilters, setLocalFilters] = useState<Props['filters']>({
         category: filters.category ?? 'all',
         action: filters.action ?? '',
         from_date: filters.from_date ?? '',
         to_date: filters.to_date ?? '',
-        user: filters.user ?? '',
+        user_id: filters.user_id ?? '',
     });
     const [fromDate, setFromDate] = useState<Date | undefined>(parseDateValue(filters.from_date ?? ''));
     const [toDate, setToDate] = useState<Date | undefined>(parseDateValue(filters.to_date ?? ''));
@@ -222,22 +329,41 @@ export default function AdminAuditLogsIndex({ logs, filters, securityCount }: Pr
     const exportQuery = Object.fromEntries(
         Object.entries(localFilters).filter(([, value]) => value !== undefined && value !== '')
     );
+    const activeQuery = {
+        ...exportQuery,
+        direction,
+    };
+    const hasActiveFilter = Boolean(
+        (localFilters.category && localFilters.category !== 'all')
+        || localFilters.action
+        || localFilters.from_date
+        || localFilters.to_date
+        || localFilters.user_id
+    );
+    const exportLabel = hasActiveFilter ? 'Export filtered results' : 'Export all';
+    const cluster = detectCluster(
+        logs.data,
+        FAILURE_ACTIONS,
+        CLUSTER_WINDOW_SECONDS,
+        CLUSTER_THRESHOLD,
+    );
 
     const applyFilters = () => {
-        router.get(route('admin.audit-logs'), exportQuery, {
+        router.get(route('admin.audit-logs'), activeQuery, {
             preserveState: true,
+            preserveScroll: true,
             replace: true,
         });
     };
 
     const resetFilters = () => {
-        const reset = { category: 'all', action: '', from_date: '', to_date: '', user: '' };
+        const reset = { category: 'all', action: '', from_date: '', to_date: '', user_id: '' };
         setLocalFilters(reset);
         setFromDate(undefined);
         setToDate(undefined);
         setFromDateOpen(false);
         setToDateOpen(false);
-        router.get(route('admin.audit-logs'), {}, { preserveState: false });
+        router.get(route('admin.audit-logs'), { direction }, { preserveState: false });
     };
 
     const setCategory = (value: string) => {
@@ -247,10 +373,43 @@ export default function AdminAuditLogsIndex({ logs, filters, securityCount }: Pr
         };
 
         setLocalFilters(nextFilters);
-        router.get(route('admin.audit-logs'), nextFilters, {
+        router.get(route('admin.audit-logs'), { ...nextFilters, direction }, {
             preserveState: true,
             preserveScroll: true,
             replace: true,
+        });
+    };
+
+    const filterByUser = (userId: number) => {
+        setLocalFilters((current) => ({
+            ...current,
+            user_id: String(userId),
+        }));
+
+        router.get(route('admin.audit-logs'), {
+            user_id: userId,
+            category: localFilters.category,
+            action: localFilters.action,
+            from_date: localFilters.from_date,
+            to_date: localFilters.to_date,
+            direction,
+        }, {
+            preserveScroll: true,
+            preserveState: true,
+        });
+    };
+
+    const handleTimestampSort = () => {
+        router.get(route('admin.audit-logs'), {
+            direction: direction === 'desc' ? 'asc' : 'desc',
+            category: filters.category,
+            action: filters.action,
+            from_date: filters.from_date,
+            to_date: filters.to_date,
+            user_id: filters.user_id,
+        }, {
+            preserveScroll: true,
+            preserveState: true,
         });
     };
 
@@ -303,11 +462,17 @@ export default function AdminAuditLogsIndex({ logs, filters, securityCount }: Pr
                                         <SelectTrigger id="action" className="w-48 bg-background">
                                             <SelectValue placeholder="All Actions" />
                                         </SelectTrigger>
-                                        <SelectContent>
-                                            {ACTION_OPTIONS.map((option) => (
-                                                <SelectItem key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </SelectItem>
+                                        <SelectContent className="max-h-80 overflow-y-auto">
+                                            <SelectItem value="all">All actions</SelectItem>
+                                            {ACTION_GROUPS.map((group) => (
+                                                <SelectGroup key={group.label}>
+                                                    <SelectLabel>{group.label}</SelectLabel>
+                                                    {group.options.map((option) => (
+                                                        <SelectItem key={option.value} value={option.value}>
+                                                            {option.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectGroup>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -395,21 +560,41 @@ export default function AdminAuditLogsIndex({ logs, filters, securityCount }: Pr
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">
-                                    <Label htmlFor="user" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                        User Search
+                                    <Label htmlFor="user_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                        User
                                     </Label>
-                                    <Input
-                                        id="user"
-                                        value={localFilters.user ?? ''}
-                                        onChange={(event) =>
+                                    <Select
+                                        value={localFilters.user_id || 'all'}
+                                        onValueChange={(value) => {
                                             setLocalFilters((current) => ({
                                                 ...current,
-                                                user: event.target.value,
-                                            }))
-                                        }
-                                        placeholder="Name or email"
-                                        className="bg-background"
-                                    />
+                                                user_id: value === 'all' ? '' : value,
+                                            }));
+                                            router.get(route('admin.audit-logs'), {
+                                                user_id: value === 'all' ? undefined : value,
+                                                category: localFilters.category,
+                                                action: localFilters.action,
+                                                from_date: localFilters.from_date,
+                                                to_date: localFilters.to_date,
+                                                direction,
+                                            }, {
+                                                preserveScroll: true,
+                                                preserveState: true,
+                                            });
+                                        }}
+                                    >
+                                        <SelectTrigger id="user_id" className="w-52 bg-background" aria-label="Filter by user">
+                                            <SelectValue placeholder="All users" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All users</SelectItem>
+                                            {users.map((user) => (
+                                                <SelectItem key={user.id} value={String(user.id)}>
+                                                    {user.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 <div className="flex items-end gap-2 pb-0">
@@ -422,6 +607,30 @@ export default function AdminAuditLogsIndex({ logs, filters, securityCount }: Pr
                                     </Button>
                                 </div>
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    {cluster.detected && (
+                        <Alert variant="destructive">
+                            <ShieldAlert className="h-4 w-4" />
+                            <AlertTitle>Rapid failure cluster detected</AlertTitle>
+                            <AlertDescription>
+                                {cluster.count} consecutive failures were recorded within{' '}
+                                {cluster.windowSeconds} seconds
+                                {cluster.ip ? ` from ${cluster.ip}` : ''}.
+                                {' '}This may indicate a brute-force attempt. Review the entries below.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">
+                                Event activity - today by hour
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <EventsChart data={hourlyChart} />
                         </CardContent>
                     </Card>
 
@@ -438,15 +647,15 @@ export default function AdminAuditLogsIndex({ logs, filters, securityCount }: Pr
                             </div>
                             <div className="flex items-center gap-2">
                                 <Button variant="outline" size="sm" asChild>
-                                    <a href={route('admin.audit-logs.export', exportQuery)}>
+                                    <a href={route('admin.audit-logs.export', activeQuery)}>
                                         <Download className="h-4 w-4" />
-                                        Export CSV
+                                        {exportLabel} (CSV)
                                     </a>
                                 </Button>
                                 <Button variant="outline" size="sm" asChild>
-                                    <a href={route('admin.audit-logs.export-pdf', exportQuery)} target="_blank" rel="noopener noreferrer">
+                                    <a href={route('admin.audit-logs.export-pdf', activeQuery)} target="_blank" rel="noopener noreferrer">
                                         <FileDown className="h-4 w-4" />
-                                        Export PDF
+                                        {exportLabel} (PDF)
                                     </a>
                                 </Button>
                             </div>
@@ -466,7 +675,20 @@ export default function AdminAuditLogsIndex({ logs, filters, securityCount }: Pr
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Timestamp</TableHead>
+                                            <TableHead>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleTimestampSort}
+                                                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                                                >
+                                                    Timestamp
+                                                    {direction === 'asc' ? (
+                                                        <ChevronUp className="h-3 w-3" />
+                                                    ) : (
+                                                        <ChevronDown className="h-3 w-3" />
+                                                    )}
+                                                </button>
+                                            </TableHead>
                                             <TableHead>User</TableHead>
                                             <TableHead>Action</TableHead>
                                             <TableHead>Target / Details</TableHead>
@@ -487,30 +709,43 @@ export default function AdminAuditLogsIndex({ logs, filters, securityCount }: Pr
                                             return (
                                                 <TableRow key={log.id} className="hover:bg-muted/50">
                                                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                                                        <div>{format(new Date(log.created_at), 'MMM dd, yyyy')}</div>
-                                                        <div>{format(new Date(log.created_at), 'HH:mm:ss')}</div>
+                                                        <RelativeTime
+                                                            datetime={log.created_at}
+                                                            formatted={format(new Date(log.created_at), 'MMM dd, yyyy HH:mm:ss')}
+                                                        />
                                                     </TableCell>
                                                     <TableCell>
-                                                        {log.user ? (
-                                                            <div className="flex items-center gap-2.5">
-                                                                <UserAvatar user={log.user} size="md" />
-                                                                <div>
-                                                                    <div className="text-sm font-medium text-foreground">{log.user.name}</div>
-                                                                    <div className="text-xs text-muted-foreground">{log.user.email}</div>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2.5">
-                                                                <Avatar className="h-8 w-8">
-                                                                    <AvatarFallback className="bg-muted text-muted-foreground">
-                                                                        <Terminal className="h-3.5 w-3.5" />
-                                                                    </AvatarFallback>
-                                                                </Avatar>
-                                                                <div>
-                                                                    <div className="text-sm font-medium text-foreground italic">System</div>
-                                                                </div>
-                                                            </div>
-                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => log.user_id && filterByUser(log.user_id)}
+                                                            disabled={!log.user_id}
+                                                            className={cn(
+                                                                'flex items-center gap-2.5 text-left',
+                                                                log.user_id ? 'cursor-pointer hover:underline' : 'cursor-default',
+                                                            )}
+                                                            aria-label={log.user_id ? `Filter logs by ${log.user?.name}` : 'System event'}
+                                                        >
+                                                            {log.user ? (
+                                                                <>
+                                                                    <UserAvatar user={log.user} size="md" />
+                                                                    <div>
+                                                                        <div className="text-sm font-medium text-foreground">{log.user.name}</div>
+                                                                        <div className="text-xs text-muted-foreground">{log.user.email}</div>
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Avatar className="h-8 w-8">
+                                                                        <AvatarFallback className="bg-muted text-muted-foreground">
+                                                                            <Terminal className="h-3.5 w-3.5" />
+                                                                        </AvatarFallback>
+                                                                    </Avatar>
+                                                                    <div>
+                                                                        <div className="text-sm font-medium italic text-foreground">System</div>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </button>
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
@@ -522,7 +757,7 @@ export default function AdminAuditLogsIndex({ logs, filters, securityCount }: Pr
                                                                             : 'bg-muted text-muted-foreground'
                                                                     }`}
                                                                 >
-                                                                    {log.category === 'security' ? 'SEC' : 'AUD'}
+                                                                    {log.category === 'security' ? 'Security' : 'Activity'}
                                                                 </span>
                                                             )}
                                                             <Badge

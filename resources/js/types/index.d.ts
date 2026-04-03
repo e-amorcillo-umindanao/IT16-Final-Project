@@ -96,6 +96,7 @@ export type PageProps<
     flash?: {
         success?: string | null;
         error?: string | null;
+        recovery_codes?: string[] | null;
     };
     recaptchaSiteKey?: string | null;
     ziggy: Config & { location: string };

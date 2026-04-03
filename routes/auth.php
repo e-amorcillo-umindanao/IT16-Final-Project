@@ -67,8 +67,15 @@ Route::middleware('auth')->group(function () {
         Route::post('two-factor/disable', [TwoFactorController::class, 'disable'])->name('two-factor.disable');
     });
 
-    Route::get('two-factor/challenge', [TwoFactorController::class, 'challenge'])->name('two-factor.challenge');
-    Route::post('two-factor/verify', [TwoFactorController::class, 'verify'])
-        ->middleware('throttle:5,1')
-        ->name('two-factor.verify');
+    Route::middleware('two-factor-pending')->group(function () {
+        Route::get('two-factor/challenge', [TwoFactorController::class, 'challenge'])->name('two-factor.challenge');
+        Route::post('two-factor/verify', [TwoFactorController::class, 'verify'])
+            ->middleware('throttle:5,1')
+            ->name('two-factor.verify');
+        Route::get('two-factor/recovery', [TwoFactorController::class, 'showRecoveryForm'])
+            ->name('two-factor.recovery');
+        Route::post('two-factor/recovery', [TwoFactorController::class, 'verifyRecoveryCode'])
+            ->middleware('throttle:5,1')
+            ->name('two-factor.recovery.verify');
+    });
 });

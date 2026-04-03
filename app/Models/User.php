@@ -27,6 +27,10 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'avatar_path',
         'password',
+        'password_changed_at',
+        'deletion_requested_at',
+        'deletion_scheduled_for',
+        'deletion_cancel_token',
         'two_factor_secret',
         'two_factor_enabled',
         'failed_login_attempts',
@@ -54,6 +58,7 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
+        'deletion_cancel_token',
         'two_factor_secret',
     ];
 
@@ -67,6 +72,9 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'password_changed_at' => 'datetime',
+            'deletion_requested_at' => 'datetime',
+            'deletion_scheduled_for' => 'datetime',
             'two_factor_secret' => 'encrypted',
             'two_factor_enabled' => 'boolean',
             'is_active' => 'boolean',
@@ -97,6 +105,16 @@ class User extends Authenticatable implements MustVerifyEmail
     public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class);
+    }
+
+    public function twoFactorRecoveryCodes(): HasMany
+    {
+        return $this->hasMany(TwoFactorRecoveryCode::class);
+    }
+
+    public function dataExports(): HasMany
+    {
+        return $this->hasMany(DataExport::class);
     }
 
     // ── Lockout Helpers ────────────────────────────────────
@@ -145,6 +163,42 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return !empty($this->two_factor_secret)
             && strlen($this->two_factor_secret) >= 16;
+    }
+
+    public function isPasswordExpired(): bool
+    {
+        $expiryDays = config('securevault.password_expiry_days');
+
+        if ($expiryDays === 0) {
+            return false;
+        }
+
+        $changedAt = $this->password_changed_at ?? $this->created_at;
+
+        if ($changedAt === null) {
+            return false;
+        }
+
+        return $changedAt->copy()->addDays($expiryDays)->isPast();
+    }
+
+    public function daysUntilPasswordExpiry(): int
+    {
+        $expiryDays = config('securevault.password_expiry_days');
+
+        if ($expiryDays === 0) {
+            return 0;
+        }
+
+        $changedAt = $this->password_changed_at ?? $this->created_at;
+
+        if ($changedAt === null) {
+            return 0;
+        }
+
+        $expiryDate = $changedAt->copy()->addDays($expiryDays)->startOfDay();
+
+        return max(0, now()->startOfDay()->diffInDays($expiryDate, false));
     }
 
     public function getAvatarUrlAttribute(): ?string

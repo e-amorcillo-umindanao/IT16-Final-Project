@@ -54,7 +54,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { FileTypeBadge } from '@/components/FileTypeBadge';
 import { ScanBadge, type ScanResult } from '@/components/ScanBadge';
+import { SortableHeader } from '@/components/SortableHeader';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { cn } from '@/lib/utils';
 import { setPendingUpload } from '@/lib/pendingUpload';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
@@ -97,6 +99,8 @@ type FileFilter = 'all' | 'pdf' | 'word' | 'excel' | 'image';
 
 interface Props extends PageProps {
     documents: PaginatedResponse<DocumentItem>;
+    sort: string;
+    direction: 'asc' | 'desc';
 }
 
 const FILE_TYPE_OPTIONS: Array<{ value: FileFilter; label: string }> = [
@@ -177,7 +181,15 @@ function formatDateValue(date?: Date) {
     return date ? format(date, 'yyyy-MM-dd') : '';
 }
 
-export default function Index({ documents, flash }: Props) {
+function clearSuccessFlash(page: unknown) {
+    const inertiaPage = page as { props?: { flash?: { success?: string | null } } };
+
+    if (inertiaPage.props?.flash) {
+        inertiaPage.props.flash.success = null;
+    }
+}
+
+export default function Index({ documents, flash, sort, direction }: Props) {
     const [search, setSearch] = useState('');
     const [fileType, setFileType] = useState<FileFilter>('all');
     const [selected, setSelected] = useState<number[]>([]);
@@ -289,9 +301,33 @@ export default function Index({ documents, flash }: Props) {
             return;
         }
 
-        router.delete(route('documents.destroy', documentToDelete.id), {
+        const deletedDocument = documentToDelete;
+
+        router.delete(route('documents.destroy', deletedDocument.id), {
             preserveScroll: true,
+            preserveState: true,
+            onSuccess: (page) => {
+                clearSuccessFlash(page);
+                toast(`"${deletedDocument.original_name}" moved to trash`, {
+                    duration: 5000,
+                    action: {
+                        label: 'Undo',
+                        onClick: () => handleUndo(deletedDocument.id),
+                    },
+                });
+            },
             onFinish: () => setDocumentToDelete(null),
+        });
+    };
+
+    const handleUndo = (documentId: number) => {
+        router.post(route('documents.restore', documentId), {}, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: (page) => {
+                clearSuccessFlash(page);
+                toast.success('File restored to your vault.');
+            },
         });
     };
 
@@ -381,19 +417,29 @@ export default function Index({ documents, flash }: Props) {
         router.delete(route('documents.bulk-delete'), {
             data: { ids: selectedIds },
             preserveScroll: true,
+            preserveState: true,
             onSuccess: (page) => {
-                const inertiaPage = page as typeof page & { props: { flash?: { success?: string | null } } };
-
-                if (inertiaPage.props.flash) {
-                    inertiaPage.props.flash.success = null;
-                }
+                clearSuccessFlash(page);
 
                 setSelected([]);
-                toast.success(
-                    selectedIds.length === 1
-                        ? 'Document moved to trash.'
-                        : 'Documents moved to trash.'
-                );
+                toast(`${selectedIds.length} file(s) moved to trash`, {
+                    duration: 5000,
+                    action: {
+                        label: 'Undo all',
+                        onClick: () => handleBulkUndo(selectedIds),
+                    },
+                });
+            },
+        });
+    };
+
+    const handleBulkUndo = (ids: number[]) => {
+        router.post(route('documents.restore-selected'), { ids }, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: (page) => {
+                clearSuccessFlash(page);
+                toast.success(`${ids.length} file(s) restored to your vault.`);
             },
         });
     };
@@ -660,12 +706,34 @@ export default function Index({ documents, flash }: Props) {
                                                     />
                                                 </TableHead>
                                                 <TableHead className="w-14">Star</TableHead>
-                                                <TableHead>File</TableHead>
-                                                <TableHead>Size</TableHead>
-                                                <TableHead>Uploaded</TableHead>
+                                                <TableHead>
+                                                    <SortableHeader
+                                                        column="original_name"
+                                                        label="Name"
+                                                        currentSort={sort}
+                                                        currentDirection={direction}
+                                                    />
+                                                </TableHead>
+                                                <TableHead>
+                                                    <SortableHeader
+                                                        column="file_size"
+                                                        label="Size"
+                                                        currentSort={sort}
+                                                        currentDirection={direction}
+                                                    />
+                                                </TableHead>
+                                                <TableHead>
+                                                    <SortableHeader
+                                                        column="created_at"
+                                                        label="Uploaded"
+                                                        currentSort={sort}
+                                                        currentDirection={direction}
+                                                        defaultDirection="desc"
+                                                    />
+                                                </TableHead>
                                                 <TableHead className="hidden md:table-cell">Scan</TableHead>
                                                 <TableHead className="hidden md:table-cell">Integrity</TableHead>
-                                                <TableHead className="w-[72px] text-right">Actions</TableHead>
+                                                <TableHead className="w-[112px] text-right">Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -685,18 +753,19 @@ export default function Index({ documents, flash }: Props) {
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                className="h-7 w-7"
+                                                                className="group h-8 w-8"
                                                                 aria-label={document.is_starred ? 'Unstar document' : 'Star document'}
                                                                 onClick={() =>
                                                                     router.patch(route('documents.star', document.id), {}, { preserveScroll: true })
                                                                 }
                                                             >
                                                                 <Star
-                                                                    className={`h-4 w-4 transition-colors ${
+                                                                    className={cn(
+                                                                        'h-4 w-4 transition-all duration-150',
                                                                         document.is_starred
-                                                                            ? 'fill-primary text-primary'
-                                                                            : 'text-muted-foreground hover:text-primary'
-                                                                    }`}
+                                                                            ? 'fill-amber-500 text-amber-500'
+                                                                            : 'text-muted-foreground group-hover:scale-110 group-hover:text-amber-500',
+                                                                    )}
                                                                 />
                                                             </Button>
                                                         </TableCell>
@@ -727,7 +796,7 @@ export default function Index({ documents, flash }: Props) {
                                                                                     </Badge>
                                                                                 </TooltipTrigger>
                                                                                 <TooltipContent>
-                                                                                    <p>SHA-256 hash verified on last download</p>
+                                                                                    <p>SHA-256 hash matches — this file has not been tampered with</p>
                                                                                 </TooltipContent>
                                                                             </Tooltip>
                                                                         </div>
@@ -758,50 +827,80 @@ export default function Index({ documents, flash }: Props) {
                                                                     </Badge>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>
-                                                                    <p>SHA-256 hash verified on last download</p>
+                                                                    <p>SHA-256 hash matches — this file has not been tampered with</p>
                                                                 </TooltipContent>
                                                             </Tooltip>
                                                         </TableCell>
                                                         <TableCell className="text-right">
-                                                            <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="text-muted-foreground hover:bg-muted"
-                                                                        aria-label={`Document actions for ${document.original_name}`}
-                                                                    >
-                                                                        <MoreHorizontal className="h-4 w-4" />
-                                                                        <span className="sr-only">Open actions</span>
-                                                                    </Button>
-                                                                </DropdownMenuTrigger>
-                                                                <DropdownMenuContent align="end">
-                                                                    <DropdownMenuItem
-                                                                        onClick={() =>
-                                                                            router.get(route('documents.show', document.id))
-                                                                        }
-                                                                    >
-                                                                        <Eye className="mr-2 h-4 w-4" />
-                                                                        View Details
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem onClick={() => handleDownload(document.id)}>
-                                                                        <Download className="mr-2 h-4 w-4" />
-                                                                        Download
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem onClick={() => setShareDocument(document)}>
-                                                                        <Share2 className="mr-2 h-4 w-4" />
-                                                                        Share
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem
-                                                                        className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                                                                        onClick={() => setDocumentToDelete(document)}
-                                                                    >
-                                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                                        Move to Trash
-                                                                    </DropdownMenuItem>
-                                                                </DropdownMenuContent>
-                                                            </DropdownMenu>
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <span className="inline-flex">
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                                                                                disabled={
+                                                                                    document.scan_result === 'pending' ||
+                                                                                    document.scan_result === 'malicious'
+                                                                                }
+                                                                                onClick={() => handleDownload(document.id)}
+                                                                                aria-label={`Download ${document.original_name}`}
+                                                                            >
+                                                                                <Download className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </span>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p>
+                                                                            {document.scan_result === 'pending'
+                                                                                ? 'Scan in progress — download unavailable'
+                                                                                : document.scan_result === 'malicious'
+                                                                                  ? 'File quarantined — download blocked'
+                                                                                  : 'Download'}
+                                                                        </p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="text-muted-foreground hover:bg-muted"
+                                                                            aria-label={`Document actions for ${document.original_name}`}
+                                                                        >
+                                                                            <MoreHorizontal className="h-4 w-4" />
+                                                                            <span className="sr-only">Open actions</span>
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuItem
+                                                                            onClick={() =>
+                                                                                router.get(route('documents.show', document.id))
+                                                                            }
+                                                                        >
+                                                                            <Eye className="mr-2 h-4 w-4" />
+                                                                            View Details
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => handleDownload(document.id)}>
+                                                                            <Download className="mr-2 h-4 w-4" />
+                                                                            Download
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem onClick={() => setShareDocument(document)}>
+                                                                            <Share2 className="mr-2 h-4 w-4" />
+                                                                            Share
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem
+                                                                            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                                                            onClick={() => setDocumentToDelete(document)}
+                                                                        >
+                                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                                            Move to Trash
+                                                                        </DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </div>
                                                         </TableCell>
                                                     </TableRow>
                                                     );

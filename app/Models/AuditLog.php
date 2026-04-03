@@ -33,6 +33,7 @@ class AuditLog extends Model
         'user_agent',
         'hash',
         'previous_hash',
+        'created_at',
     ];
 
     /**
@@ -55,7 +56,9 @@ class AuditLog extends Model
     {
         // Automatically set created_at on new records.
         static::creating(function (AuditLog $log): void {
-            $log->created_at = now();
+            if ($log->created_at === null) {
+                $log->created_at = now();
+            }
         });
 
         // Prevent any updates to existing records.

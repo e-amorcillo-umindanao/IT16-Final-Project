@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -77,6 +78,7 @@ type RecentActivity = {
 
 interface DashboardProps extends PageProps {
     stats: DashboardStats;
+    days_until_password_expiry: number | null;
     recent_documents: RecentDocument[];
     recent_activity: RecentActivity[];
 }
@@ -84,6 +86,7 @@ interface DashboardProps extends PageProps {
 export default function Dashboard({
     auth,
     stats,
+    days_until_password_expiry,
     recent_documents,
     recent_activity,
 }: DashboardProps) {
@@ -448,6 +451,20 @@ export default function Dashboard({
                                     </div>
                                 </CardContent>
                             </Card>
+
+                            {days_until_password_expiry !== null && days_until_password_expiry <= 14 && (
+                                <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
+                                    <ShieldAlert className="h-4 w-4" />
+                                    <AlertTitle>Password expiring soon</AlertTitle>
+                                    <AlertDescription>
+                                        Your password will expire in {days_until_password_expiry} day(s).{' '}
+                                        <Link href={route('profile.edit')} className="font-medium underline underline-offset-4">
+                                            Update it now
+                                        </Link>{' '}
+                                        to avoid being locked out.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
 
                             <TooltipProvider>
                                 <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">

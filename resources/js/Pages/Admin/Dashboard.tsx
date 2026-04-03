@@ -1,10 +1,15 @@
 import { Badge } from '@/components/ui/badge';
+import { LoginChart } from '@/components/LoginChart';
+import { TimeBasedGreeting } from '@/components/TimeBasedGreeting';
 import UserAvatar from '@/components/UserAvatar';
+import { Progress } from '@/components/ui/progress';
 import {
     Breadcrumb,
     BreadcrumbItem,
+    BreadcrumbLink,
     BreadcrumbList,
     BreadcrumbPage,
+    BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +17,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { getAuditActionBadge } from '@/lib/auditActionBadge';
+import { failedLoginColor } from '@/lib/failedLoginBadge';
+import { formatBytes } from '@/lib/formatBytes';
+import { pendingVerificationColor } from '@/lib/pendingVerificationColor';
+import { cn } from '@/lib/utils';
+import { PageProps } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import { format } from 'date-fns';
 import {
@@ -47,21 +57,15 @@ interface ActivityItem {
 }
 
 interface Props {
-    auth: {
-        user: {
-            name: string;
-        };
-    };
+    failed_login_warn: number;
+    failed_login_danger: number;
+    storage_limit: number;
     stats: Stats;
     recent_activity: ActivityItem[];
-}
-
-function formatStorage(bytes: number) {
-    if (!bytes) return '0 B';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    login_chart: Array<{
+        date: string;
+        logins: number;
+    }>;
 }
 
 function StatCard({
@@ -69,59 +73,106 @@ function StatCard({
     label,
     value,
     subLabel,
+    valueClassName,
+    footer,
     icon,
     tooltip,
     warning = false,
 }: {
-    href: string;
+    href?: string;
     label: string;
-    value: string | number;
-    subLabel: string;
+    value: React.ReactNode;
+    subLabel: React.ReactNode;
+    valueClassName?: string;
+    footer?: React.ReactNode;
     icon: React.ReactNode;
     tooltip: string;
     warning?: boolean;
 }) {
-    return (
-        <Link href={href}>
-            <Card
-                className={`cursor-pointer transition-colors hover:border-primary/50 ${
-                    warning ? 'border-amber-500/30 bg-amber-500/5' : ''
-                }`}
-            >
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        {label}
-                    </CardTitle>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <div className="cursor-help rounded-lg bg-muted p-2">{icon}</div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{tooltip}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-3xl font-bold text-foreground">{value}</div>
-                    <p className="mt-1 text-xs text-muted-foreground">{subLabel}</p>
-                </CardContent>
-            </Card>
-        </Link>
+    const card = (
+        <Card
+            className={cn(
+                'flex h-full flex-col transition-colors',
+                href ? 'cursor-pointer hover:border-primary/50' : 'cursor-default',
+                warning && 'border-amber-500/30 bg-amber-500/5',
+            )}
+        >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {label}
+                </CardTitle>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div className="cursor-help rounded-lg bg-muted p-2">{icon}</div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{tooltip}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </CardHeader>
+            <CardContent className="flex flex-1 flex-col">
+                <div className={cn('text-3xl font-bold text-foreground', valueClassName)}>{value}</div>
+                <p className="mt-1 text-xs text-muted-foreground">{subLabel}</p>
+                {footer ? <div className="mt-auto">{footer}</div> : null}
+            </CardContent>
+        </Card>
     );
+
+    if (!href) {
+        return card;
+    }
+
+    return <Link href={href} className="block h-full">{card}</Link>;
 }
 
-export default function AdminDashboard({ auth, stats, recent_activity }: Props) {
+export default function AdminDashboard({
+    auth,
+    failed_login_warn,
+    failed_login_danger,
+    storage_limit,
+    stats,
+    recent_activity,
+    login_chart,
+}: Props & PageProps) {
+    const firstName = auth.user.name.split(/\s+/)[0] ?? auth.user.name;
+    const permissions = new Set(auth.permissions ?? []);
+    const canManageUsers = permissions.has('manage_users');
+    const canViewDocuments = permissions.has('view_all_documents');
+    const canViewAuditLogs = permissions.has('view_audit_logs');
+    const canManageSessions = permissions.has('manage_sessions');
+    const failedLoginClass = failedLoginColor(
+        stats.failed_logins_24h,
+        failed_login_warn,
+        failed_login_danger,
+    );
+    const pendingVerificationClass = pendingVerificationColor(stats.pending_verifications);
+    const storageUsedPct = storage_limit > 0
+        ? Math.min((stats.vault_storage / storage_limit) * 100, 100)
+        : 0;
+    const storageBarClass = storageUsedPct >= 90
+        ? 'bg-destructive'
+        : storageUsedPct >= 75
+            ? 'bg-amber-500'
+            : 'bg-primary';
+
     return (
         <AuthenticatedLayout
             header={
                 <div className="space-y-1">
                     <h2 className="text-2xl font-semibold text-foreground">Admin Dashboard</h2>
+                    <TimeBasedGreeting firstName={firstName} />
                     <Breadcrumb>
                         <BreadcrumbList>
                             <BreadcrumbItem>
-                                <BreadcrumbPage>Admin Dashboard</BreadcrumbPage>
+                                <BreadcrumbLink asChild>
+                                    <Link href={route('dashboard')}>Main</Link>
+                                </BreadcrumbLink>
+                            </BreadcrumbItem>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                                <BreadcrumbPage>Admin</BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
@@ -132,9 +183,9 @@ export default function AdminDashboard({ auth, stats, recent_activity }: Props) 
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 sm:auto-rows-fr sm:grid-cols-2 lg:grid-cols-3">
                         <StatCard
-                            href={route('admin.users')}
+                            href={canManageUsers ? route('admin.users') : undefined}
                             label="Total Users"
                             value={stats.total_users}
                             subLabel={`${stats.active_users} active accounts`}
@@ -142,7 +193,7 @@ export default function AdminDashboard({ auth, stats, recent_activity }: Props) 
                             tooltip="All registered users"
                         />
                         <StatCard
-                            href={route('admin.sessions')}
+                            href={canManageSessions ? route('admin.sessions') : undefined}
                             label="Active Sessions"
                             value={stats.active_sessions}
                             subLabel="System-wide active logins"
@@ -150,7 +201,7 @@ export default function AdminDashboard({ auth, stats, recent_activity }: Props) 
                             tooltip="Current active authenticated sessions"
                         />
                         <StatCard
-                            href={route('admin.documents')}
+                            href={canViewDocuments ? route('admin.documents') : undefined}
                             label="Total Documents"
                             value={stats.total_documents}
                             subLabel="Encrypted files in vault"
@@ -158,31 +209,55 @@ export default function AdminDashboard({ auth, stats, recent_activity }: Props) 
                             tooltip="All stored documents"
                         />
                         <StatCard
-                            href={route('admin.documents')}
+                            href={canViewDocuments ? route('admin.documents') : undefined}
                             label="Vault Storage"
-                            value={formatStorage(stats.vault_storage)}
+                            value={formatBytes(stats.vault_storage)}
                             subLabel="Cumulative encrypted size"
+                            footer={
+                                <>
+                                    <Progress
+                                        value={storageUsedPct}
+                                        className="mt-3 h-1.5"
+                                        indicatorClassName={storageBarClass}
+                                    />
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        {formatBytes(stats.vault_storage)} of {formatBytes(storage_limit)} used
+                                    </p>
+                                </>
+                            }
                             icon={<Database className="h-4 w-4 text-muted-foreground" />}
                             tooltip="Total encrypted storage usage"
                         />
                         <StatCard
-                            href={route('admin.audit-logs', { category: 'security', action: 'login_failed' })}
+                            href={canViewAuditLogs ? route('admin.audit-logs', { category: 'security', action: 'login_failed' }) : undefined}
                             label="Failed Logins (24h)"
                             value={stats.failed_logins_24h}
                             subLabel="Security authentication attempts"
+                            valueClassName={failedLoginClass}
                             icon={<AlertTriangle className="h-4 w-4 text-muted-foreground" />}
                             tooltip="Recent failed authentication attempts"
-                            warning={stats.failed_logins_24h > 0}
                         />
                         <StatCard
-                            href={route('admin.users', { verification: 'unverified' })}
+                            href={canManageUsers ? route('admin.users', { verification: 'unverified' }) : undefined}
                             label="Pending Verifications"
                             value={stats.pending_verifications}
                             subLabel="Users without verified email"
+                            valueClassName={pendingVerificationClass}
                             icon={<UserCheck className="h-4 w-4 text-muted-foreground" />}
                             tooltip="Accounts pending email verification"
                         />
                     </div>
+
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium text-foreground">
+                                Successful logins - last 7 days
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <LoginChart data={login_chart} />
+                        </CardContent>
+                    </Card>
 
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
@@ -225,7 +300,7 @@ export default function AdminDashboard({ auth, stats, recent_activity }: Props) 
                                                 className="hover:bg-muted/50"
                                             >
                                                 <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                                                    {format(new Date(log.created_at), 'MMM dd, yyyy HH:mm')}
+                                                    {format(new Date(log.created_at), 'MMM dd, yyyy HH:mm:ss')}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-2">

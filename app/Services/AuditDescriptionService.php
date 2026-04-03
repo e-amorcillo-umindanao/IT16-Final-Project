@@ -29,13 +29,39 @@ class AuditDescriptionService
             '2fa_verified' => 'Two-factor authentication verified',
             '2fa_failed' => 'Invalid 2FA code submitted',
             '2fa_corrupt_reset' => '2FA setup was invalid and has been reset',
+            'recovery_code_used' => isset($meta['remaining_codes'])
+                ? "Signed in using a recovery code ({$meta['remaining_codes']} remaining)"
+                : 'Signed in using a recovery code',
+            'recovery_code_failed' => 'Invalid recovery code submitted',
+            'recovery_codes_regenerated' => 'Regenerated 2FA recovery codes',
             'bot_detected' => isset($meta['form_action'])
                 ? "Bot verification failed on {$meta['form_action']} form"
                 : 'Bot verification failed',
             'audit_integrity_check' => $this->describeIntegrityCheck($meta),
+            'access_blocked_ip' => isset($meta['ip'])
+                ? "Access denied - IP {$meta['ip']} is blocked by policy"
+                : 'Access denied by IP policy',
+            'ip_rule_added' => isset($meta['type'], $meta['cidr'])
+                ? "Added {$meta['type']} rule for {$meta['cidr']}"
+                : 'Added an IP policy rule',
+            'ip_rule_removed' => isset($meta['type'], $meta['cidr'])
+                ? "Removed {$meta['type']} rule for {$meta['cidr']}"
+                : 'Removed an IP policy rule',
+            'account_deletion_requested' => isset($meta['scheduled_for'])
+                ? "Requested permanent account deletion (scheduled for {$meta['scheduled_for']})"
+                : 'Requested permanent account deletion',
+            'account_deletion_cancelled' => 'Cancelled account deletion request',
+            'account_deletion_executed' => 'Account permanently deleted and data purged',
             'document_uploaded' => $documentName
                 ? "Uploaded '{$documentName}'"
                 : 'Uploaded a document',
+            'data_export_requested' => 'Requested a personal data export',
+            'document_version_uploaded' => ($documentName && isset($meta['version_number']))
+                ? "Replaced '{$documentName}' (now v{$meta['version_number']})"
+                : 'Replaced a document version',
+            'document_version_restored' => ($documentName && isset($meta['restored_to_version']))
+                ? "Restored '{$documentName}' to version {$meta['restored_to_version']}"
+                : 'Restored a document version',
             'document_downloaded' => $documentName
                 ? "Downloaded '{$documentName}'"
                 : 'Downloaded a document',
@@ -77,7 +103,10 @@ class AuditDescriptionService
             'document_scan_blocked' => $documentName
                 ? "Blocked upload of '{$documentName}' - malware detected"
                 : 'Blocked a malicious file upload',
-            'password_changed' => 'Password changed',
+            'password_changed' => match ($meta['reason'] ?? null) {
+                'expired_policy' => 'Changed password - previous password had expired',
+                default => 'Changed account password',
+            },
             'profile_updated' => $this->describeProfileUpdate($meta),
             'user_role_changed' => isset($meta['new_role'], $meta['target_name'])
                 ? "Changed role of {$meta['target_name']} to {$meta['new_role']}"

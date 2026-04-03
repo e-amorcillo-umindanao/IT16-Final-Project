@@ -38,6 +38,7 @@ class RegistrationTest extends TestCase
             'email' => 'test@example.com',
         ]);
         $this->assertNotNull(User::where('email', 'test@example.com')->value('email_verified_at'));
+        $this->assertNotNull(User::where('email', 'test@example.com')->value('password_changed_at'));
         $response
             ->assertRedirect(route('login', absolute: false))
             ->assertSessionHas('status', self::GENERIC_REGISTRATION_STATUS);

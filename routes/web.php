@@ -3,8 +3,13 @@
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminDocumentController;
 use App\Http\Controllers\Admin\AuditIntegrityController;
+use App\Http\Controllers\Admin\IpRuleController;
+use App\Http\Controllers\AccountDeletionController;
+use App\Http\Controllers\Auth\ExpiredPasswordController;
+use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\AvatarController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\DataExportController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
@@ -24,16 +29,27 @@ Route::get('/', function () {
 
 use App\Http\Controllers\DashboardController;
 
-Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'throttle:general'])->group(function () {
+Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'password-not-expired', 'check-ip-policy', 'throttle:general'])->group(function () {
+    Route::get('/password/expired', [ExpiredPasswordController::class, 'show'])
+        ->name('password.expired');
+    Route::patch('/password/expired', [ExpiredPasswordController::class, 'update'])
+        ->name('password.expired.update');
+
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/avatar', [AvatarController::class, 'update'])->name('profile.avatar.update');
     Route::delete('/profile/avatar', [AvatarController::class, 'destroy'])->name('profile.avatar.destroy');
+    Route::post('/profile/export', [DataExportController::class, 'request'])
+        ->middleware('throttle:2,60')
+        ->name('profile.export.request');
+    Route::post('/profile/delete-account', [AccountDeletionController::class, 'request'])
+        ->name('profile.delete-account');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::delete('/two-factor', [ProfileController::class, 'destroyTwoFactor'])->name('two-factor.destroy');
+    Route::post('/two-factor/recovery-codes/regenerate', [TwoFactorController::class, 'regenerateCodes'])
+        ->name('two-factor.recovery-codes.regenerate');
 
     Route::get('/sessions', [SessionController::class, 'index'])->name('sessions.index');
     Route::delete('/sessions/{session}', [SessionController::class, 'destroy'])->name('sessions.destroy');
@@ -48,6 +64,10 @@ Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'throttle
         ->name('documents.store');
     Route::resource('documents', DocumentController::class)->except('store');
     Route::get('/documents/{document}/download', [DocumentController::class, 'download'])->name('documents.download');
+    Route::post('/documents/{document}/replace', [DocumentController::class, 'replace'])
+        ->name('documents.replace');
+    Route::post('/documents/{document}/versions/{version}/restore', [DocumentController::class, 'restoreVersion'])
+        ->name('documents.versions.restore');
     Route::patch('/documents/{document}/star', [DocumentController::class, 'toggleStar'])->name('documents.star');
     Route::post('/documents/{document}/share-link', [DocumentController::class, 'generateShareLink'])
         ->name('documents.share-link');
@@ -122,6 +142,17 @@ Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'throttle
         Route::post('/audit-integrity/verify', [AuditIntegrityController::class, 'verify'])
             ->middleware('permission:view_audit_logs')
             ->name('audit-integrity.verify');
+        Route::get('/audit-integrity/export-pdf', [AuditIntegrityController::class, 'exportPdf'])
+            ->middleware('permission:view_audit_logs')
+            ->name('audit-integrity.export-pdf');
+        Route::middleware('permission:manage_ip_rules')->group(function () {
+            Route::get('/ip-rules', [IpRuleController::class, 'index'])
+                ->name('ip-rules.index');
+            Route::post('/ip-rules', [IpRuleController::class, 'store'])
+                ->name('ip-rules.store');
+            Route::delete('/ip-rules/{ipRule}', [IpRuleController::class, 'destroy'])
+                ->name('ip-rules.destroy');
+        });
         Route::get('/audit-logs/export', [AdminController::class, 'exportAuditLogs'])
             ->middleware('permission:view_audit_logs')
             ->name('audit-logs.export');
@@ -144,5 +175,10 @@ Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'throttle
 Route::get('/shared/access/{document}', [DocumentController::class, 'accessViaLink'])
     ->middleware('signed')
     ->name('documents.access-link');
+Route::get('/exports/{token}/download', [DataExportController::class, 'download'])
+    ->middleware('signed')
+    ->name('exports.download');
+Route::get('/account/cancel-deletion/{token}', [AccountDeletionController::class, 'cancel'])
+    ->name('account.cancel-deletion');
 
 require __DIR__.'/auth.php';

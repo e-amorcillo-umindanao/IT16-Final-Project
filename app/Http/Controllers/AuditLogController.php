@@ -26,6 +26,7 @@ class AuditLogController extends Controller
     public function index(Request $request): Response
     {
         $user = Auth::user();
+        $direction = $this->direction($request);
         $query = $this->personalLogsQuery($request, $user->id);
 
         return Inertia::render('Activity/Index', [
@@ -50,6 +51,7 @@ class AuditLogController extends Controller
             ],
             'securityCount' => $user->auditLogs()->security()->count(),
             'auditCount' => $user->auditLogs()->audit()->count(),
+            'direction' => $direction,
         ]);
     }
 
@@ -106,7 +108,7 @@ class AuditLogController extends Controller
     {
         $query = AuditLog::where('user_id', $userId)
             ->with(['auditable' => fn ($query) => $query->withTrashed()])
-            ->orderByDesc('created_at');
+            ->orderBy('created_at', $this->direction($request));
 
         if (($category = $this->categoryFilter($request)) !== 'all') {
             $query->where('category', $category);
@@ -134,6 +136,11 @@ class AuditLogController extends Controller
         return in_array($category, ['all', AuditCategory::Security->value, AuditCategory::Audit->value], true)
             ? $category
             : 'all';
+    }
+
+    private function direction(Request $request): string
+    {
+        return $request->input('direction') === 'asc' ? 'asc' : 'desc';
     }
 
     private function formatDateRange(Request $request): ?string

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Document;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -13,12 +14,20 @@ class AdminDocumentController extends Controller
 {
     public function index(Request $request): Response
     {
-        $query = Document::with('user')
-            ->whereNull('deleted_at')
-            ->orderByDesc('created_at');
+        $sort = in_array($request->input('sort'), ['owner', 'file_size', 'created_at'], true)
+            ? $request->input('sort')
+            : 'created_at';
+        $direction = $request->input('direction') === 'asc' ? 'asc' : 'desc';
+        $ownerId = $request->input('owner_id');
+        $ownerSort = $sort === 'owner';
+
+        $query = Document::query()
+            ->with('user')
+            ->select('documents.*')
+            ->whereNull('documents.deleted_at');
 
         if ($request->filled('search')) {
-            $query->where('original_name', 'like', '%' . $request->search . '%');
+            $query->where('documents.original_name', 'like', '%' . $request->search . '%');
         }
 
         if ($request->filled('type')) {
@@ -33,16 +42,23 @@ class AdminDocumentController extends Controller
 
             if ($mime) {
                 is_array($mime)
-                    ? $query->whereIn('mime_type', $mime)
-                    : $query->where('mime_type', $mime);
+                    ? $query->whereIn('documents.mime_type', $mime)
+                    : $query->where('documents.mime_type', $mime);
             }
         }
 
-        if ($request->filled('owner')) {
-            $query->whereHas('user', fn ($q) => $q
-                ->where('name', 'like', '%' . $request->owner . '%')
-                ->orWhere('email', 'like', '%' . $request->owner . '%'));
+        if ($request->filled('owner_id')) {
+            $query->where('documents.user_id', $ownerId);
         }
+
+        if ($ownerSort) {
+            $query->join('users', 'documents.user_id', '=', 'users.id')
+                ->orderBy('users.name', $direction);
+        } else {
+            $query->orderBy("documents.{$sort}", $direction);
+        }
+
+        $query->orderBy('documents.created_at', 'desc');
 
         $paginated = $query->paginate(15)->withQueryString();
         $documentIds = $paginated->getCollection()->pluck('id');
@@ -58,6 +74,7 @@ class AdminDocumentController extends Controller
                 'original_name' => $doc->original_name,
                 'mime_type' => $doc->mime_type,
                 'file_size' => $doc->file_size,
+                'file_hash' => $doc->file_hash,
                 'scan_result' => is_string($doc->scan_result) ? $doc->scan_result : 'unscanned',
                 'created_at' => $doc->created_at,
                 'has_integrity_violation' => isset($violatedIds[$doc->id]),
@@ -67,7 +84,17 @@ class AdminDocumentController extends Controller
                     'avatar_url' => $doc->user->avatar_url,
                 ],
             ]),
-            'filters' => $request->only(['search', 'type', 'owner']),
+            'filters' => $request->only(['search', 'type']),
+            'sort' => $sort,
+            'direction' => $direction,
+            'selectedOwner' => $ownerId ? (string) $ownerId : null,
+            'users' => User::select(['id', 'name', 'email'])
+                ->orderBy('name')
+                ->get()
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'label' => "{$user->name} ({$user->email})",
+                ]),
         ]);
     }
 

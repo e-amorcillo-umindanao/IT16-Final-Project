@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Models\AuditLog;
 use App\Services\AuditIntegrityService;
 use App\Services\AuditService;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -30,7 +32,11 @@ class AuditIntegrityTest extends TestCase
 
         $this->actingAs($admin)
             ->get(route('admin.audit-integrity'))
-            ->assertOk();
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Admin/AuditIntegrity')
+                ->where('lastVerified', null)
+                ->where('history', []));
     }
 
     public function test_regular_users_cannot_view_the_audit_integrity_page(): void
@@ -51,13 +57,36 @@ class AuditIntegrityTest extends TestCase
             ->post(route('admin.audit-integrity.verify'), [
                 'scope' => 'full',
             ])
-            ->assertOk();
+            ->assertRedirect(route('admin.audit-integrity'));
 
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'audit_integrity_check',
             'user_id' => $admin->id,
             'category' => 'security',
         ]);
+    }
+
+    public function test_verification_response_exposes_last_verified_and_history_props(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $this->actingAs($admin)
+            ->post(route('admin.audit-integrity.verify'), [
+                'scope' => 'recent',
+            ])
+            ->assertRedirect(route('admin.audit-integrity'));
+
+        $this->actingAs($admin)
+            ->get(route('admin.audit-integrity'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Admin/AuditIntegrity')
+                ->where('results.scope', 'recent')
+                ->where('lastVerified.mode', 'recent')
+                ->where('lastVerified.fail_count', 0)
+                ->where('lastVerified.result', 'pass')
+                ->has('history', 1)
+                ->where('history.0.mode', 'recent'));
     }
 
     public function test_recent_scope_only_checks_the_last_five_hundred_entries(): void
@@ -144,5 +173,25 @@ class AuditIntegrityTest extends TestCase
         $this->assertSame('hash_mismatch', $result['failures'][0]['failure_type']);
         $this->assertSame($nextLog->id, $result['failures'][1]['id']);
         $this->assertSame('chain_break', $result['failures'][1]['failure_type']);
+    }
+
+    public function test_admin_can_download_an_integrity_report_pdf(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $this->actingAs($admin)
+            ->post(route('admin.audit-integrity.verify'), [
+                'scope' => 'recent',
+            ])
+            ->assertRedirect(route('admin.audit-integrity'));
+
+        $response = $this->actingAs($admin)
+            ->get(route('admin.audit-integrity.export-pdf'));
+
+        $response->assertOk();
+        $this->assertStringContainsString('application/pdf', $response->headers->get('content-type', ''));
+        $this->assertStringContainsString('integrity-report-', $response->headers->get('content-disposition', ''));
+        $this->assertSame(1, AuditLog::query()->where('action', 'audit_integrity_check')->count());
     }
 }

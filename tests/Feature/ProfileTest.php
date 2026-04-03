@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Services\RecoveryCodeService;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Tests\TestCase;
@@ -75,6 +77,7 @@ class ProfileTest extends TestCase
             'two_factor_enabled' => true,
             'two_factor_secret' => 'ABCDEFGHIJKLMNOP',
         ]);
+        app(RecoveryCodeService::class)->generate($user);
 
         $response = $this
             ->actingAs($user)
@@ -89,24 +92,28 @@ class ProfileTest extends TestCase
 
         $this->assertFalse($user->two_factor_enabled);
         $this->assertNull($user->two_factor_secret);
+        $this->assertSame(0, $user->twoFactorRecoveryCodes()->count());
     }
 
     public function test_user_can_delete_their_account(): void
     {
+        Mail::fake();
+
         $user = User::factory()->create();
 
         $response = $this
             ->actingAs($user)
-            ->delete('/profile', [
+            ->post('/profile/delete-account', [
                 'password' => 'password',
             ]);
 
         $response
             ->assertSessionHasNoErrors()
-            ->assertRedirect('/');
+            ->assertRedirect(route('login'));
 
         $this->assertGuest();
-        $this->assertNull($user->fresh());
+        $this->assertFalse($user->fresh()->is_active);
+        $this->assertNotNull($user->fresh()->deletion_requested_at);
     }
 
     public function test_correct_password_must_be_provided_to_delete_account(): void
@@ -116,7 +123,7 @@ class ProfileTest extends TestCase
         $response = $this
             ->actingAs($user)
             ->from('/profile')
-            ->delete('/profile', [
+            ->post('/profile/delete-account', [
                 'password' => 'wrong-password',
             ]);
 

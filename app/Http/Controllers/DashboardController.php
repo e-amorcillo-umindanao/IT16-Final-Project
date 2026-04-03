@@ -47,6 +47,9 @@ class DashboardController extends Controller
                 'total_documents' => $documentCount,
                 'average_file_size' => $averageFileSize,
             ],
+            'days_until_password_expiry' => config('securevault.password_expiry_days') === 0
+                ? null
+                : $user->daysUntilPasswordExpiry(),
             'recent_documents' => $user->documents()
                 ->whereNull('deleted_at')
                 ->orderByDesc('created_at')
