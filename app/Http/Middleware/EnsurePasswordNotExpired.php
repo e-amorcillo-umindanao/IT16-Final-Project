@@ -12,6 +12,10 @@ class EnsurePasswordNotExpired
     {
         $user = $request->user();
 
+        if ($user?->isSystemAccount()) {
+            return $next($request);
+        }
+
         if ($user && $user->isPasswordExpired()) {
             if ($request->routeIs('password.expired') || $request->routeIs('password.expired.update')) {
                 return $next($request);

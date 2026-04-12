@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,9 +21,17 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): Response
     {
+        $email = (string) request()->session()->getOldInput('email', '');
+        $requiresRecaptcha = $email !== ''
+            && RateLimiter::attempts(LoginRequest::throttleKeyFor($email, request()->ip())) >= LoginRequest::RECAPTCHA_AFTER_FAILED_ATTEMPTS;
+
         return Inertia::render('Auth/Login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => session('status'),
+            'requiresRecaptcha' => $requiresRecaptcha,
+            'googleOAuthEnabled' => filled(config('services.google.client_id'))
+                && filled(config('services.google.client_secret'))
+                && filled(config('services.google.redirect')),
         ]);
     }
 

@@ -1,10 +1,11 @@
 import GuestLayout from '@/Layouts/GuestLayout';
+import RecaptchaWidget from '@/components/RecaptchaWidget';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getRecaptchaToken } from '@/lib/recaptcha';
+import { getRecaptchaToken, resetRecaptchaToken } from '@/lib/recaptcha';
 import { PageProps } from '@/types';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
@@ -18,32 +19,24 @@ import { FormEventHandler } from 'react';
 
 export default function ForgotPassword({ status }: { status?: string }) {
     const { recaptchaSiteKey } = usePage<PageProps>().props;
+    const hasRecaptcha = Boolean(recaptchaSiteKey || import.meta.env.VITE_RECAPTCHA_SITE_KEY);
     const { data, setData, post, processing, errors, reset, transform } = useForm({
         email: '',
         recaptcha_token: '',
     });
 
-    const submit: FormEventHandler = async (e) => {
+    const submit: FormEventHandler = (e) => {
         e.preventDefault();
-
-        let token = '';
-
-        if (recaptchaSiteKey) {
-            try {
-                token = await getRecaptchaToken(recaptchaSiteKey, 'forgot_password');
-            } catch {
-                token = '';
-            }
-        }
 
         transform((form) => ({
             ...form,
-            recaptcha_token: token,
+            recaptcha_token: hasRecaptcha ? getRecaptchaToken() : '',
         }));
 
         post(route('password.email'), {
             onFinish: () => {
                 transform((form) => form);
+                resetRecaptchaToken();
                 reset('recaptcha_token');
             },
         });
@@ -114,6 +107,8 @@ export default function ForgotPassword({ status }: { status?: string }) {
                             )}
                         </div>
 
+                        {hasRecaptcha && <RecaptchaWidget />}
+
                         <Button
                             className="h-12 w-full rounded-lg bg-primary font-semibold text-primary-foreground"
                             disabled={processing}
@@ -129,7 +124,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
                             )}
                         </Button>
 
-                        {recaptchaSiteKey && (
+                        {hasRecaptcha && (
                             <p className="text-center text-xs text-muted-foreground">
                                 Protected by reCAPTCHA.{' '}
                                 <a

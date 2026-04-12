@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Http\Requests\RecaptchaValidatable;
 use App\Services\IpInfoService;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -13,6 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
 {
+    use RecaptchaValidatable;
+
+    public const RECAPTCHA_AFTER_FAILED_ATTEMPTS = 3;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -31,6 +36,7 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
+            ...$this->recaptchaRules(),
         ];
     }
 
@@ -42,6 +48,14 @@ class LoginRequest extends FormRequest
     public function authenticate(): void
     {
         $this->ensureIsNotRateLimited();
+
+        if ($this->requiresRecaptchaChallenge() && ! $this->verifyRecaptcha('login')) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'recaptcha_token' => 'Bot verification failed. Please confirm the checkbox and try again.',
+            ]);
+        }
 
         $user = \App\Models\User::where('email', $this->email)->first();
         $auditService = app(\App\Services\AuditService::class);
@@ -129,6 +143,16 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return self::throttleKeyFor((string) $this->string('email'), (string) $this->ip());
+    }
+
+    public function requiresRecaptchaChallenge(): bool
+    {
+        return RateLimiter::attempts($this->throttleKey()) >= self::RECAPTCHA_AFTER_FAILED_ATTEMPTS;
+    }
+
+    public static function throttleKeyFor(string $email, string $ip): string
+    {
+        return Str::transliterate(Str::lower($email).'|'.$ip);
     }
 }

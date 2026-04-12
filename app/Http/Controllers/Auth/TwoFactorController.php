@@ -46,6 +46,10 @@ class TwoFactorController extends Controller
         return Inertia::render('Auth/TwoFactorSetup', [
             'otpauthUrl' => $otpauthUrl,
             'secret' => $secret,
+            'required' => (bool) session('2fa_required', false),
+            'hoursRemaining' => $user->two_factor_deadline
+                ? max(0, now()->diffInHours($user->two_factor_deadline, false))
+                : null,
         ]);
     }
 
@@ -74,6 +78,7 @@ class TwoFactorController extends Controller
         $user->update([
             'two_factor_secret' => $secret,
             'two_factor_enabled' => true,
+            'two_factor_deadline' => null,
         ]);
 
         $request->session()->forget('2fa_setup_secret');

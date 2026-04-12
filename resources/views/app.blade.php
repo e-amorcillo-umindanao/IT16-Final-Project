@@ -18,14 +18,6 @@
                 document.documentElement.style.colorScheme = shouldUseDark ? 'dark' : 'light';
             })();
         </script>
-        @if (config('services.recaptcha.site_key'))
-            <script
-                src="https://www.google.com/recaptcha/api.js?render={{ config('services.recaptcha.site_key') }}"
-                async
-                defer
-                @if ($cspNonce) nonce="{{ $cspNonce }}" @endif
-            ></script>
-        @endif
         <!-- Scripts -->
         @routes(null, $cspNonce)
         @viteReactRefresh

@@ -27,6 +27,7 @@ class AccountDeletionController extends Controller
         $user = $request->user();
 
         abort_if($user->hasRole('super-admin'), 403, 'Super Admin accounts cannot be self-deleted.');
+        abort_if($user->isSystemAccount(), 403, 'System accounts cannot be deleted through this flow.');
 
         if ($user->deletion_requested_at !== null) {
             return back()->withErrors([

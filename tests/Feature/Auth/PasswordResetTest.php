@@ -91,7 +91,7 @@ class PasswordResetTest extends TestCase
         });
     }
 
-    public function test_password_reset_rejects_low_confidence_recaptcha_when_enabled(): void
+    public function test_password_reset_rejects_failed_recaptcha_when_enabled(): void
     {
         Notification::fake();
         $this->fakeRecaptcha(false);
@@ -125,7 +125,7 @@ class PasswordResetTest extends TestCase
             ->once()
             ->withArgs(function (string $message, array $context): bool {
                 return $message === 'reCAPTCHA token unavailable. Failing open.'
-                    && $context['action'] === 'forgot_password'
+                    && $context['action'] === 'unknown'
                     && $context['reason'] === 'client_unavailable_sentinel';
             });
     }
@@ -140,7 +140,7 @@ class PasswordResetTest extends TestCase
             {
             }
 
-            public function verify(?string $token, string $action): bool
+            public function verify(?string $token, string $action = ''): bool
             {
                 return $this->isValid;
             }
@@ -152,7 +152,6 @@ class PasswordResetTest extends TestCase
         config([
             'services.recaptcha.site_key' => 'site-key',
             'services.recaptcha.secret_key' => 'secret-key',
-            'services.recaptcha.threshold' => 0.5,
         ]);
     }
 }

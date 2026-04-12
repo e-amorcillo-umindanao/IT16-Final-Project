@@ -171,7 +171,7 @@ SecureVault covers the following functional areas:
 
 #### 2.2.1 Authentication and Authorization
 
-- Email/password registration with email verification link (email verification contract enforced via `MustVerifyEmail`; users are auto-verified at registration while SMTP is deferred â€” remove `markEmailAsVerified()` from `RegisteredUserController` and configure a mailer to enable real email delivery)
+- Email/password registration with email verification link (email verification is now enforced. New registrations receive a signed verification link at their Gmail address via Gmail SMTP. The `markEmailAsVerified()` shortcut has been removed.)
 - Google reCAPTCHA v2 checkbox bot mitigation on registration and forgot password forms â€” visible challenge, fails open if Google is unreachable
 - Password breach detection via HaveIBeenPwned at registration and password change using k-Anonymity
 - Login with rate limiting (5 attempts per minute, lockout after 10 consecutive failures for 15 minutes)
@@ -270,6 +270,7 @@ SecureVault covers the following functional areas:
 
 | API | Purpose | Authentication | Rate Limit |
 |-----|---------|---------------|-----------|
+| Gmail SMTP | Outbound email delivery for verification emails | Gmail App Password | Free, subject to Google sending limits |
 | HaveIBeenPwned (HIBP) | Password breach detection using k-Anonymity model | None required | Reasonable use |
 | IPInfo | IP geolocation for audit log enrichment | Bearer token | 50,000 req/month (free) |
 | VirusTotal | Async malware scanning of uploaded documents via queue job | API key header | 4 req/min, 500/day (free) |
@@ -795,9 +796,9 @@ Login-related audit log events (`login_success`, `login_failed`, `account_locked
 
 | ID | Requirement | Description |
 |----|------------|-------------|
-| FR-01 | User Registration | Users register with name, email, password. Email verification required. User role assigned automatically. Password checked against HIBP breach database. reCAPTCHA v2 checkbox verified before account creation. |
+| FR-01 | User Registration | Users register with name, Gmail address, and password. Email verification is enforced before dashboard access. User role assigned automatically. Password checked against HIBP breach database. reCAPTCHA v2 checkbox verified before account creation. |
 | FR-02 | User Login | Email/password login. Rate limited to 5/min. Account lockout after 10 failures for 15 minutes. |
-| FR-03 | Email Verification | Signed, time-limited verification link sent on registration. |
+| FR-03 | Email Verification | Signed, time-limited verification link is sent on registration and must be clicked before protected routes such as the dashboard can be accessed. |
 | FR-04 | Password Reset | Password reset via email. Reset tokens expire after 60 minutes. New password checked against HIBP. reCAPTCHA v2 checkbox verified before reset link is sent. |
 | FR-05 | Two-Factor Auth | Optional TOTP-based 2FA. 6-digit code via InputOTP component â€” auto-submits on last digit entry. Typewriter animation on challenge page. If `two_factor_secret` is null or invalid at login, flag is auto-reset and a `2fa_corrupt_reset` security audit entry is created. |
 | FR-06 | Account Lockout | 10 consecutive failures triggers 15-minute lockout. Audit logged with IP and location. |

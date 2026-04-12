@@ -20,7 +20,14 @@ class RegisterRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                'unique:users',
+                'ends_with:@gmail.com',
+            ],
             'password' => [
                 'required',
                 'confirmed',
@@ -32,6 +39,13 @@ class RegisterRequest extends FormRequest
                 new NotPwnedPassword(),
             ],
             ...$this->recaptchaRules(),
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'email.ends_with' => 'Registration is currently limited to Gmail addresses (@gmail.com).',
         ];
     }
 }

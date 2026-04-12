@@ -29,6 +29,7 @@ import { PermissionBadge, type Permission } from '@/components/PermissionBadge';
 import UserAvatar from '@/components/UserAvatar';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { formatExpiry, expiryTierClass } from '@/lib/formatExpiry';
+import { maskEmail } from '@/lib/maskData';
 import { cn } from '@/lib/utils';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -205,7 +206,7 @@ function FilterPanel({
     );
 }
 
-export default function SharedWithMe({ shares, filters }: Props) {
+export default function SharedWithMe({ auth, shares, filters }: Props) {
     const [search, setSearch] = useState('');
     const [expiringSoon, setExpiringSoon] = useState(false);
     const showExpired = filters.show_expired === true;
@@ -223,6 +224,9 @@ export default function SharedWithMe({ shares, filters }: Props) {
         Number(showExpired);
     const hasActiveFilters = activeFilterCount > 0;
     const isEmpty = shares.total === 0;
+    const canSeeFullSharerEmail = (auth.roles ?? []).some((role) =>
+        role === 'admin' || role === 'super-admin'
+    );
 
     const filteredShares = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
@@ -413,7 +417,14 @@ export default function SharedWithMe({ shares, filters }: Props) {
                                                                 user={share.shared_by}
                                                                 size="xs"
                                                             />
-                                                            <span className="truncate">Shared by {share.shared_by.name}</span>
+                                                            <div className="min-w-0">
+                                                                <span className="block truncate">Shared by {share.shared_by.name}</span>
+                                                                <span className="block truncate text-xs">
+                                                                    {canSeeFullSharerEmail
+                                                                        ? share.shared_by.email
+                                                                        : maskEmail(share.shared_by.email)}
+                                                                </span>
+                                                            </div>
                                                         </div>
 
                                                         {expiry && (

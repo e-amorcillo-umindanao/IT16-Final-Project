@@ -9,28 +9,26 @@ class RecaptchaService
 {
     public const UNAVAILABLE_SENTINEL = '__recaptcha_unavailable__';
 
-    public function verify(?string $token, string $action): bool
+    public function verify(?string $token, string $action = ''): bool
     {
-        if (!$this->enabled()) {
+        if (! $this->enabled()) {
             return true;
         }
 
         $normalizedToken = is_string($token) ? trim($token) : null;
 
-        if (
-            !is_string($token)
-            || $normalizedToken === ''
-            || $normalizedToken === self::UNAVAILABLE_SENTINEL
-        ) {
+        if ($normalizedToken === self::UNAVAILABLE_SENTINEL) {
             Log::warning('reCAPTCHA token unavailable. Failing open.', [
-                'action' => $action,
+                'action' => $action ?: 'unknown',
                 'ip' => request()->ip(),
-                'reason' => $normalizedToken === self::UNAVAILABLE_SENTINEL
-                    ? 'client_unavailable_sentinel'
-                    : 'missing_token',
+                'reason' => 'client_unavailable_sentinel',
             ]);
 
             return true;
+        }
+
+        if (! is_string($token) || $normalizedToken === '') {
+            return false;
         }
 
         try {
@@ -41,40 +39,26 @@ class RecaptchaService
                     'response' => $normalizedToken,
                 ]);
 
+            if (! $response->successful()) {
+                Log::error('reCAPTCHA: HTTP request failed.', [
+                    'status' => $response->status(),
+                    'action' => $action ?: 'unknown',
+                ]);
+
+                return true;
+            }
+
             $data = $response->json();
 
-            if (!($data['success'] ?? false)) {
+            if (! ($data['success'] ?? false)) {
                 Log::warning('reCAPTCHA verification failed', [
                     'error-codes' => $data['error-codes'] ?? [],
-                    'action' => $action,
-                ]);
-
-                return false;
-            }
-
-            if (($data['action'] ?? '') !== $action) {
-                Log::warning('reCAPTCHA action mismatch', [
-                    'expected' => $action,
-                    'received' => $data['action'] ?? 'none',
-                ]);
-
-                return false;
-            }
-
-            $score = (float) ($data['score'] ?? 0.0);
-            $threshold = (float) config('services.recaptcha.threshold', 0.5);
-
-            if ($score < $threshold) {
-                Log::warning('reCAPTCHA score below threshold', [
-                    'score' => $score,
-                    'threshold' => $threshold,
-                    'action' => $action,
+                    'action' => $action ?: 'unknown',
                 ]);
 
                 app(AuditService::class)->log('bot_detected', null, [
-                    'form_action' => $action,
-                    'score' => $score,
-                    'threshold' => $threshold,
+                    'form_action' => $action ?: 'unknown',
+                    'error_codes' => $data['error-codes'] ?? [],
                 ]);
 
                 return false;
@@ -84,7 +68,7 @@ class RecaptchaService
         } catch (\Throwable $e) {
             Log::error('reCAPTCHA service unavailable', [
                 'message' => $e->getMessage(),
-                'action' => $action,
+                'action' => $action ?: 'unknown',
             ]);
 
             return true;

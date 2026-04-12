@@ -32,9 +32,9 @@ export default function VerifyEmail({ status }: { status?: string }) {
                             Verify Your Email
                         </h2>
                         <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-                            We&apos;ve sent a verification link to your email
-                            address. Please check your inbox and click the link
-                            to continue.
+                            We&apos;ve sent a signed verification link to your
+                            Gmail inbox. Please check your inbox and click the
+                            link to continue to SecureVault.
                         </p>
                     </div>
 
@@ -43,7 +43,7 @@ export default function VerifyEmail({ status }: { status?: string }) {
                             <CheckCircle className="h-4 w-4 text-green-500" />
                             <AlertDescription className="text-green-700 dark:text-green-400">
                                 A new verification link has been sent to your
-                                email address.
+                                Gmail address.
                             </AlertDescription>
                         </Alert>
                     )}

@@ -113,16 +113,20 @@ class AuditActionConsistencyTest extends TestCase
         );
     }
 
-    public function test_access_blocked_ip_description_uses_the_blocked_address(): void
+    public function test_access_blocked_ip_description_uses_location_without_exposing_raw_ip(): void
     {
         $description = app(AuditDescriptionService::class)->generate(new AuditLog([
             'action' => 'access_blocked_ip',
             'metadata' => [
                 'ip' => '203.0.113.5',
+                'location' => [
+                    'city' => 'Davao City',
+                    'country' => 'PH',
+                ],
             ],
         ]));
 
-        $this->assertSame('Access denied - IP 203.0.113.5 is blocked by policy', $description);
+        $this->assertSame('Access denied by IP policy from Davao City, PH', $description);
     }
 
     public function test_ip_rule_added_description_uses_the_rule_details(): void

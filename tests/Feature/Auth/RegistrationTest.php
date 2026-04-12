@@ -6,7 +6,9 @@ use App\Models\User;
 use App\Services\PwnedPasswordService;
 use App\Services\RecaptchaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
@@ -24,116 +26,144 @@ class RegistrationTest extends TestCase
 
     public function test_new_users_can_register(): void
     {
+        Notification::fake();
         $this->fakePwnedPasswords();
 
         $response = $this->post('/register', [
             'name' => 'Test User',
-            'email' => 'test@example.com',
+            'email' => 'test@gmail.com',
             'password' => 'UniqueTestPass9@',
             'password_confirmation' => 'UniqueTestPass9@',
         ]);
 
-        $this->assertGuest();
+        $user = User::where('email', 'test@gmail.com')->firstOrFail();
+
+        $this->assertAuthenticatedAs($user);
         $this->assertDatabaseHas('users', [
-            'email' => 'test@example.com',
+            'email' => 'test@gmail.com',
         ]);
-        $this->assertNotNull(User::where('email', 'test@example.com')->value('email_verified_at'));
-        $this->assertNotNull(User::where('email', 'test@example.com')->value('password_changed_at'));
+        $this->assertNull($user->email_verified_at);
+        $this->assertNotNull($user->password_changed_at);
+        Notification::assertSentTo($user, VerifyEmail::class);
         $response
-            ->assertRedirect(route('login', absolute: false))
-            ->assertSessionHas('status', self::GENERIC_REGISTRATION_STATUS);
+            ->assertRedirect(route('verification.notice', absolute: false));
     }
 
-    public function test_newly_registered_users_can_access_the_dashboard_once_authenticated(): void
+    public function test_newly_registered_users_are_redirected_to_verification_and_cannot_access_dashboard_until_verified(): void
     {
+        Notification::fake();
         $this->fakePwnedPasswords();
 
         $this->post('/register', [
             'name' => 'Dashboard User',
-            'email' => 'dashboard@example.com',
+            'email' => 'dashboard@gmail.com',
             'password' => 'UniqueTestPass9@',
             'password_confirmation' => 'UniqueTestPass9@',
         ]);
 
-        $user = User::where('email', 'dashboard@example.com')->firstOrFail();
+        $user = User::where('email', 'dashboard@gmail.com')->firstOrFail();
+        $this->assertAuthenticatedAs($user);
+        $this->assertNull($user->email_verified_at);
+        Notification::assertSentTo($user, VerifyEmail::class);
 
-        $this->assertNotNull($user->email_verified_at);
-
-        $this->actingAs($user)
+        $this
             ->get(route('dashboard'))
-            ->assertOk();
+            ->assertRedirect(route('verification.notice', absolute: false));
     }
 
-    public function test_existing_emails_receive_the_same_registration_response(): void
+    public function test_existing_emails_are_rejected_by_the_unique_email_rule(): void
     {
         $this->fakePwnedPasswords();
 
         User::factory()->create([
-            'email' => 'test@example.com',
+            'email' => 'test@gmail.com',
         ]);
 
-        $response = $this->post('/register', [
+        $response = $this->from('/register')->post('/register', [
             'name' => 'Existing User',
-            'email' => 'test@example.com',
+            'email' => 'test@gmail.com',
             'password' => 'UniqueTestPass9@',
             'password_confirmation' => 'UniqueTestPass9@',
         ]);
 
-        $this->assertGuest();
+        $response->assertRedirect('/register');
+        $response->assertSessionHasErrors('email');
         $this->assertDatabaseCount('users', 1);
-        $response
-            ->assertRedirect(route('login', absolute: false))
-            ->assertSessionHas('status', self::GENERIC_REGISTRATION_STATUS)
-            ->assertSessionHasNoErrors();
     }
 
     public function test_registration_proceeds_when_recaptcha_is_unavailable_on_the_client(): void
     {
         Log::spy();
+        Notification::fake();
         $this->fakePwnedPasswords();
         $this->enableRecaptcha();
 
         $response = $this->post('/register', [
             'name' => 'Fail Open User',
-            'email' => 'failopen@example.com',
+            'email' => 'failopen@gmail.com',
             'password' => 'UniqueTestPass9@',
             'password_confirmation' => 'UniqueTestPass9@',
             'recaptcha_token' => RecaptchaService::UNAVAILABLE_SENTINEL,
         ]);
 
+        $user = User::where('email', 'failopen@gmail.com')->firstOrFail();
+
         $this->assertDatabaseHas('users', [
-            'email' => 'failopen@example.com',
+            'email' => 'failopen@gmail.com',
         ]);
+        $this->assertAuthenticatedAs($user);
+        Notification::assertSentTo($user, VerifyEmail::class);
         $response
-            ->assertRedirect(route('login', absolute: false))
-            ->assertSessionHas('status', self::GENERIC_REGISTRATION_STATUS);
+            ->assertRedirect(route('verification.notice', absolute: false));
 
         Log::shouldHaveReceived('warning')
             ->once()
             ->withArgs(function (string $message, array $context): bool {
                 return $message === 'reCAPTCHA token unavailable. Failing open.'
-                    && $context['action'] === 'register'
+                    && $context['action'] === 'unknown'
                     && $context['reason'] === 'client_unavailable_sentinel';
             });
     }
 
-    public function test_registration_rejects_low_confidence_recaptcha_when_enabled(): void
+    public function test_registration_rejects_failed_recaptcha_when_enabled(): void
     {
         $this->fakePwnedPasswords();
         $this->fakeRecaptcha(false);
 
         $response = $this->post('/register', [
             'name' => 'Blocked User',
-            'email' => 'blocked@example.com',
+            'email' => 'blocked@gmail.com',
             'password' => 'UniqueTestPass9@',
             'password_confirmation' => 'UniqueTestPass9@',
             'recaptcha_token' => 'recaptcha-token',
         ]);
 
         $this->assertDatabaseMissing('users', [
-            'email' => 'blocked@example.com',
+            'email' => 'blocked@gmail.com',
         ]);
         $response->assertSessionHasErrors('recaptcha_token');
+    }
+
+    public function test_registration_rejects_non_gmail_addresses_with_a_custom_message(): void
+    {
+        $this->fakePwnedPasswords();
+
+        $response = $this->from('/register')->post('/register', [
+            'name' => 'Non Gmail User',
+            'email' => 'test@example.com',
+            'password' => 'UniqueTestPass9@',
+            'password_confirmation' => 'UniqueTestPass9@',
+        ]);
+
+        $response
+            ->assertRedirect('/register')
+            ->assertSessionHasErrors([
+                'email' => 'Registration is currently limited to Gmail addresses (@gmail.com).',
+            ]);
+
+        $this->assertDatabaseMissing('users', [
+            'email' => 'test@example.com',
+        ]);
     }
 
     private function fakePwnedPasswords(): void
@@ -157,7 +187,7 @@ class RegistrationTest extends TestCase
             {
             }
 
-            public function verify(?string $token, string $action): bool
+            public function verify(?string $token, string $action = ''): bool
             {
                 return $this->isValid;
             }
@@ -169,7 +199,6 @@ class RegistrationTest extends TestCase
         config([
             'services.recaptcha.site_key' => 'site-key',
             'services.recaptcha.secret_key' => 'secret-key',
-            'services.recaptcha.threshold' => 0.5,
         ]);
     }
 }

@@ -194,6 +194,7 @@ const ACTION_GROUPS = [
             { value: 'request', label: 'Request' },
             { value: 'profile_updated', label: 'Profile updated' },
             { value: 'data_export_requested', label: 'Data export requested' },
+            { value: 'two_factor_deadline_set', label: '2FA deadline set' },
             { value: 'user_activated', label: 'User activated' },
             { value: 'user_deactivated', label: 'User deactivated' },
             { value: 'user_role_changed', label: 'Role changed' },

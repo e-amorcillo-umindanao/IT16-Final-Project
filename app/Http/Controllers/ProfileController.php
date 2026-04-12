@@ -70,6 +70,10 @@ class ProfileController extends Controller
             'status' => session('status'),
             'two_factor_enabled' => (bool) $user->two_factor_enabled,
             'recovery_codes_remaining' => $user->twoFactorRecoveryCodes()->whereNull('used_at')->count(),
+            'googleLinked' => $user->hasGoogleLinked(),
+            'googleOAuthEnabled' => filled(config('services.google.client_id'))
+                && filled(config('services.google.client_secret'))
+                && filled(config('services.google.redirect')),
             'has_pending_export' => $recentExports->contains(
                 fn (DataExport $export) => $export->status === 'pending' || $export->isDownloadReady(),
             ),

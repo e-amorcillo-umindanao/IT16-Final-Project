@@ -3,14 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\AuditCategory;
-use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\Controller;
+use App\Helpers\MaskingHelper;
 use App\Models\AuditLog;
 use App\Models\Document;
 use App\Models\User;
 use App\Services\AuditDescriptionService;
 use App\Services\AuditService;
 use App\Services\IpInfoService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -57,8 +58,8 @@ class AdminController extends Controller
 
         return Inertia::render('Admin/Dashboard', [
             'stats' => [
-                'total_users' => User::count(),
-                'active_users' => User::where('is_active', true)->count(),
+                'total_users' => User::notSystem()->count(),
+                'active_users' => User::notSystem()->where('is_active', true)->count(),
                 'active_sessions' => DB::table(config('session.table', 'sessions'))
                     ->whereNotNull('user_id')
                     ->count(),
@@ -67,7 +68,7 @@ class AdminController extends Controller
                 'failed_logins_24h' => AuditLog::where('action', 'login_failed')
                     ->where('created_at', '>=', now()->subHours(24))
                     ->count(),
-                'pending_verifications' => User::whereNull('email_verified_at')->count(),
+                'pending_verifications' => User::notSystem()->whereNull('email_verified_at')->count(),
             ],
             'failed_login_warn' => config('securevault.failed_login_warn'),
             'failed_login_danger' => config('securevault.failed_login_danger'),
@@ -102,7 +103,7 @@ class AdminController extends Controller
             : 'name';
         $direction = $request->input('direction') === 'desc' ? 'desc' : 'asc';
 
-        $query = User::with('roles');
+        $query = User::notSystem()->with('roles');
 
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
@@ -153,6 +154,10 @@ class AdminController extends Controller
      */
     public function activateUser(User $user): RedirectResponse
     {
+        if ($user->isSystemAccount()) {
+            return back()->withErrors(['error' => 'System accounts cannot be modified through the UI.']);
+        }
+
         $clearedPendingDeletion = $user->deletion_requested_at !== null
             || $user->deletion_scheduled_for !== null
             || $user->getRawOriginal('deletion_cancel_token') !== null;
@@ -180,6 +185,10 @@ class AdminController extends Controller
             return back()->withErrors(['error' => 'You cannot deactivate your own account.']);
         }
 
+        if ($user->isSystemAccount()) {
+            return back()->withErrors(['error' => 'System accounts cannot be modified through the UI.']);
+        }
+
         DB::table(config('session.table', 'sessions'))
             ->where('user_id', $user->id)
             ->delete();
@@ -204,6 +213,10 @@ class AdminController extends Controller
             return back()->withErrors(['error' => 'You cannot change your own role.']);
         }
 
+        if ($user->isSystemAccount()) {
+            return back()->withErrors(['error' => 'System accounts cannot be modified through the UI.']);
+        }
+
         $user->syncRoles([$request->role]);
 
         $this->auditService->log('user_role_changed', $user, [
@@ -216,13 +229,13 @@ class AdminController extends Controller
 
     public function exportUsers()
     {
-        $users = User::with('roles')->orderBy('name')->get();
+        $users = User::notSystem()->with('roles')->orderBy('name')->get();
         $csv = "Name,Email,Role,Status,Last Login,Registered\n";
 
         foreach ($users as $user) {
             $csv .= implode(',', [
                 '"' . str_replace('"', '""', $user->name) . '"',
-                $user->email,
+                MaskingHelper::maskEmail($user->email),
                 $user->roles->first()?->name ?? 'user',
                 $user->is_active ? 'Active' : 'Inactive',
                 $user->last_login_at?->toIso8601String() ?? 'Never',

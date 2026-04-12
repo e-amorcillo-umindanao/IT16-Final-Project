@@ -24,6 +24,7 @@ class AuditDescriptionService
                 ? "Account locked after repeated failures from {$location}"
                 : 'Account locked after repeated failed attempts',
             'logout' => 'Signed out',
+            'email_verified' => 'Verified email address',
             '2fa_enabled', 'two_factor_enabled' => 'Two-factor authentication enabled',
             '2fa_disabled', 'two_factor_disabled' => 'Two-factor authentication disabled',
             '2fa_verified' => 'Two-factor authentication verified',
@@ -38,8 +39,8 @@ class AuditDescriptionService
                 ? "Bot verification failed on {$meta['form_action']} form"
                 : 'Bot verification failed',
             'audit_integrity_check' => $this->describeIntegrityCheck($meta),
-            'access_blocked_ip' => isset($meta['ip'])
-                ? "Access denied - IP {$meta['ip']} is blocked by policy"
+            'access_blocked_ip' => $location
+                ? "Access denied by IP policy from {$location}"
                 : 'Access denied by IP policy',
             'ip_rule_added' => isset($meta['type'], $meta['cidr'])
                 ? "Added {$meta['type']} rule for {$meta['cidr']}"
@@ -52,6 +53,14 @@ class AuditDescriptionService
                 : 'Requested permanent account deletion',
             'account_deletion_cancelled' => 'Cancelled account deletion request',
             'account_deletion_executed' => 'Account permanently deleted and data purged',
+            'google_oauth_login' => $location
+                ? "Signed in via Google OAuth from {$location}"
+                : 'Signed in via Google OAuth',
+            'google_oauth_login_failed' => 'Google OAuth sign-in failed: '.($meta['reason'] ?? 'unknown reason'),
+            'google_oauth_linked' => 'Linked Google account ('.($meta['google_email'] ?? '').')',
+            'google_oauth_unlinked' => 'Unlinked Google account',
+            'google_oauth_link_failed' => 'Failed to link Google account: '.($meta['reason'] ?? 'unknown reason'),
+            'google_oauth_denied' => 'Google OAuth authorization was denied by user',
             'document_uploaded' => $documentName
                 ? "Uploaded '{$documentName}'"
                 : 'Uploaded a document',

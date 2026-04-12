@@ -59,6 +59,35 @@ For production, use a real queue backend such as `database` or `redis` and keep 
 php artisan queue:work --tries=3 --timeout=60
 ```
 
+## Production Security Checklist
+
+### .env File Permissions
+
+After deploying, restrict `.env` permissions so only the web server user can read it:
+
+```bash
+chmod 600 .env
+chown www-data:www-data .env
+```
+
+Replace `www-data` with your actual web server user.
+
+### Verify .env Is Not Web-Accessible
+
+```bash
+curl -I https://yourdomain.com/.env
+```
+
+Expected result: `403 Forbidden` or `404 Not Found`. If you see `200 OK`, your environment file is exposed and must be removed from public access immediately.
+
+### reCAPTCHA Keys
+
+SecureVault uses Google reCAPTCHA v2 checkbox mode on registration and forgot-password forms. The site key is public by design and may be exposed to the frontend via `RECAPTCHA_SITE_KEY` / `VITE_RECAPTCHA_SITE_KEY`. The secret key must remain server-side only.
+
+### Hidden Backup Super Admin
+
+The hidden recovery account is created only when `BACKUP_SUPERADMIN_EMAIL` and `BACKUP_SUPERADMIN_PASSWORD` are set. Store those credentials offline in a password manager or other secure vault, not in source control.
+
 ## Contributing
 
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).

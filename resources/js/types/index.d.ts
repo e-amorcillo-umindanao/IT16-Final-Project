@@ -6,11 +6,15 @@ export interface User {
     email: string;
     avatar_path?: string | null;
     avatar_url?: string | null;
+    google_avatar?: string | null;
+    google_linked?: boolean;
     email_verified_at?: string;
     two_factor_secret?: string;
     two_factor_recovery_codes?: string;
     two_factor_confirmed_at?: string;
+    two_factor_deadline?: string | null;
     is_active: boolean;
+    is_system_account?: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -98,6 +102,7 @@ export type PageProps<
         error?: string | null;
         recovery_codes?: string[] | null;
     };
+    errors?: Record<string, string | undefined>;
     recaptchaSiteKey?: string | null;
     ziggy: Config & { location: string };
 };

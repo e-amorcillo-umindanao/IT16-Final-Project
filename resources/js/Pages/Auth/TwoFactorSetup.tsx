@@ -1,18 +1,24 @@
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import InputError from '@/components/InputError';
 import InputLabel from '@/components/InputLabel';
 import PrimaryButton from '@/components/PrimaryButton';
 import TextInput from '@/components/TextInput';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, useForm } from '@inertiajs/react';
+import { ShieldAlert } from 'lucide-react';
 import QRCode from 'qrcode';
 import { FormEventHandler, useEffect, useState } from 'react';
 
 export default function TwoFactorSetup({
     otpauthUrl,
     secret,
+    required = false,
+    hoursRemaining = null,
 }: {
     otpauthUrl: string;
     secret: string;
+    required?: boolean;
+    hoursRemaining?: number | null;
 }) {
     const { data, setData, post, processing, errors } = useForm({
         code: '',
@@ -64,6 +70,23 @@ export default function TwoFactorSetup({
                                 Scan the QR code below with your authenticator app (like Google Authenticator or Authy).
                             </p>
                         </div>
+
+                        {(required || hoursRemaining !== null) && (
+                            <Alert className={required
+                                ? 'mb-6 border-destructive/30 bg-destructive/10 text-destructive'
+                                : 'mb-6 border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'}
+                            >
+                                <ShieldAlert className="h-4 w-4" />
+                                <AlertTitle>
+                                    {required ? 'Two-factor authentication required' : 'Two-factor setup deadline'}
+                                </AlertTitle>
+                                <AlertDescription>
+                                    {required
+                                        ? 'Your 3-day grace period has expired. Enable 2FA before accessing the rest of SecureVault.'
+                                        : `Enable 2FA within the next ${hoursRemaining ?? 0} hour${hoursRemaining === 1 ? '' : 's'} to avoid access restrictions.`}
+                                </AlertDescription>
+                            </Alert>
+                        )}
 
                         <div className="flex flex-col items-center justify-center space-y-6">
                             {qrDataUrl ? (

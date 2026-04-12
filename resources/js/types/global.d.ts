@@ -8,10 +8,17 @@ declare global {
         axios: AxiosInstance;
         grecaptcha?: {
             ready: (cb: () => void) => void;
-            execute: (
-                siteKey: string,
-                options: { action: string }
-            ) => Promise<string>;
+            render: (
+                container: HTMLElement,
+                parameters: {
+                    sitekey: string;
+                    callback: string;
+                    'expired-callback': string;
+                    theme: 'light' | 'dark';
+                    size: 'normal' | 'compact';
+                }
+            ) => number;
+            reset: (widgetId?: number) => void;
         };
     }
 

@@ -46,6 +46,7 @@ import {
     ChevronRight,
     Copy,
     Download,
+    Link2,
     KeyRound,
     Loader2,
     Monitor,
@@ -53,6 +54,7 @@ import {
     ShieldAlert,
     ShieldCheck,
     Trash2,
+    Unlink2,
     User,
 } from 'lucide-react';
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
@@ -74,6 +76,8 @@ type Props = PageProps<{
         expires_at: string | null;
         download_url: string | null;
     } | null;
+    googleLinked: boolean;
+    googleOAuthEnabled: boolean;
     two_factor_enabled: boolean;
     recovery_codes_remaining: number;
     session_count: number;
@@ -91,6 +95,8 @@ export default function Edit({
     status,
     has_pending_export,
     latest_export,
+    googleLinked,
+    googleOAuthEnabled,
     two_factor_enabled,
     recovery_codes_remaining,
     session_count,
@@ -107,6 +113,9 @@ export default function Edit({
         password: '',
         password_confirmation: '',
     });
+    const unlinkGoogleForm = useForm({
+        password: '',
+    });
     const deleteAccountForm = useForm({
         password: '',
         two_factor_code: '',
@@ -118,8 +127,10 @@ export default function Edit({
     const [isAvatarUploading, setIsAvatarUploading] = useState(false);
     const [isAvatarRemoving, setIsAvatarRemoving] = useState(false);
     const [deletionDialogOpen, setDeletionDialogOpen] = useState(false);
+    const [unlinkDialogOpen, setUnlinkDialogOpen] = useState(false);
     const [avatarError, setAvatarError] = useState<string | null>(null);
     const flashedRecoveryCodes = page.props.flash?.recovery_codes ?? null;
+    const pageErrors = page.props.errors ?? {};
     const [recoveryCodes, setRecoveryCodes] = useState<string[]>(flashedRecoveryCodes ?? []);
     const [recoveryDialogOpen, setRecoveryDialogOpen] = useState((flashedRecoveryCodes?.length ?? 0) > 0);
 
@@ -130,6 +141,7 @@ export default function Edit({
     const isSuperAdmin = auth.roles?.includes('super-admin') ?? false;
     const exportRequestError = (exportRequestForm.errors as Record<string, string | undefined>).export;
     const deleteAccountError = (deleteAccountForm.errors as Record<string, string | undefined>).delete;
+    const googleError = pageErrors.google;
     const latestExportReady = latest_export?.status === 'ready' && Boolean(latest_export.download_url);
     const latestExportPending = latest_export?.status === 'pending';
     const passwordConfirmationError =
@@ -163,6 +175,18 @@ export default function Edit({
     useEffect(() => {
         if (status === 'export-requested') {
             toast.success('Export requested. A download button will appear here when it is ready.');
+        }
+
+        if (status === 'google-linked') {
+            toast.success('Google account linked successfully.');
+        }
+
+        if (status === 'google-unlinked') {
+            toast.success('Google account unlinked.');
+        }
+
+        if (status === 'google-already-linked') {
+            toast.info('That Google account is already linked to your profile.');
         }
     }, [status]);
 
@@ -292,11 +316,28 @@ export default function Edit({
         deleteAccountForm.reset();
     };
 
+    const closeUnlinkDialog = () => {
+        setUnlinkDialogOpen(false);
+        unlinkGoogleForm.clearErrors();
+        unlinkGoogleForm.reset();
+    };
+
     const submitDeletionRequest = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
         deleteAccountForm.post(route('profile.delete-account'), {
             preserveScroll: true,
+        });
+    };
+
+    const submitGoogleUnlink = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        unlinkGoogleForm.delete(route('profile.google.unlink'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                closeUnlinkDialog();
+            },
         });
     };
 
@@ -360,10 +401,9 @@ export default function Edit({
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] lg:items-start">
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px] xl:items-start">
                         <div className="space-y-6">
-                            <div className="lg:col-span-8 lg:order-1">
-                                <Card>
+                            <Card>
                                 <CardHeader className="flex flex-row items-center gap-2 border-b border-border pb-4">
                                     <User className="h-4 w-4 text-primary" />
                                     <CardTitle className="font-semibold text-foreground">
@@ -413,11 +453,9 @@ export default function Edit({
                                         </div>
                                     </form>
                                 </CardContent>
-                                </Card>
-                            </div>
+                            </Card>
 
-                            <div className="lg:col-span-8 lg:order-3">
-                                <Card>
+                            <Card>
                                 <CardHeader className="flex flex-row items-center gap-2 border-b border-border pb-4">
                                     <KeyRound className="h-4 w-4 text-primary" />
                                     <CardTitle className="font-semibold text-foreground">
@@ -500,85 +538,18 @@ export default function Edit({
                                         </div>
                                     </form>
                                 </CardContent>
-                                </Card>
-                            </div>
-
-                            <div className="lg:col-span-6 lg:order-5">
-                                <Card>
-                                <CardHeader className="border-b border-border pb-4">
-                                    <CardTitle className="text-sm font-semibold text-foreground">
-                                        Your Data
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4 pt-5">
-                                    <p className="text-sm text-muted-foreground">
-                                        Download a copy of your personal data including your profile, document metadata, and activity history.
-                                    </p>
-
-                                    <Button
-                                        type="button"
-                                        className="w-full gap-2 bg-primary text-primary-foreground"
-                                        disabled={exportRequestForm.processing || has_pending_export}
-                                        onClick={requestDataExport}
-                                    >
-                                        {exportRequestForm.processing ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <Download className="h-4 w-4" />
-                                        )}
-                                        {latestExportReady
-                                            ? 'Export Ready'
-                                            : has_pending_export
-                                              ? 'Export Requested'
-                                              : 'Request Data Export'}
-                                    </Button>
-
-                                    <InputError message={exportRequestError} />
-
-                                    {latestExportPending && (
-                                        <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                            <AlertDescription>
-                                                Your export is being prepared. Refresh this page in a moment and the download button will appear here.
-                                            </AlertDescription>
-                                        </Alert>
-                                    )}
-
-                                    {latestExportReady && latest_export?.download_url && (
-                                        <Alert className="border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400 [&>svg]:text-green-600 dark:[&>svg]:text-green-400">
-                                            <ShieldCheck className="h-4 w-4" />
-                                            <AlertDescription className="space-y-3">
-                                                <p>
-                                                    Your latest data export is ready to download.
-                                                </p>
-                                                <Button asChild variant="outline" className="w-full">
-                                                    <a href={latest_export.download_url}>
-                                                        <Download className="h-4 w-4" />
-                                                        Download Latest Export
-                                                    </a>
-                                                </Button>
-                                            </AlertDescription>
-                                        </Alert>
-                                    )}
-
-                                    <p className="text-xs text-muted-foreground">
-                                        Exports include profile information, document metadata, and your activity log. Document file contents are not included. The download link expires after 24 hours and will appear here when ready.
-                                    </p>
-                                </CardContent>
-                                </Card>
-                            </div>
+                            </Card>
                         </div>
 
-                        <div className="space-y-6">
-                            <div className="lg:col-span-4 lg:order-2">
-                                <Card>
+                        <div className="space-y-5 xl:sticky xl:top-24">
+                            <Card>
                                 <CardHeader className="border-b border-border pb-4">
                                     <CardTitle className="text-sm font-semibold text-foreground">
                                         Profile Picture
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent className="space-y-4 pt-5">
-                                    <div className="flex flex-col items-center gap-4 text-center">
+                                <CardContent className="space-y-4 pt-4">
+                                    <div className="flex flex-col items-center gap-3 text-center">
                                         <UserAvatar
                                             user={auth.user}
                                             avatarUrl={displayedAvatarUrl}
@@ -599,7 +570,7 @@ export default function Edit({
                                         onChange={handleAvatarSelected}
                                     />
 
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-2.5">
                                         <Button
                                             type="button"
                                             className="w-full gap-2 bg-primary text-primary-foreground"
@@ -635,7 +606,7 @@ export default function Edit({
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle>Remove profile picture?</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            Your custom profile picture will be deleted and SecureVault will fall back to Gravatar or initials.
+                                                            Your custom profile picture will be deleted and SecureVault will fall back to any linked Google photo, then Gravatar, then initials.
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     <AlertDialogFooter>
@@ -664,17 +635,145 @@ export default function Edit({
 
                                     <InputError message={avatarError ?? undefined} />
 
-                                    <p className="text-xs text-muted-foreground">
+                                    <p className="border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
                                         JPG, PNG, or WebP only. Max raw upload 8 MB. Images larger than 512x512 are resized automatically. Minimum source size 50x50 pixels.
                                     </p>
                                 </CardContent>
-                                </Card>
-                            </div>
+                            </Card>
 
-                            <div className="lg:col-span-4 lg:order-4">
-                                {!two_factor_enabled ? (
+                            <Card>
+                                <CardHeader className="border-b border-border pb-4">
+                                    <CardTitle className="text-sm font-semibold text-foreground">
+                                        Linked Accounts
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-medium text-foreground">
+                                                Google Account
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                {googleLinked
+                                                    ? auth.user.email
+                                                    : googleOAuthEnabled
+                                                      ? 'Not linked. Link your Google account to enable one-click sign-in.'
+                                                      : 'Google sign-in is not configured in this environment yet.'}
+                                            </p>
+                                        </div>
+                                        <Badge
+                                            variant="outline"
+                                            className={
+                                                googleLinked
+                                                    ? 'border-green-500/30 bg-green-500/15 text-green-700 dark:text-green-400'
+                                                    : 'border-border bg-muted text-muted-foreground'
+                                            }
+                                        >
+                                            {googleLinked ? 'Linked' : 'Not linked'}
+                                        </Badge>
+                                    </div>
+
+                                    {status === 'google-linked' && (
+                                        <p className="text-sm text-green-600 dark:text-green-400">
+                                            Google account linked successfully.
+                                        </p>
+                                    )}
+                                    {status === 'google-unlinked' && (
+                                        <p className="text-sm text-amber-600 dark:text-amber-400">
+                                            Google account unlinked.
+                                        </p>
+                                    )}
+                                    {status === 'google-already-linked' && (
+                                        <p className="text-sm text-muted-foreground">
+                                            This Google account is already linked to your profile.
+                                        </p>
+                                    )}
+                                    {googleError && (
+                                        <Alert variant="destructive">
+                                            <AlertDescription>{googleError}</AlertDescription>
+                                        </Alert>
+                                    )}
+
+                                    <p className="text-xs leading-relaxed text-muted-foreground">
+                                        Google OAuth only replaces the password step. Two-factor verification, password expiry, vault unlock, and account deletion still use your local SecureVault credentials.
+                                    </p>
+
+                                    {!googleOAuthEnabled ? (
+                                        <Button type="button" className="w-full" disabled>
+                                            Google Sign-In Unavailable
+                                        </Button>
+                                    ) : !googleLinked ? (
+                                        <Button asChild className="w-full gap-2 bg-primary text-primary-foreground">
+                                            <a href={route('profile.google.link')}>
+                                                <Link2 className="h-4 w-4" />
+                                                Link Google Account
+                                            </a>
+                                        </Button>
+                                    ) : (
+                                        <AlertDialog
+                                            open={unlinkDialogOpen}
+                                            onOpenChange={(open) => !open ? closeUnlinkDialog() : setUnlinkDialogOpen(true)}
+                                        >
+                                            <AlertDialogTrigger asChild>
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className="w-full gap-2 border-amber-500/50 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+                                                >
+                                                    <Unlink2 className="h-4 w-4" />
+                                                    Unlink Google Account
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <form onSubmit={submitGoogleUnlink} className="space-y-4">
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Unlink Google Account</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            After unlinking, you will no longer be able to sign in using Google. You will still need your SecureVault email and password.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+
+                                                    <div className="space-y-1.5">
+                                                        <Label htmlFor="unlink_google_password">Current Password</Label>
+                                                        <Input
+                                                            id="unlink_google_password"
+                                                            type="password"
+                                                            value={unlinkGoogleForm.data.password}
+                                                            onChange={(event) => unlinkGoogleForm.setData('password', event.target.value)}
+                                                            autoComplete="current-password"
+                                                        />
+                                                        <InputError message={unlinkGoogleForm.errors.password} />
+                                                    </div>
+
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel type="button" onClick={closeUnlinkDialog}>
+                                                            Cancel
+                                                        </AlertDialogCancel>
+                                                        <Button
+                                                            type="submit"
+                                                            variant="destructive"
+                                                            disabled={unlinkGoogleForm.processing}
+                                                        >
+                                                            {unlinkGoogleForm.processing ? (
+                                                                <>
+                                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                                    Processing...
+                                                                </>
+                                                            ) : (
+                                                                'Unlink Google Account'
+                                                            )}
+                                                        </Button>
+                                                    </AlertDialogFooter>
+                                                </form>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {!two_factor_enabled ? (
                                     <Card className="border-amber-500/30 bg-amber-500/10">
-                                        <CardContent className="space-y-4 pt-5">
+                                        <CardContent className="space-y-4 pt-4">
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="space-y-1">
                                                     <Badge
@@ -686,7 +785,7 @@ export default function Edit({
                                                     <CardTitle className="text-lg text-foreground">
                                                         Two-Factor Authentication
                                                     </CardTitle>
-                                                    <p className="text-sm text-muted-foreground">
+                                                    <p className="text-sm leading-relaxed text-muted-foreground">
                                                         Add an extra layer of security. 2FA is currently disabled.
                                                     </p>
                                                 </div>
@@ -702,7 +801,7 @@ export default function Edit({
                                     </Card>
                                 ) : (
                                     <Card className="border-green-500/20 bg-green-500/5">
-                                        <CardContent className="space-y-4 pt-5">
+                                        <CardContent className="space-y-4 pt-4">
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="space-y-1">
                                                     <Badge
@@ -714,7 +813,7 @@ export default function Edit({
                                                     <CardTitle className="text-lg text-foreground">
                                                         Two-Factor Authentication
                                                     </CardTitle>
-                                                    <p className="text-sm text-muted-foreground">
+                                                    <p className="text-sm leading-relaxed text-muted-foreground">
                                                         Your account is protected with TOTP-based 2FA.
                                                     </p>
                                                 </div>
@@ -803,10 +902,8 @@ export default function Edit({
                                         </CardContent>
                                     </Card>
                                 )}
-                            </div>
 
-                            <div className="lg:col-span-6 lg:order-6">
-                                <Card>
+                            <Card>
                                 <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
                                     <CardTitle className="text-sm font-semibold text-foreground">
                                         Active Sessions
@@ -815,9 +912,9 @@ export default function Edit({
                                         {session_count}
                                     </Badge>
                                 </CardHeader>
-                                <CardContent className="pt-4">
-                                    <ScrollArea className="max-h-48">
-                                        <div className="space-y-3">
+                                <CardContent className="pt-3.5">
+                                    <ScrollArea className="max-h-56">
+                                        <div className="space-y-2.5">
                                             {recent_sessions.length > 0 ? (
                                                 recent_sessions.map((session) => (
                                                     <div key={session.id} className="flex items-center gap-3">
@@ -863,13 +960,75 @@ export default function Edit({
                                         <ChevronRight className="h-3.5 w-3.5" />
                                     </Link>
                                 </CardContent>
-                                </Card>
-                            </div>
+                            </Card>
                         </div>
 
                     </div>
 
-                    <div className="mt-8 space-y-6">
+                    <div className="mt-6 space-y-6">
+                        <Card>
+                            <CardHeader className="border-b border-border pb-4">
+                                <CardTitle className="text-sm font-semibold text-foreground">
+                                    Your Data
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4 pt-5">
+                                <p className="text-sm text-muted-foreground">
+                                    Download a copy of your personal data including your profile, document metadata, and activity history.
+                                </p>
+
+                                <Button
+                                    type="button"
+                                    className="w-full gap-2 bg-primary text-primary-foreground"
+                                    disabled={exportRequestForm.processing || has_pending_export}
+                                    onClick={requestDataExport}
+                                >
+                                    {exportRequestForm.processing ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Download className="h-4 w-4" />
+                                    )}
+                                    {latestExportReady
+                                        ? 'Export Ready'
+                                        : has_pending_export
+                                          ? 'Export Requested'
+                                          : 'Request Data Export'}
+                                </Button>
+
+                                <InputError message={exportRequestError} />
+
+                                {latestExportPending && (
+                                    <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        <AlertDescription>
+                                            Your export is being prepared. Refresh this page in a moment and the download button will appear here.
+                                        </AlertDescription>
+                                    </Alert>
+                                )}
+
+                                {latestExportReady && latest_export?.download_url && (
+                                    <Alert className="border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400 [&>svg]:text-green-600 dark:[&>svg]:text-green-400">
+                                        <ShieldCheck className="h-4 w-4" />
+                                        <AlertDescription className="space-y-3">
+                                            <p>
+                                                Your latest data export is ready to download.
+                                            </p>
+                                            <Button asChild variant="outline" className="w-full">
+                                                <a href={latest_export.download_url}>
+                                                    <Download className="h-4 w-4" />
+                                                    Download Latest Export
+                                                </a>
+                                            </Button>
+                                        </AlertDescription>
+                                    </Alert>
+                                )}
+
+                                <p className="text-xs leading-relaxed text-muted-foreground">
+                                    Exports include profile information, document metadata, and your activity log. Document file contents are not included. The download link expires after 24 hours and will appear here when ready.
+                                </p>
+                            </CardContent>
+                        </Card>
+
                         <Separator />
 
                         <Card className="border-destructive/30 border-l-4">

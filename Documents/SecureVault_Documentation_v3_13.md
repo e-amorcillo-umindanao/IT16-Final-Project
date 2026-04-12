@@ -5,7 +5,7 @@
 **Course:** IT 16: Information Assurance and Security 1
 **Institution:** University of Mindanao, Matina Campus, Davao City, Philippines
 **Prepared by:** Evander Harold S. Amorcillo
-**Version:** 3.11
+**Version:** 3.13
 
 ---
 
@@ -68,7 +68,7 @@
 
 SecureVault is a web-based encrypted document management system designed to demonstrate core information assurance and security principles. The system enables users to securely upload, store, manage, and share documents with AES-256-CBC encryption at rest, granular role-based access controls, comprehensive immutable audit logging with HMAC hash chain verification, asynchronous malware scanning via VirusTotal, and a two-tier audit categorization system (Security Events vs. General Activity).
 
-This project serves as a practical implementation of database security and network security concepts covered in IT 16: Information Assurance and Security 1. Every architectural decision prioritizes the CIA triad (Confidentiality, Integrity, Availability) while maintaining usability. Version 3.7 extends the system with network-level IP access control, password expiry lifecycle management, 2FA backup recovery codes, document version history, PDF download watermarking for non-repudiation, GDPR-style personal data export, and a full account deletion flow with grace period. The application features a premium Noir Amber visual theme built with Geist Sans typography and shadcn/ui New York style components, with full light and dark mode support.
+This project serves as a practical implementation of database security and network security concepts covered in IT 16: Information Assurance and Security 1. Every architectural decision prioritizes the CIA triad (Confidentiality, Integrity, Availability) while maintaining usability. Version 3.13 extends the system with Google OAuth as an additive authentication method, while preserving existing email verification, reCAPTCHA, password-expiry, local-password, and 2FA controls. The application features a premium Noir Amber visual theme built with Geist Sans typography and shadcn/ui New York style components, with full light and dark mode support.
 
 ### 1.2 Purpose
 
@@ -84,8 +84,9 @@ SecureVault covers the following functional areas:
 - Password breach detection via HaveIBeenPwned API at registration and password change
 - Geographic IP enrichment via IPInfo API for audit log context
 - User avatar support via Gravatar API with deterministic initials fallback
-- Custom profile picture upload: users may upload a personal avatar (JPEG, PNG, WebP, max 8 MB, up to 8000Ã—8000px source) which takes priority over Gravatar. Oversized images are automatically resized server-side by `AvatarImageService` to fit within a 512Ã—512 box (aspect ratio preserved) before saving. JPEG EXIF orientation metadata is auto-corrected before resize to prevent sideways images from phone uploads. Uploads do not fail due to large dimensions or file size alone. Images below the minimum size threshold are still rejected. Stored in `storage/app/public/avatars/` as a UUID-named file. Avatar uploads are exempt from VirusTotal scanning. Removing a custom avatar reverts to the Gravatar â†’ initials fallback chain.
+- Custom profile picture upload: users may upload a personal avatar (JPEG, PNG, WebP, max 8 MB, up to 8000Ã—8000px source) which takes priority over linked Google avatar, then Gravatar. Oversized images are automatically resized server-side by `AvatarImageService` to fit within a 512Ã—512 box (aspect ratio preserved) before saving. JPEG EXIF orientation metadata is auto-corrected before resize to prevent sideways images from phone uploads. Uploads do not fail due to large dimensions or file size alone. Images below the minimum size threshold are still rejected. Stored in `storage/app/public/avatars/` as a UUID-named file. Avatar uploads are exempt from VirusTotal scanning. Removing a custom avatar reverts to the Google avatar â†’ Gravatar â†’ initials fallback chain.
 - Bot mitigation via Google reCAPTCHA v2 checkbox challenge on registration and password reset forms
+- Google OAuth as an additional sign-in method for existing accounts that have been explicitly linked from Profile settings; OAuth replaces the password step only and does not create accounts
 - Three-tier role-based access control (Super Admin, Admin, User) with permission-based enforcement
 - Secure document sharing between users with granular permission levels and signed URL generation
 - Immutable audit logging with HMAC-SHA256 hash chain for tamper detection
@@ -171,10 +172,11 @@ SecureVault covers the following functional areas:
 
 #### 2.2.1 Authentication and Authorization
 
-- Email/password registration with email verification link (email verification contract enforced via `MustVerifyEmail`; users are auto-verified at registration while SMTP is deferred â€” remove `markEmailAsVerified()` from `RegisteredUserController` and configure a mailer to enable real email delivery)
+- Email/password registration with email verification link (email verification is now enforced. New registrations receive a signed verification link at their Gmail address via Gmail SMTP. The `markEmailAsVerified()` shortcut has been removed.)
 - Google reCAPTCHA v2 checkbox bot mitigation on registration and forgot password forms â€” visible challenge, fails open if Google is unreachable
 - Password breach detection via HaveIBeenPwned at registration and password change using k-Anonymity
 - Login with rate limiting (5 attempts per minute, lockout after 10 consecutive failures for 15 minutes)
+- Google OAuth sign-in for linked accounts only â€” login lookup uses `google_id` first, then email, and still passes through verified, 2FA, password-expiry, and IP-policy middleware
 - Optional TOTP-based two-factor authentication (Google Authenticator, Authy) with InputOTP 6-digit component that auto-submits on last digit entry
 - 2FA self-healing: if `two_factor_secret` is null or shorter than 16 characters at login, the flag is auto-reset, the user is redirected to login with a safe error message, and a `2fa_corrupt_reset` audit entry is created
 - Session management with database-driven sessions, configurable timeout, and remote revocation
@@ -255,6 +257,7 @@ SecureVault covers the following functional areas:
 | Typography | Geist Sans | Latest | Modern geometric sans-serif by Vercel |
 | Database | MySQL | 8.4.x | Primary relational database |
 | Auth | Laravel Sanctum | 4.x | Session-based SPA authentication |
+| OAuth | laravel/socialite | Latest | Google OAuth 2.0 integration |
 | 2FA | pragmarx/google2fa-laravel | Latest | TOTP 2FA implementation |
 | Encryption | Laravel Crypt (OpenSSL) | Built-in | AES-256-CBC file and data encryption |
 | RBAC | spatie/laravel-permission | 7.x | Role and permission management |
@@ -270,6 +273,8 @@ SecureVault covers the following functional areas:
 
 | API | Purpose | Authentication | Rate Limit |
 |-----|---------|---------------|-----------|
+| Gmail SMTP | Outbound email delivery for verification emails | Gmail App Password | Free, subject to Google sending limits |
+| Google OAuth 2.0 | User authentication via Google account | Client ID (public) + Client Secret (server-side only) | Google API quotas apply |
 | HaveIBeenPwned (HIBP) | Password breach detection using k-Anonymity model | None required | Reasonable use |
 | IPInfo | IP geolocation for audit log enrichment | Bearer token | 50,000 req/month (free) |
 | VirusTotal | Async malware scanning of uploaded documents via queue job | API key header | 4 req/min, 500/day (free) |
@@ -296,10 +301,11 @@ Queue driver is environment-aware: `deferred` in local development (automatic, n
 
 #### 3.2.4 Gravatar Implementation
 
-User avatars follow a three-tier resolution chain in the `UserAvatar` component:
+User avatars follow a four-tier resolution chain in the `UserAvatar` component:
 1. **Custom upload** (`user.avatar_url`) â€” if the user has uploaded a profile picture, it is used first.
-2. **Gravatar** â€” a Gravatar URL built from the MD5 hash of the user's email address with `?d=404` is attempted if no custom avatar is set.
-3. **Initials fallback** â€” shadcn's `AvatarFallback` renders deterministic initials when both above fail.
+2. **Google avatar** (`user.google_avatar`) â€” if the user has linked Google OAuth and no custom upload exists, the Google-hosted profile image is used.
+3. **Gravatar** â€” a Gravatar URL built from the MD5 hash of the user's email address with `?d=404` is attempted if neither of the above succeeds.
+4. **Initials fallback** â€” shadcn's `AvatarFallback` renders deterministic initials when all image sources fail.
 
 The initials fallback uses a color palette of six distinct, theme-compatible colors (amber, blue, emerald, violet, orange, teal) â€” no pink or magenta values.
 
@@ -396,9 +402,10 @@ SecureVault follows a monolithic MVC architecture using Laravel as the backend f
 | Network | Web Server / Middleware | HTTPS enforcement, rate limiting, CSP headers (production), HSTS |
 | Application | Controllers / Middleware | Input validation, CSRF protection, session management, account active checks |
 | Bot Mitigation | RecaptchaService + RecaptchaWidget | reCAPTCHA v2 checkbox on Register and Forgot Password; token verified server-side; fails open if Google is unreachable |
+| OAuth | GoogleOAuthController | Email ownership enforcement, `google_id` primary lookup, no account creation via OAuth, unlink requires current password, Socialite state parameter CSRF protection |
 | Authorization | Policies / Permissions | Permission-based RBAC (Spatie v7), resource ownership checks, per-route enforcement |
 | Data | Eloquent ORM | Parameterized queries, mass assignment protection via $fillable |
-| External | VirusTotalService / PwnedPasswordService / RecaptchaService | Async malware scan via queue job; breach check at registration and password change; bot score check on auth forms |
+| External | VirusTotalService / PwnedPasswordService / RecaptchaService | Async malware scan via queue job; breach check at registration and password change; visible reCAPTCHA checkbox verification on auth forms |
 | Storage | EncryptionService | AES-256-CBC file encryption with unique IV per file, SHA-256 integrity hashing |
 | Audit | AuditService + AuditDescriptionService | Immutable append-only logs, HMAC-SHA256 hash chain (includes category in payload), IPInfo geo-enrichment, meaningful descriptions, two-tier category separation |
 | IP Policy | CheckIpPolicy Middleware | CIDR-based allowlist / blocklist enforced on every authenticated request; private ranges always bypass; rules cached 5 min; denials logged as security events |
@@ -440,7 +447,9 @@ SecureVault follows a monolithic MVC architecture using Laravel as the backend f
 | last_login_ip | VARCHAR(45) | NULLABLE | Last login IP (supports IPv6) |
 | is_active | BOOLEAN | DEFAULT TRUE | Account active status |
 | is_system_account | BOOLEAN | DEFAULT FALSE | Marks a protected hidden recovery account. System accounts are excluded from admin user management queries and exempt from lifecycle policies. |
-| avatar_path | VARCHAR(255) | NULLABLE | Path to custom uploaded avatar relative to storage/app/public/avatars/. Null means no custom upload â€” falls back to Gravatar â†’ initials chain. |
+| avatar_path | VARCHAR(255) | NULLABLE | Path to custom uploaded avatar relative to storage/app/public/avatars/. Null means no custom upload â€” falls back to linked Google avatar, then Gravatar, then initials. |
+| google_id | VARCHAR(255) | NULLABLE, UNIQUE | Google sub claim. Null means no Google account linked. Hidden from serialization. |
+| google_avatar | VARCHAR(255) | NULLABLE | Google profile picture URL. Used as fallback in the avatar resolution chain when no custom avatar exists. |
 | password_changed_at | TIMESTAMP | NULLABLE | Timestamp of last password change. Used by password expiry policy. Set to created_at on registration for existing users; updated on every password change or reset. |
 | deletion_requested_at | TIMESTAMP | NULLABLE | When the user submitted a deletion request. Null means no pending deletion. |
 | deletion_scheduled_for | TIMESTAMP | NULLABLE | Date the account is scheduled for permanent purge (deletion_requested_at + 30 days). |
@@ -521,6 +530,12 @@ SecureVault follows a monolithic MVC architecture using Laravel as the backend f
 | signed_url_accessed | security | External signed link was accessed |
 | bot_detected | security | Automated bot attempt blocked on auth form |
 | audit_integrity_check | security | Admin-triggered HMAC hash chain verification run |
+| google_oauth_login | security | OAuth authentication event |
+| google_oauth_login_failed | security | Failed OAuth authentication attempt |
+| google_oauth_linked | security | User linked a Google account to their profile |
+| google_oauth_unlinked | security | User unlinked their Google account |
+| google_oauth_link_failed | security | Failed attempt to link a Google account |
+| google_oauth_denied | security | User denied Google OAuth consent screen |
 | document_uploaded | audit | General document action |
 | document_downloaded | audit | General document action |
 | document_deleted | audit | General document action |
@@ -626,6 +641,7 @@ One active (pending/ready) export allowed per user per 24 hours. File is deleted
 | Mass Assignment Protection | $fillable whitelist on all models (no $guarded) | Mass assignment attacks |
 | Encrypted Columns | Laravel Crypt on two_factor_secret, description | Data exposure from DB breach |
 | Password Hashing | Bcrypt with automatic cost factor | Password theft from DB dumps |
+| `google_id` hidden from serialization | Added to `User::$hidden` | Prevents Google sub claim leakage through API/JSON output |
 | Soft Deletes | deleted_at column on documents | Accidental permanent data loss |
 | Foreign Key Constraints | ON DELETE CASCADE / RESTRICT / NULL | Orphaned records, referential integrity |
 | Index Strategy | Indexed on email, action, category, user_id, created_at, composite morphs | Query performance |
@@ -767,7 +783,8 @@ The `.env` file stores sensitive application secrets including `APP_KEY`, databa
 - `AppServiceProvider` halts production boot if `APP_DEBUG=true` or `APP_KEY` is missing
 - A boot-time critical log entry is written if a `.env` file is detected under `public/`
 - Production deployments should restrict `.env` permissions to `600`
-- `RECAPTCHA_SITE_KEY` is the only key intentionally exposed to the frontend, because Google's site key is public by design
+- `RECAPTCHA_SITE_KEY` and `GOOGLE_CLIENT_ID` are the only credentials intentionally exposed to the frontend/browser because they are public identifiers by design
+- `RECAPTCHA_SECRET_KEY` and `GOOGLE_CLIENT_SECRET` remain server-side only and are never shared with Inertia or Vite
 
 ### 6.3 External Security Services
 
@@ -787,6 +804,23 @@ Queue driver is environment-aware: `deferred` locally (no worker process require
 
 Login-related audit log events (`login_success`, `login_failed`, `account_locked`) are enriched with geographic data (city, country) from IPInfo. This data is stored in the `metadata` JSON column and displayed in the activity feed as meaningful location context (e.g. "Signed in from Davao City, PH"). Results are cached per IP for 24 hours to stay within the free tier limit. Private/local IP ranges return "Local / DEV" without an API call.
 
+#### 6.3.4 Google OAuth 2.0
+
+Google OAuth is implemented via `laravel/socialite` as an additional sign-in method for existing SecureVault accounts. OAuth does not create accounts and does not replace the local credential lifecycle. Registration still flows through Gmail-only signup, HIBP breach checks, reCAPTCHA, signed email verification, and 2FA enrollment deadline assignment.
+
+The OAuth callback enforces multiple checks before a session is established:
+
+1. The Google account must return a verified Gmail address.
+2. The SecureVault account must already exist locally.
+3. Login lookup prefers `google_id` first, then falls back to email matching.
+4. The Google email must match the SecureVault email exactly.
+5. The local account must be active.
+6. The Google account must have been linked previously from the Profile page.
+
+If login succeeds, the app regenerates the session, updates the cached `google_avatar`, logs a `google_oauth_login` security event with IPInfo-enriched location metadata, and then continues through the normal middleware stack. Email verification, 2FA challenge, 2FA enrollment deadline enforcement, password expiry policy, IP allowlist/blocklist, vault lock, and account deletion local-password checks all remain active.
+
+Linking is available only to authenticated users from Profile settings. The callback requires the Google email to match the logged-in user's SecureVault email exactly, and prevents `google_id` reuse across accounts. Unlinking requires the current local password, preventing an attacker with a stolen session from silently removing the OAuth association.
+
 ---
 
 ## 7. Functional Requirements
@@ -795,9 +829,10 @@ Login-related audit log events (`login_success`, `login_failed`, `account_locked
 
 | ID | Requirement | Description |
 |----|------------|-------------|
-| FR-01 | User Registration | Users register with name, email, password. Email verification required. User role assigned automatically. Password checked against HIBP breach database. reCAPTCHA v2 checkbox verified before account creation. |
+| FR-01 | User Registration | Users register with name, Gmail address, and password. Email verification is enforced before dashboard access. User role assigned automatically. Password checked against HIBP breach database. reCAPTCHA v2 checkbox verified before account creation. |
 | FR-02 | User Login | Email/password login. Rate limited to 5/min. Account lockout after 10 failures for 15 minutes. |
-| FR-03 | Email Verification | Signed, time-limited verification link sent on registration. |
+| FR-02a | Google OAuth Login | Existing users may sign in with a previously linked Google account. OAuth replaces the password step only; verified middleware, 2FA challenge, password expiry, and IP policy still apply. |
+| FR-03 | Email Verification | Signed, time-limited verification link is sent on registration and must be clicked before protected routes such as the dashboard can be accessed. |
 | FR-04 | Password Reset | Password reset via email. Reset tokens expire after 60 minutes. New password checked against HIBP. reCAPTCHA v2 checkbox verified before reset link is sent. |
 | FR-05 | Two-Factor Auth | Optional TOTP-based 2FA. 6-digit code via InputOTP component â€” auto-submits on last digit entry. Typewriter animation on challenge page. If `two_factor_secret` is null or invalid at login, flag is auto-reset and a `2fa_corrupt_reset` security audit entry is created. |
 | FR-06 | Account Lockout | 10 consecutive failures triggers 15-minute lockout. Audit logged with IP and location. |
@@ -1130,6 +1165,8 @@ Custom application components built on top of shadcn primitives:
 | 25 | The `EnsurePasswordNotExpired` middleware must not expose expiry date in the redirect | Expiry date is surfaced only as a proactive dashboard warning. The redirect response itself reveals nothing about when the password expired. |
 | 26 | Super Admin accounts cannot be self-deleted via the Account Deletion Request flow | A Super Admin must first be demoted by another Super Admin before the deletion flow is available. Enforced in both UI (button hidden) and backend (403 guard). |
 | 27 | Audit log entries must not be hard-deleted when a user account is purged | The `user_id` FK is set to NULL (already nullable) and an `account_deletion_executed` system event is recorded. No audit rows are removed. Hash chain integrity is preserved. |
+| 31 | `GOOGLE_CLIENT_SECRET` must be stored in `.env` only and never committed to version control | OAuth client secret grants token exchange capability |
+| 32 | Google OAuth cannot create new SecureVault accounts â€” registration must always go through the standard flow | Preserves HIBP, reCAPTCHA, email verification, and 2FA enrollment at account intake |
 
 ---
 
@@ -1455,6 +1492,7 @@ Custom application components built on top of shadcn primitives:
 | 1.0 | [Date] | Evander Harold S. Amorcillo | Initial document creation |
 | 2.0 | [Date] | Evander Harold S. Amorcillo | Updated to reflect final implementation: Laravel 13, Spatie v7, Vega style, Noir Amber theme, RBAC matrix with permission-based enforcement, All Documents admin feature, UI/UX specification |
 | 3.0 | [Date] | Evander Harold S. Amorcillo | Major update: Added light/dark mode system, full shadcn/ui component library (35 components), external API integrations (HaveIBeenPwned, IPInfo, VirusTotal, Gravatar), new features (bulk operations, global search, document stars, vault lock screen, confetti, drag-and-drop, signed share links, typewriter 2FA, PDF audit export, time-based greeting), updated database schema (scan_result, is_starred columns), accessibility improvements (WCAG 2.1 AA), updated security layer architecture, complete page map revision |
+| 3.13 | 2026-04-12 | Evander Harold S. Amorcillo | New feature: Google OAuth via `laravel/socialite` as an additive sign-in method for linked accounts only. Added `google_id` and `google_avatar` columns to `users`, `GoogleOAuthController`, OAuth routes, `google_oauth` rate limiter, profile link/unlink flow with password-confirmed unlink, login-page Google button, register email prefill after missing-account redirect, avatar fallback chain update (custom â†’ Google â†’ Gravatar â†’ initials), and six new security audit actions (`google_oauth_login`, `google_oauth_login_failed`, `google_oauth_linked`, `google_oauth_unlinked`, `google_oauth_link_failed`, `google_oauth_denied`). Added Hard Constraints #31â€“#32. Tests passed: `GoogleOAuthTest.php`, `AuthenticationTest.php`, `RegistrationTest.php`, `ProfileTest.php`, `AuditActionConsistencyTest.php`. Documentation sections updated: Â§1.3, Â§2.2.1, Â§3.1, Â§3.2, Â§4.4, Â§5.2.1, Â§5.3, Â§6.2.10, Â§6.3.4, Â§7.1, Â§12. |
 | 3.1 | [Date] | Evander Harold S. Amorcillo | Visual system migration: Geist Sans font replacing Inter, shadcn New York style replacing Vega (border-radius 0.375rem, tighter spacing, solid sidebar active state). Bug fixes: vault lock timeout corrected to 30 minutes and no longer triggers on alt-tab/window switching, avatar color palette updated to remove pink/magenta (6 theme-compatible colors: amber, blue, emerald, violet, orange, teal), activity feed descriptions now show meaningful context from audit log metadata, Calendar date picker fixed (date selection updates button label, today highlight, cell spacing), stat card layout fixed (labels no longer wrap, consistent min-height, shortened sub-labels), filter bar label spacing corrected, decryption error messages sanitized to prevent information leakage |
 | 3.2 | [Date] | Evander Harold S. Amorcillo | Audit log category separation: added `category` ENUM column to `audit_logs` (security/audit), AuditCategory enum, SECURITY_ACTIONS map in AuditService, category included in HMAC hash payload. New shared components: ScanBadge, FileTypeBadge, PermissionBadge, RoleBadge, TimeBasedGreeting, AuditCategoryTabs. New utility modules: auditActionBadge.ts, fileTypeBadge.ts, trashExpiryBadge.ts. Bug fixes: 2FA self-healing guard (hasTwoFactorSecretValid(), 2fa_corrupt_reset audit action), AuditDescriptionService with full action-to-description match() map, trash expiry urgency badges (3-tier color escalation), role badge and permission badge color system (bg-color/15 pattern, no solid fills on read-only indicators), all action badge labels changed from uppercase slugs to human-readable sentence case, 2FA_FAILED badge corrected to destructive color, duplicate Filter button removed from Shared with Me header, Admin Dashboard activity feed defaults to security events, all 6 admin stat cards confirmed as clickable links, page header subtitle removed from all pages (Admin Dashboard uses TimeBasedGreeting in that slot), Hard Constraint #17 and #18 added. |
 | 3.4 | [Submission Date] | Evander Harold S. Amorcillo | Implementation alignment fixes: `User` model now implements `MustVerifyEmail` contract with auto-verify at registration (SMTP deferred); reCAPTCHA fail-open sentinel (`__recaptcha_unavailable__`) documented for frontend token-load failures; `metadata` confirmed in HMAC hash payload per Â§6.1.3; `account-active` and `two-factor` middleware wired to main authenticated route group; search rate limit corrected to 30/min; `general` API throttle group (60/min) added; audit action `signed_url_accessed` added to catalog and badge map; `AuditDescriptionService` coverage expanded to include `bulk_download`, `signed_url_accessed`, `login_blocked_inactive`, `user_role_changed`; `HibpService` renamed to `PwnedPasswordService` throughout; All Documents page updated â€” subtitle removed, amber admin notice Alert banner added, ScanBadge column added, FileTypeBadge colors corrected (PNG/JPG â†’ teal), Encrypted badge corrected to bg-color/15 pattern, duplicate Export CSV button removed. |

@@ -11,6 +11,7 @@ use App\Http\Controllers\AvatarController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DataExportController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\GoogleOAuthController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SessionController;
@@ -29,7 +30,7 @@ Route::get('/', function () {
 
 use App\Http\Controllers\DashboardController;
 
-Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'password-not-expired', 'check-ip-policy', 'throttle:general'])->group(function () {
+Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'two-factor-enrolled', 'password-not-expired', 'check-ip-policy', 'throttle:general'])->group(function () {
     Route::get('/password/expired', [ExpiredPasswordController::class, 'show'])
         ->name('password.expired');
     Route::patch('/password/expired', [ExpiredPasswordController::class, 'update'])
@@ -41,6 +42,10 @@ Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'password
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/avatar', [AvatarController::class, 'update'])->name('profile.avatar.update');
     Route::delete('/profile/avatar', [AvatarController::class, 'destroy'])->name('profile.avatar.destroy');
+    Route::get('/profile/google/link', [GoogleOAuthController::class, 'linkRedirect'])
+        ->name('profile.google.link');
+    Route::delete('/profile/google/unlink', [GoogleOAuthController::class, 'unlink'])
+        ->name('profile.google.unlink');
     Route::post('/profile/export', [DataExportController::class, 'request'])
         ->middleware('throttle:2,60')
         ->name('profile.export.request');

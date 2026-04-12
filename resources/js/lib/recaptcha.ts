@@ -1,26 +1,37 @@
 export const RECAPTCHA_UNAVAILABLE_SENTINEL = '__recaptcha_unavailable__';
 
-export async function getRecaptchaToken(
-    siteKey: string,
-    action: string,
-): Promise<string> {
-    try {
-        return await new Promise((resolve, reject) => {
-            const grecaptcha = window.grecaptcha;
+let currentToken = '';
+let widgetAvailable = false;
+let resetWidget: (() => void) | null = null;
 
-            if (typeof grecaptcha === 'undefined') {
-                reject(new Error('reCAPTCHA not loaded'));
-                return;
-            }
+export function setRecaptchaAvailable(resetHandler?: (() => void) | null): void {
+    widgetAvailable = true;
+    resetWidget = resetHandler ?? null;
+}
 
-            grecaptcha.ready(() => {
-                grecaptcha
-                    .execute(siteKey, { action })
-                    .then(resolve)
-                    .catch(reject);
-            });
-        });
-    } catch {
+export function setRecaptchaUnavailable(): void {
+    widgetAvailable = false;
+    currentToken = '';
+    resetWidget = null;
+}
+
+export function onRecaptchaSuccess(token: string): void {
+    currentToken = token;
+}
+
+export function onRecaptchaExpired(): void {
+    currentToken = '';
+}
+
+export function getRecaptchaToken(): string {
+    if (! widgetAvailable) {
         return RECAPTCHA_UNAVAILABLE_SENTINEL;
     }
+
+    return currentToken;
+}
+
+export function resetRecaptchaToken(): void {
+    currentToken = '';
+    resetWidget?.();
 }

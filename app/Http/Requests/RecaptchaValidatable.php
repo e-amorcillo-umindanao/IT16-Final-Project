@@ -11,7 +11,7 @@ trait RecaptchaValidatable
         ];
     }
 
-    public function verifyRecaptcha(string $action): bool
+    public function verifyRecaptcha(string $action = ''): bool
     {
         return app(\App\Services\RecaptchaService::class)
             ->verify($this->input('recaptcha_token'), $action);

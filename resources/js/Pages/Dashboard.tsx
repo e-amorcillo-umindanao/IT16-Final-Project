@@ -49,6 +49,7 @@ type DashboardUser = PageProps['auth']['user'] & {
     last_login_at?: string | null;
     last_login_ip?: string | null;
     two_factor_enabled?: boolean;
+    two_factor_deadline?: string | null;
 };
 
 type DashboardStats = {
@@ -95,6 +96,7 @@ export default function Dashboard({
     const canViewAdminDashboard = permissions.includes('view_admin_dashboard');
     const hasFailedLogins = stats.failed_logins_24h > 0;
     const hasTwoFactorEnabled = user.two_factor_enabled === true;
+    const twoFactorDeadline = user.two_factor_deadline ? new Date(user.two_factor_deadline) : null;
     const firstName = user.name.split(/\s+/)[0] ?? user.name;
 
     const status = hasFailedLogins
@@ -465,6 +467,36 @@ export default function Dashboard({
                                     </AlertDescription>
                                 </Alert>
                             )}
+
+                            {!hasTwoFactorEnabled && twoFactorDeadline && (() => {
+                                const hoursLeft = Math.max(
+                                    0,
+                                    Math.floor((twoFactorDeadline.getTime() - Date.now()) / 36e5)
+                                );
+                                const isUrgent = hoursLeft < 24;
+
+                                return (
+                                    <Alert className={cn(
+                                        isUrgent
+                                            ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                                            : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                                    )}>
+                                        <ShieldAlert className="h-4 w-4" />
+                                        <AlertTitle>Two-Factor Authentication Required</AlertTitle>
+                                        <AlertDescription>
+                                            {hoursLeft > 0
+                                                ? `You have ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'} remaining to enable 2FA. After this, your account will be restricted until 2FA is set up.`
+                                                : 'Your grace period has expired. Enable 2FA now to restore full access.'}{' '}
+                                            <Link
+                                                href={route('two-factor.setup')}
+                                                className="font-medium underline underline-offset-4"
+                                            >
+                                                Set up 2FA now
+                                            </Link>
+                                        </AlertDescription>
+                                    </Alert>
+                                );
+                            })()}
 
                             <TooltipProvider>
                                 <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">

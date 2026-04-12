@@ -48,6 +48,12 @@ class AuditService
         'account_deletion_requested' => AuditCategory::Security,
         'account_deletion_cancelled' => AuditCategory::Security,
         'account_deletion_executed' => AuditCategory::Security,
+        'google_oauth_login' => AuditCategory::Security,
+        'google_oauth_login_failed' => AuditCategory::Security,
+        'google_oauth_linked' => AuditCategory::Security,
+        'google_oauth_unlinked' => AuditCategory::Security,
+        'google_oauth_link_failed' => AuditCategory::Security,
+        'google_oauth_denied' => AuditCategory::Security,
 
         'request' => AuditCategory::Audit,
         'profile_updated' => AuditCategory::Audit,
@@ -70,6 +76,7 @@ class AuditService
         'user_activated' => AuditCategory::Audit,
         'user_deactivated' => AuditCategory::Audit,
         'user_role_changed' => AuditCategory::Audit,
+        'two_factor_deadline_set' => AuditCategory::Audit,
     ];
 
     /**

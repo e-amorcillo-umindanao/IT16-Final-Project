@@ -30,6 +30,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { getAuditActionBadge } from '@/lib/auditActionBadge';
 import { detectCluster } from '@/lib/detectCluster';
+import { maskIp } from '@/lib/maskData';
 import { PageProps, PaginatedResponse } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { format } from 'date-fns';
@@ -206,7 +207,8 @@ function ActivityPagination({
     );
 }
 
-export default function ActivityIndex({ logs, filters, securityCount, direction }: Props) {
+export default function ActivityIndex({ auth, logs, filters, securityCount, direction }: Props) {
+    const canViewFullIps = auth.permissions?.includes('view_audit_logs') ?? false;
     const [localFilters, setLocalFilters] = useState<Props['filters']>({
         category: filters.category ?? 'all',
         action: filters.action ?? '',
@@ -530,6 +532,11 @@ export default function ActivityIndex({ logs, filters, securityCount, direction 
                                                 : location && typeof location === 'object'
                                                   ? [location.city, location.region, location.country].filter(Boolean).join(', ')
                                                   : null;
+                                            const displayIp = log.ip_address
+                                                ? canViewFullIps
+                                                    ? log.ip_address
+                                                    : maskIp(log.ip_address)
+                                                : '-';
 
                                             return (
                                                 <TableRow key={log.id} className="hover:bg-muted/50">
@@ -569,7 +576,7 @@ export default function ActivityIndex({ logs, filters, securityCount, direction 
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
                                                                     <span className="cursor-help rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                                                                        {log.ip_address || '-'}
+                                                                        {displayIp}
                                                                     </span>
                                                                 </TooltipTrigger>
                                                                 {locationLabel && (

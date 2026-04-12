@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,7 +23,9 @@ class RegisteredUserController extends Controller
      */
     public function create(): Response
     {
-        return Inertia::render('Auth/Register');
+        return Inertia::render('Auth/Register', [
+            'googleEmail' => session('google_email'),
+        ]);
     }
 
     /**
@@ -33,7 +36,7 @@ class RegisteredUserController extends Controller
     {
         $validated = $request->validated();
 
-        if (!$request->verifyRecaptcha('register')) {
+        if (! $request->verifyRecaptcha()) {
             return back()->withErrors([
                 'recaptcha_token' => 'Bot verification failed. Please try again.',
             ]);
@@ -51,16 +54,19 @@ class RegisteredUserController extends Controller
                 'email' => $email,
                 'password' => Hash::make($validated['password']),
                 'password_changed_at' => now(),
+                'two_factor_deadline' => now()->addDays(3),
             ]);
-
-            // Auto-verify until SMTP is configured. Remove this when email delivery is enabled.
-            $user->markEmailAsVerified();
 
             $userRole = Role::findOrCreate('user', config('auth.defaults.guard', 'web'));
 
             $user->assignRole($userRole);
 
             event(new Registered($user));
+
+            Auth::login($user);
+            $request->session()->regenerate();
+
+            return redirect()->route('verification.notice');
         } catch (QueryException $exception) {
             if (!$this->isDuplicateEmailException($exception)) {
                 throw $exception;

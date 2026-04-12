@@ -1,7 +1,8 @@
 import AppLogo from '@/components/AppLogo';
 import PasswordStrengthBar from '@/components/PasswordStrengthBar';
+import RecaptchaWidget from '@/components/RecaptchaWidget';
 import GuestLayout from '@/Layouts/GuestLayout';
-import { getRecaptchaToken } from '@/lib/recaptcha';
+import { getRecaptchaToken, resetRecaptchaToken } from '@/lib/recaptcha';
 import { PageProps } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,10 +20,12 @@ import {
 import { FormEventHandler, useState } from 'react';
 
 export default function Register() {
-    const { recaptchaSiteKey } = usePage<PageProps>().props;
+    const page = usePage<PageProps<{ googleEmail?: string | null }>>();
+    const { recaptchaSiteKey, googleEmail, errors: pageErrors } = page.props;
+    const hasRecaptcha = Boolean(recaptchaSiteKey || import.meta.env.VITE_RECAPTCHA_SITE_KEY);
     const { data, setData, post, processing, errors, reset, transform } = useForm({
         name: '',
-        email: '',
+        email: googleEmail ?? '',
         password: '',
         password_confirmation: '',
         recaptcha_token: '',
@@ -31,27 +34,18 @@ export default function Register() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
-    const submit: FormEventHandler = async (e) => {
+    const submit: FormEventHandler = (e) => {
         e.preventDefault();
-
-        let token = '';
-
-        if (recaptchaSiteKey) {
-            try {
-                token = await getRecaptchaToken(recaptchaSiteKey, 'register');
-            } catch {
-                token = '';
-            }
-        }
 
         transform((form) => ({
             ...form,
-            recaptcha_token: token,
+            recaptcha_token: hasRecaptcha ? getRecaptchaToken() : '',
         }));
 
         post(route('register'), {
             onFinish: () => {
                 transform((form) => form);
+                resetRecaptchaToken();
                 reset('password', 'password_confirmation', 'recaptcha_token');
             },
         });
@@ -74,6 +68,12 @@ export default function Register() {
                     <p className="text-center text-sm text-muted-foreground">
                         Start managing your documents securely.
                     </p>
+
+                    {pageErrors?.google && (
+                        <div className="mt-5 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                            {pageErrors.google}
+                        </div>
+                    )}
 
                     <form onSubmit={submit} className="mt-8 space-y-5">
                         <div className="space-y-5">
@@ -255,6 +255,8 @@ export default function Register() {
                             </p>
                         )}
 
+                        {hasRecaptcha && <RecaptchaWidget />}
+
                         <Button
                             type="submit"
                             className="mt-2 h-12 w-full gap-2 rounded-lg bg-primary font-semibold text-primary-foreground"
@@ -273,7 +275,7 @@ export default function Register() {
                             )}
                         </Button>
 
-                        {recaptchaSiteKey && (
+                        {hasRecaptcha && (
                             <p className="text-center text-xs text-muted-foreground">
                                 Protected by reCAPTCHA.{' '}
                                 <a

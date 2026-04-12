@@ -31,7 +31,7 @@ class PasswordResetLinkController extends Controller
     {
         $validated = $request->validated();
 
-        if (!$request->verifyRecaptcha('forgot_password')) {
+        if (! $request->verifyRecaptcha()) {
             return back()->withErrors([
                 'recaptcha_token' => 'Bot verification failed. Please try again.',
             ]);
