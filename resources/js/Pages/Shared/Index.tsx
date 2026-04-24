@@ -110,7 +110,8 @@ function getFileIcon(mimeType: string) {
     if (
         normalized.includes('image/jpeg') ||
         normalized.includes('image/jpg') ||
-        normalized.includes('image/png')
+        normalized.includes('image/png') ||
+        normalized.includes('image/webp')
     ) {
         return <ImageIcon className="h-7 w-7 text-primary" />;
     }

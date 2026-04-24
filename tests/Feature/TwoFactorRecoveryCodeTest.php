@@ -43,7 +43,7 @@ class TwoFactorRecoveryCodeTest extends TestCase
         $this->assertCount(8, $storedCodes);
         $this->assertIsArray($flashedCodes);
         $this->assertCount(8, $flashedCodes);
-        $this->assertTrue(Hash::check($flashedCodes[0], $storedCodes->first()->code_hash));
+        $this->assertTrue(Hash::driver('bcrypt')->check($flashedCodes[0], $storedCodes->first()->code_hash));
         $this->assertFalse(collect($flashedCodes)->contains($storedCodes->first()->code_hash));
     }
 

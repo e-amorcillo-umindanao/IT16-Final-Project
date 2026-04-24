@@ -100,6 +100,7 @@ function getFileIcon(mimeType: string) {
             return FileSpreadsheet;
         case 'image/jpeg':
         case 'image/png':
+        case 'image/webp':
             return FileImage;
         default:
             return File;

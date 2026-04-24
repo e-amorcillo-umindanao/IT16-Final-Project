@@ -40,19 +40,11 @@ export default function VaultLock({ userEmail }: VaultLockProps) {
     }, [armTimer, locked]);
 
     useEffect(() => {
-        const onVisibilityChange = () => {
-            if (!document.hidden) {
-                resetTimer();
-            }
-        };
-
         EVENTS.forEach((eventName) => window.addEventListener(eventName, resetTimer, { passive: true }));
-        document.addEventListener('visibilitychange', onVisibilityChange);
         armTimer();
 
         return () => {
             EVENTS.forEach((eventName) => window.removeEventListener(eventName, resetTimer));
-            document.removeEventListener('visibilitychange', onVisibilityChange);
             clearTimer();
         };
     }, [armTimer, clearTimer, resetTimer]);

@@ -11,6 +11,17 @@ class GoogleOAuthTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config([
+            'services.google.client_id' => null,
+            'services.google.client_secret' => null,
+            'services.google.redirect' => null,
+        ]);
+    }
+
     public function test_login_page_hides_google_sign_in_when_oauth_is_not_configured(): void
     {
         $response = $this->get('/login');

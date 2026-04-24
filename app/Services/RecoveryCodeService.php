@@ -16,6 +16,7 @@ class RecoveryCodeService
         $user->twoFactorRecoveryCodes()->delete();
 
         $codes = [];
+        $bcryptHasher = Hash::driver('bcrypt');
 
         for ($index = 0; $index < self::CODE_COUNT; $index++) {
             $code = Str::upper(Str::random(4)).'-'.Str::upper(Str::random(4));
@@ -23,7 +24,7 @@ class RecoveryCodeService
 
             TwoFactorRecoveryCode::create([
                 'user_id' => $user->id,
-                'code_hash' => Hash::make($code),
+                'code_hash' => $bcryptHasher->make($code),
             ]);
         }
 
@@ -33,13 +34,14 @@ class RecoveryCodeService
     public function consume(User $user, string $code): bool
     {
         $normalizedCode = Str::upper(trim($code));
+        $bcryptHasher = Hash::driver('bcrypt');
 
         $records = $user->twoFactorRecoveryCodes()
             ->whereNull('used_at')
             ->get();
 
         foreach ($records as $record) {
-            if (! Hash::check($normalizedCode, $record->code_hash)) {
+            if (! $bcryptHasher->check($normalizedCode, $record->code_hash)) {
                 continue;
             }
 

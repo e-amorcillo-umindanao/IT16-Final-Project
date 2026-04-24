@@ -34,6 +34,7 @@ Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'two-fact
     Route::get('/password/expired', [ExpiredPasswordController::class, 'show'])
         ->name('password.expired');
     Route::patch('/password/expired', [ExpiredPasswordController::class, 'update'])
+        ->middleware('throttle:profile-password-update')
         ->name('password.expired.update');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -50,10 +51,16 @@ Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'two-fact
         ->middleware('throttle:2,60')
         ->name('profile.export.request');
     Route::post('/profile/delete-account', [AccountDeletionController::class, 'request'])
+        ->middleware('throttle:account-deletion')
         ->name('profile.delete-account');
-    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
-    Route::delete('/two-factor', [ProfileController::class, 'destroyTwoFactor'])->name('two-factor.destroy');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])
+        ->middleware('throttle:profile-password-update')
+        ->name('profile.password.update');
+    Route::delete('/two-factor', [ProfileController::class, 'destroyTwoFactor'])
+        ->middleware('throttle:two-factor-manage')
+        ->name('two-factor.destroy');
     Route::post('/two-factor/recovery-codes/regenerate', [TwoFactorController::class, 'regenerateCodes'])
+        ->middleware('throttle:two-factor-manage')
         ->name('two-factor.recovery-codes.regenerate');
 
     Route::get('/sessions', [SessionController::class, 'index'])->name('sessions.index');
@@ -75,6 +82,7 @@ Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'two-fact
         ->name('documents.versions.restore');
     Route::patch('/documents/{document}/star', [DocumentController::class, 'toggleStar'])->name('documents.star');
     Route::post('/documents/{document}/share-link', [DocumentController::class, 'generateShareLink'])
+        ->middleware('throttle:share-links')
         ->name('documents.share-link');
 
     // Trash
@@ -85,7 +93,9 @@ Route::middleware(['auth', 'verified', 'account-active', 'two-factor', 'two-fact
     Route::delete('/trash', [DocumentController::class, 'emptyTrash'])->name('documents.empty-trash');
 
     // Sharing
-    Route::post('/documents/{document}/shares', [ShareController::class, 'store'])->name('shares.store');
+    Route::post('/documents/{document}/shares', [ShareController::class, 'store'])
+        ->middleware('throttle:shares')
+        ->name('shares.store');
     Route::delete('/shares/{share}', [ShareController::class, 'destroy'])->name('shares.destroy');
     Route::get('/shared', [ShareController::class, 'sharedWithMe'])->name('shared.index');
 

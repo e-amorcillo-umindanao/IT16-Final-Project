@@ -786,6 +786,12 @@ The `.env` file stores sensitive application secrets including `APP_KEY`, databa
 - `RECAPTCHA_SITE_KEY` and `GOOGLE_CLIENT_ID` are the only credentials intentionally exposed to the frontend/browser because they are public identifiers by design
 - `RECAPTCHA_SECRET_KEY` and `GOOGLE_CLIENT_SECRET` remain server-side only and are never shared with Inertia or Vite
 
+#### 6.2.11 Gmail SMTP Enforcement Policy
+
+SecureVault performs a production boot-time configuration check to verify that outbound verification email is still routed through Gmail SMTP. `AppServiceProvider` writes a `Log::critical()` entry if either `MAIL_MAILER !== smtp` or `MAIL_HOST !== smtp.gmail.com`, and also logs a critical warning when the SMTP username is missing.
+
+The application does not abort boot on mail misconfiguration. This is an intentional design decision: a hard abort would lock administrators out of the system at the exact moment they need access to fix the configuration. Instead, SecureVault treats Gmail SMTP as a monitored operational dependency. Misconfiguration is surfaced loudly in logs, while the application remains available for recovery and administrative correction.
+
 ### 6.3 External Security Services
 
 #### 6.3.1 Password Breach Detection (HaveIBeenPwned)
@@ -1005,7 +1011,7 @@ Custom application components built on top of shadcn primitives:
 | Component | Description |
 |-----------|-------------|
 | AppLogo | Logo image with mix-blend-mode for dark mode compatibility |
-| UserAvatar | Avatar with three-tier resolution: (1) custom uploaded avatar via `user.avatar_url`, (2) Gravatar image from MD5 of email with `?d=404`, (3) deterministic initials fallback. 6 theme-compatible colors: amber, blue, emerald, violet, orange, teal â€” no pink/magenta. |
+| UserAvatar | Avatar with privacy-safe frontend resolution: (1) server-resolved `user.avatar_url` for custom or linked Google avatars, (2) Gravatar image from MD5 of email with `?d=404`, (3) deterministic initials fallback. The frontend never receives raw `google_avatar`; it only receives `avatar_url` plus `google_linked`. 6 theme-compatible colors: amber, blue, emerald, violet, orange, teal â€” no pink/magenta. |
 | GlobalSearch | Command-based search popover with grouped results, debounce, and Command+K shortcut. All visible text is role-aware: empty-state subtitle, dialog description, search button text, input placeholder, and input aria-label adapt based on whether the user has admin permissions â€” regular Users never see copy referencing user/email search. |
 | VaultLock | 30-minute idle timeout lock overlay with password re-entry, blur backdrop |
 | PasswordStrengthBar | Real-time 5-criteria strength bar using Progress component |

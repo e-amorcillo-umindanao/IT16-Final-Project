@@ -286,6 +286,10 @@ class AccountDeletionTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'profile_updated',
+            'user_id' => null,
+        ]);
+        $this->assertDatabaseMissing('audit_logs', [
+            'action' => 'profile_updated',
             'user_id' => $user->id,
         ]);
         $this->assertDatabaseHas('audit_logs', [

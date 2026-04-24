@@ -154,7 +154,14 @@ function getFileIcon(mimeType: string) {
     if (normalized.includes('pdf')) return FileText;
     if (normalized.includes('word') || normalized.includes('officedocument.wordprocessingml.document')) return FileType;
     if (normalized.includes('sheet') || normalized.includes('excel') || normalized.includes('spreadsheetml')) return Sheet;
-    if (normalized.includes('image/png') || normalized.includes('image/jpeg') || normalized.includes('image/jpg')) return ImageIcon;
+    if (
+        normalized.includes('image/png')
+        || normalized.includes('image/jpeg')
+        || normalized.includes('image/jpg')
+        || normalized.includes('image/webp')
+    ) {
+        return ImageIcon;
+    }
     return File;
 }
 

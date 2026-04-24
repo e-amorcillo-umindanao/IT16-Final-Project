@@ -108,7 +108,7 @@ const FILE_TYPE_OPTIONS: Array<{ value: FileFilter; label: string }> = [
     { value: 'pdf', label: 'PDF' },
     { value: 'word', label: 'Word (DOCX)' },
     { value: 'excel', label: 'Excel (XLSX)' },
-    { value: 'image', label: 'Image (PNG/JPG)' },
+    { value: 'image', label: 'Image (PNG/JPG/WebP)' },
 ];
 
 function getFileCategory(mimeType: string): FileFilter | 'other' {
@@ -132,7 +132,8 @@ function getFileCategory(mimeType: string): FileFilter | 'other' {
     if (
         normalized.includes('image/png') ||
         normalized.includes('image/jpeg') ||
-        normalized.includes('image/jpg')
+        normalized.includes('image/jpg') ||
+        normalized.includes('image/webp')
     ) {
         return 'image';
     }

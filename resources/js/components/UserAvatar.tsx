@@ -9,7 +9,6 @@ type AvatarUser = {
     name: string;
     email?: string | null;
     avatar_url?: string | null;
-    google_avatar?: string | null;
 };
 
 interface Props {
@@ -61,13 +60,12 @@ export default function UserAvatar({
     fallbackClassName,
 }: Props) {
     const name = user.name.trim() || 'User';
-    const customAvatarUrl = avatarUrl ?? user.avatar_url ?? null;
-    const googleAvatarUrl = user.google_avatar ?? null;
+    const resolvedAvatarUrl = avatarUrl ?? user.avatar_url ?? null;
     const gravatarUrl = useMemo(
         () => (user.email ? buildGravatarUrl(user.email, 80) : null),
         [user.email],
     );
-    const imageSources = [customAvatarUrl, googleAvatarUrl, gravatarUrl].filter(
+    const imageSources = [resolvedAvatarUrl, gravatarUrl].filter(
         (value): value is string => Boolean(value),
     );
     const [imageIndex, setImageIndex] = useState(0);
@@ -75,7 +73,7 @@ export default function UserAvatar({
 
     useEffect(() => {
         setImageIndex(0);
-    }, [customAvatarUrl, googleAvatarUrl, gravatarUrl]);
+    }, [resolvedAvatarUrl, gravatarUrl]);
 
     const handleImageError = () => {
         if (imageIndex < imageSources.length - 1) {

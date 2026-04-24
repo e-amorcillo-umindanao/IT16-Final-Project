@@ -36,10 +36,10 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user' => $user ? [
-                    ...$user->toArray(),
-                    'two_factor_deadline' => $user->two_factor_deadline?->toIso8601String(),
-                    'is_system_account' => $user->is_system_account,
-                    'google_avatar' => $user->google_avatar,
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'avatar_url' => $user->avatar_url,
                     'google_linked' => $user->hasGoogleLinked(),
                 ] : null,
                 'roles' => $user?->getRoleNames() ?? [],

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Services\PwnedPasswordService;
 use App\Services\RecaptchaService;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -66,6 +67,7 @@ class PasswordResetTest extends TestCase
     public function test_password_can_be_reset_with_valid_token(): void
     {
         Notification::fake();
+        $this->fakePwnedPasswords();
 
         $user = User::factory()->create();
 
@@ -75,8 +77,8 @@ class PasswordResetTest extends TestCase
             $response = $this->post('/reset-password', [
                 'token' => $notification->token,
                 'email' => $user->email,
-                'password' => 'password',
-                'password_confirmation' => 'password',
+                'password' => 'SecurePass1!',
+                'password_confirmation' => 'SecurePass1!',
             ]);
 
             $response
@@ -84,8 +86,33 @@ class PasswordResetTest extends TestCase
                 ->assertRedirect(route('login'));
 
             $user->refresh();
-            $this->assertTrue(Hash::check('password', $user->password));
+            $this->assertTrue(Hash::check('SecurePass1!', $user->password));
             $this->assertNotNull($user->password_changed_at);
+
+            return true;
+        });
+    }
+
+    public function test_password_reset_rejects_weak_passwords(): void
+    {
+        Notification::fake();
+        $this->fakePwnedPasswords();
+
+        $user = User::factory()->create();
+
+        $this->post('/forgot-password', ['email' => $user->email]);
+
+        Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user) {
+            $response = $this->from('/reset-password/'.$notification->token)->post('/reset-password', [
+                'token' => $notification->token,
+                'email' => $user->email,
+                'password' => 'password1',
+                'password_confirmation' => 'password1',
+            ]);
+
+            $response
+                ->assertRedirect('/reset-password/'.$notification->token)
+                ->assertSessionHasErrors('password');
 
             return true;
         });
@@ -153,5 +180,16 @@ class PasswordResetTest extends TestCase
             'services.recaptcha.site_key' => 'site-key',
             'services.recaptcha.secret_key' => 'secret-key',
         ]);
+    }
+
+    private function fakePwnedPasswords(): void
+    {
+        $this->app->bind(PwnedPasswordService::class, fn () => new class extends PwnedPasswordService
+        {
+            public function isPwned(string $password): int
+            {
+                return 0;
+            }
+        });
     }
 }

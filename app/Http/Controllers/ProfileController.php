@@ -14,9 +14,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
-use App\Rules\NotPwnedPassword;
 
 class ProfileController extends Controller
 {
@@ -143,12 +143,7 @@ class ProfileController extends Controller
             'password' => [
                 'required',
                 'confirmed',
-                'min:8',
-                'regex:/[A-Z]/',
-                'regex:/[a-z]/',
-                'regex:/[0-9]/',
-                'regex:/[@$!%*?&#^()_+]/',
-                new NotPwnedPassword(),
+                Password::defaults(),
             ],
         ]);
 

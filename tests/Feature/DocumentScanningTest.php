@@ -57,6 +57,24 @@ class DocumentScanningTest extends TestCase
         $this->assertFileExists($this->vaultPath.DIRECTORY_SEPARATOR.$document->encrypted_name);
     }
 
+    public function test_webp_uploads_are_allowed(): void
+    {
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $file = UploadedFile::fake()->create('preview.webp', 256, 'image/webp');
+
+        $response = $this->actingAs($user)->post(route('documents.store', absolute: false), [
+            'document' => $file,
+        ]);
+
+        $document = Document::query()->firstOrFail();
+
+        $response->assertRedirect(route('documents.index', absolute: false));
+        $this->assertSame('image/webp', $document->mime_type);
+        $this->assertSame('pending', $document->scan_result);
+    }
+
     public function test_pending_document_download_is_blocked(): void
     {
         $user = User::factory()->create();

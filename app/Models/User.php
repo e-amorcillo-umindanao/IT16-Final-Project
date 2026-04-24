@@ -226,21 +226,25 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function getAvatarUrlAttribute(): ?string
     {
-        if (! is_string($this->avatar_path) || $this->avatar_path === '') {
-            return null;
+        if (is_string($this->avatar_path) && $this->avatar_path !== '') {
+            $url = Storage::disk('public')->url($this->avatar_path);
+            $parsedUrl = parse_url($url);
+
+            if ($parsedUrl === false || ! isset($parsedUrl['host'])) {
+                return $url;
+            }
+
+            $path = $parsedUrl['path'] ?? $url;
+            $query = isset($parsedUrl['query']) ? '?'.$parsedUrl['query'] : '';
+            $fragment = isset($parsedUrl['fragment']) ? '#'.$parsedUrl['fragment'] : '';
+
+            return $path.$query.$fragment;
         }
 
-        $url = Storage::disk('public')->url($this->avatar_path);
-        $parsedUrl = parse_url($url);
-
-        if ($parsedUrl === false || ! isset($parsedUrl['host'])) {
-            return $url;
+        if (is_string($this->google_avatar) && $this->google_avatar !== '') {
+            return $this->google_avatar;
         }
 
-        $path = $parsedUrl['path'] ?? $url;
-        $query = isset($parsedUrl['query']) ? '?'.$parsedUrl['query'] : '';
-        $fragment = isset($parsedUrl['fragment']) ? '#'.$parsedUrl['fragment'] : '';
-
-        return $path.$query.$fragment;
+        return null;
     }
 }

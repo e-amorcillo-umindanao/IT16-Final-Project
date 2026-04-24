@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Auth;
 
 use App\Http\Requests\RecaptchaValidatable;
-use App\Rules\NotPwnedPassword;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules;
 
@@ -31,12 +30,7 @@ class RegisterRequest extends FormRequest
             'password' => [
                 'required',
                 'confirmed',
-                Rules\Password::min(8)
-                    ->letters()
-                    ->mixedCase()
-                    ->numbers()
-                    ->symbols(),
-                new NotPwnedPassword(),
+                Rules\Password::defaults(),
             ],
             ...$this->recaptchaRules(),
         ];

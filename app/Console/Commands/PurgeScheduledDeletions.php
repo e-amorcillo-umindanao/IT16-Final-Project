@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\AuditLog;
 use App\Models\DataExport;
 use App\Models\DocumentShare;
 use App\Models\User;
@@ -91,6 +92,10 @@ class PurgeScheduledDeletions extends Command
 
         $user->syncRoles([]);
         $user->syncPermissions([]);
+
+        AuditLog::query()
+            ->where('user_id', $user->id)
+            ->update(['user_id' => null]);
 
         $this->auditService->logSystem('account_deletion_executed', metadata: [
             'anonymised_email' => substr($user->email, 0, 3).'***',

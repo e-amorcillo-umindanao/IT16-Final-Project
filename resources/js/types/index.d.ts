@@ -6,7 +6,6 @@ export interface User {
     email: string;
     avatar_path?: string | null;
     avatar_url?: string | null;
-    google_avatar?: string | null;
     google_linked?: boolean;
     email_verified_at?: string;
     two_factor_secret?: string;

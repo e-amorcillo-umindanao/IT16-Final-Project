@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class ProfileTest extends TestCase
@@ -23,6 +24,30 @@ class ProfileTest extends TestCase
             ->get('/profile');
 
         $response->assertOk();
+    }
+
+    public function test_profile_page_only_shares_minimal_auth_user_fields(): void
+    {
+        $user = User::factory()->create([
+            'google_id' => 'google-123',
+            'google_avatar' => 'https://example.com/google-avatar.png',
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get('/profile');
+
+        $response->assertInertia(fn (Assert $page) => $page
+            ->where('auth.user.id', $user->id)
+            ->where('auth.user.name', $user->name)
+            ->where('auth.user.email', $user->email)
+            ->where('auth.user.avatar_url', 'https://example.com/google-avatar.png')
+            ->where('auth.user.google_linked', true));
+
+        $props = $response->viewData('page')['props']['auth']['user'];
+
+        $this->assertArrayNotHasKey('google_avatar', $props);
+        $this->assertArrayNotHasKey('google_id', $props);
     }
 
     public function test_profile_information_can_be_updated(): void

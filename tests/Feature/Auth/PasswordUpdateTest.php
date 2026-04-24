@@ -75,6 +75,26 @@ class PasswordUpdateTest extends TestCase
             ->assertRedirect('/profile');
     }
 
+    public function test_weak_passwords_are_rejected_when_updating_the_password(): void
+    {
+        $this->fakePwnedPasswords();
+
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->from('/profile')
+            ->put('/profile/password', [
+                'current_password' => 'password',
+                'password' => 'weakpass1',
+                'password_confirmation' => 'weakpass1',
+            ]);
+
+        $response
+            ->assertSessionHasErrors('password')
+            ->assertRedirect('/profile');
+    }
+
     private function fakePwnedPasswords(): void
     {
         $this->app->bind(PwnedPasswordService::class, fn () => new class extends PwnedPasswordService

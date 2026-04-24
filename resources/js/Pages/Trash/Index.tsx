@@ -107,7 +107,8 @@ function getFileIcon(mimeType: string) {
     if (
         normalized.includes('image/jpeg') ||
         normalized.includes('image/jpg') ||
-        normalized.includes('image/png')
+        normalized.includes('image/png') ||
+        normalized.includes('image/webp')
     ) {
         return <ImageIcon className="h-5 w-5 text-muted-foreground" />;
     }

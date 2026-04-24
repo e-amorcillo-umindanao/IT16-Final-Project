@@ -48,6 +48,7 @@ const FALLBACK_ACCEPTED_MIMES = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'image/jpeg',
     'image/png',
+    'image/webp',
 ];
 
 function formatBytes(bytes: number): string {
@@ -88,7 +89,8 @@ function getFileIcon(mimeType: string) {
     if (
         normalized.includes('image/jpeg') ||
         normalized.includes('image/jpg') ||
-        normalized.includes('image/png')
+        normalized.includes('image/png') ||
+        normalized.includes('image/webp')
     ) {
         return <ImageIcon className="h-8 w-8 text-primary" />;
     }
@@ -110,7 +112,7 @@ export default function Create({ maxSize, allowedMimes, isFirstDocument }: Props
 
     const fileErrorMessage = useMemo(() => {
         if (clientError === 'type') {
-            return 'Only PDF, DOCX, XLSX, JPG, and PNG files are allowed.';
+            return 'Only PDF, DOCX, XLSX, JPG, PNG, and WebP files are allowed.';
         }
 
         if (clientError === 'size') {

@@ -23,6 +23,7 @@ return [
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
         'image/png',
         'image/jpeg',
+        'image/webp',
     ],
 
     'trash_retention_days' => 30,

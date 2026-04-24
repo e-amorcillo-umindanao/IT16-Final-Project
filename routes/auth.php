@@ -37,6 +37,7 @@ Route::middleware('guest')->group(function () {
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
+        ->middleware('throttle:password-store')
         ->name('password.store');
 });
 
@@ -45,6 +46,7 @@ Route::get('auth/google', [GoogleOAuthController::class, 'redirect'])
     ->name('auth.google.redirect');
 
 Route::get('auth/google/callback', [GoogleOAuthController::class, 'callback'])
+    ->middleware('throttle:google-oauth-callback')
     ->name('auth.google.callback');
 
 Route::middleware('auth')->group(function () {
@@ -52,11 +54,11 @@ Route::middleware('auth')->group(function () {
         ->name('verification.notice');
 
     Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
-        ->middleware(['signed', 'throttle:6,1'])
+        ->middleware(['signed', 'throttle:email-verification'])
         ->name('verification.verify');
 
     Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
-        ->middleware('throttle:6,1')
+        ->middleware('throttle:email-verification')
         ->name('verification.send');
 
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
@@ -64,7 +66,9 @@ Route::middleware('auth')->group(function () {
 
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
 
-    Route::put('password', [PasswordController::class, 'update'])->name('password.update');
+    Route::put('password', [PasswordController::class, 'update'])
+        ->middleware('throttle:profile-password-update')
+        ->name('password.update');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
@@ -72,19 +76,23 @@ Route::middleware('auth')->group(function () {
     // 2FA Routes
     Route::middleware('two-factor')->group(function () {
         Route::get('two-factor/setup', [TwoFactorController::class, 'setup'])->name('two-factor.setup');
-        Route::post('two-factor/enable', [TwoFactorController::class, 'enable'])->name('two-factor.enable');
-        Route::post('two-factor/disable', [TwoFactorController::class, 'disable'])->name('two-factor.disable');
+        Route::post('two-factor/enable', [TwoFactorController::class, 'enable'])
+            ->middleware('throttle:two-factor-manage')
+            ->name('two-factor.enable');
+        Route::post('two-factor/disable', [TwoFactorController::class, 'disable'])
+            ->middleware('throttle:two-factor-manage')
+            ->name('two-factor.disable');
     });
 
     Route::middleware('two-factor-pending')->group(function () {
         Route::get('two-factor/challenge', [TwoFactorController::class, 'challenge'])->name('two-factor.challenge');
         Route::post('two-factor/verify', [TwoFactorController::class, 'verify'])
-            ->middleware('throttle:5,1')
+            ->middleware('throttle:two-factor')
             ->name('two-factor.verify');
         Route::get('two-factor/recovery', [TwoFactorController::class, 'showRecoveryForm'])
             ->name('two-factor.recovery');
         Route::post('two-factor/recovery', [TwoFactorController::class, 'verifyRecoveryCode'])
-            ->middleware('throttle:5,1')
+            ->middleware('throttle:two-factor-recovery')
             ->name('two-factor.recovery.verify');
     });
 });
