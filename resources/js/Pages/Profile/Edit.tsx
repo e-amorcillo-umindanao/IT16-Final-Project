@@ -1,5 +1,6 @@
 import InputError from '@/components/InputError';
 import PasswordStrengthBar from '@/components/PasswordStrengthBar';
+import SaveRecoveryCodesModal from '@/components/SaveRecoveryCodesModal';
 import UserAvatar from '@/components/UserAvatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -24,14 +25,6 @@ import {
     BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -44,7 +37,6 @@ import { formatDistanceToNow } from 'date-fns';
 import {
     Camera,
     ChevronRight,
-    Copy,
     Download,
     Link2,
     KeyRound,
@@ -344,34 +336,6 @@ export default function Edit({
     const closeRecoveryDialog = () => {
         setRecoveryDialogOpen(false);
         setRecoveryCodes([]);
-    };
-
-    const copyRecoveryCodes = async () => {
-        if (recoveryCodes.length === 0) {
-            return;
-        }
-
-        await navigator.clipboard.writeText(recoveryCodes.join('\n'));
-        toast.success('Recovery codes copied.');
-    };
-
-    const downloadRecoveryCodes = () => {
-        if (recoveryCodes.length === 0) {
-            return;
-        }
-
-        const blob = new Blob(
-            [
-                `SecureVault Recovery Codes\n\n${recoveryCodes.join('\n')}\n`,
-            ],
-            { type: 'text/plain;charset=utf-8' },
-        );
-        const objectUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = objectUrl;
-        link.download = 'securevault-recovery-codes.txt';
-        link.click();
-        URL.revokeObjectURL(objectUrl);
     };
 
     return (
@@ -1128,50 +1092,12 @@ export default function Edit({
                 </AlertDialogContent>
             </AlertDialog>
 
-            <Dialog open={recoveryDialogOpen} onOpenChange={(open) => !open && closeRecoveryDialog()}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Save your recovery codes</DialogTitle>
-                        <DialogDescription>
-                            These one-time-use codes let you sign in if you lose access to your authenticator app.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
-                        <ShieldAlert className="h-4 w-4" />
-                        <AlertDescription>
-                            These codes will not be shown again. Store them somewhere safe.
-                        </AlertDescription>
-                    </Alert>
-
-                    <div className="grid grid-cols-2 gap-2">
-                        {recoveryCodes.map((code) => (
-                            <div
-                                key={code}
-                                className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-center font-mono text-sm text-foreground"
-                            >
-                                {code}
-                            </div>
-                        ))}
-                    </div>
-
-                    <DialogFooter className="gap-2 sm:justify-between">
-                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                            <Button type="button" variant="outline" onClick={copyRecoveryCodes}>
-                                <Copy className="mr-2 h-4 w-4" />
-                                Copy all codes
-                            </Button>
-                            <Button type="button" variant="outline" onClick={downloadRecoveryCodes}>
-                                <Download className="mr-2 h-4 w-4" />
-                                Download as .txt
-                            </Button>
-                        </div>
-                        <Button type="button" onClick={closeRecoveryDialog}>
-                            I've saved my codes
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <SaveRecoveryCodesModal
+                open={recoveryDialogOpen}
+                codes={recoveryCodes}
+                onConfirm={closeRecoveryDialog}
+                onForceClose={closeRecoveryDialog}
+            />
         </AuthenticatedLayout>
     );
 }
