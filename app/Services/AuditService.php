@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Request;
 
 class AuditService
 {
+    public const HASH_VERSION_LEGACY_WITH_USER_ID = 1;
+
+    public const HASH_VERSION_STABLE_ANONYMIZABLE = 2;
+
     /**
      * Central audit action classification map.
      *
@@ -175,6 +179,7 @@ class AuditService
             createdAt: $createdAt,
             metadata: $metadata,
             previousHash: $previousHash,
+            hashVersion: self::HASH_VERSION_STABLE_ANONYMIZABLE,
         );
 
         return AuditLog::create([
@@ -188,6 +193,7 @@ class AuditService
             'user_agent' => $userAgent,
             'hash' => $hash,
             'previous_hash' => $previousHash,
+            'hash_version' => self::HASH_VERSION_STABLE_ANONYMIZABLE,
             'created_at' => $createdAt,
         ]);
     }
@@ -223,8 +229,18 @@ class AuditService
         return self::ACTION_CATEGORIES[$action] ?? AuditCategory::Audit;
     }
 
+    /**
+     * @return list<string>
+     */
+    public function knownActions(): array
+    {
+        return array_keys(self::ACTION_CATEGORIES);
+    }
+
     public function hashForAuditLog(AuditLog $log, ?string $previousHash = null): string
     {
+        $hashVersion = (int) ($log->hash_version ?: self::HASH_VERSION_LEGACY_WITH_USER_ID);
+
         return $this->buildHash(
             action: $log->action,
             category: $log->category ?? AuditCategory::Audit->value,
@@ -235,6 +251,7 @@ class AuditService
             createdAt: $log->created_at,
             metadata: is_array($log->metadata) ? $log->metadata : null,
             previousHash: $previousHash ?? $log->previous_hash,
+            hashVersion: $hashVersion,
         );
     }
 
@@ -261,20 +278,34 @@ class AuditService
         CarbonInterface $createdAt,
         ?array $metadata,
         ?string $previousHash,
+        int $hashVersion = self::HASH_VERSION_LEGACY_WITH_USER_ID,
     ): string {
         $metadataJson = $this->encodeMetadataForHash($metadata);
 
-        $dataToHash = implode('|', [
-            $action,
-            $category,
-            $userId ?? 'system',
-            $auditableType ?? 'none',
-            $auditableId ?? 'none',
-            $ipAddress,
-            $createdAt->toDateTimeString(),
-            $metadataJson,
-            $previousHash ?? 'initial',
-        ]);
+        if ($hashVersion >= self::HASH_VERSION_STABLE_ANONYMIZABLE) {
+            $dataToHash = implode('|', [
+                $createdAt->toDateTimeString(),
+                $action,
+                $category,
+                $ipAddress,
+                $metadataJson,
+                $auditableType ?? 'none',
+                $auditableId ?? 'none',
+                $previousHash ?? 'initial',
+            ]);
+        } else {
+            $dataToHash = implode('|', [
+                $action,
+                $category,
+                $userId ?? 'system',
+                $auditableType ?? 'none',
+                $auditableId ?? 'none',
+                $ipAddress,
+                $createdAt->toDateTimeString(),
+                $metadataJson,
+                $previousHash ?? 'initial',
+            ]);
+        }
 
         return hash_hmac('sha256', $dataToHash, config('app.key'));
     }

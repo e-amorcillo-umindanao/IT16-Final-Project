@@ -148,6 +148,12 @@ const ACTION_GROUPS = [
             { value: 'recovery_codes_regenerated', label: 'Recovery codes regenerated' },
             { value: 'password_changed', label: 'Password changed' },
             { value: 'pwned_password_rejected', label: 'Pwned password rejected' },
+            { value: 'google_oauth_login', label: 'Google OAuth login' },
+            { value: 'google_oauth_login_failed', label: 'Google OAuth login failed' },
+            { value: 'google_oauth_linked', label: 'Google OAuth linked' },
+            { value: 'google_oauth_unlinked', label: 'Google OAuth unlinked' },
+            { value: 'google_oauth_link_failed', label: 'Google OAuth link failed' },
+            { value: 'google_oauth_denied', label: 'Google OAuth denied' },
         ],
     },
     {

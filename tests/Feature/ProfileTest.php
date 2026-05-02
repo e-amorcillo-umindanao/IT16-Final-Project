@@ -107,7 +107,9 @@ class ProfileTest extends TestCase
         $response = $this
             ->actingAs($user)
             ->withSession(['2fa_verified' => true])
-            ->delete('/two-factor');
+            ->delete('/two-factor', [
+                'password' => 'password',
+            ]);
 
         $response
             ->assertSessionHasNoErrors()

@@ -9,15 +9,17 @@ export default function TwoFactorAuthenticationForm({
     twoFactorEnabled: boolean;
     className?: string;
 }) {
-    const { delete: destroy } = useForm();
+    const { data, setData, post, processing, errors, reset } = useForm({
+        password: '',
+    });
 
     const disableTwoFactor = (e: React.FormEvent) => {
         e.preventDefault();
-        
-        // Use password confirmation route via inertia visit
-        // A full implementation would pop a modal, but for simplicity
-        // redirect to confirm password first before deleting
-        destroy(route('two-factor.disable'));
+
+        post(route('two-factor.disable'), {
+            preserveScroll: true,
+            onSuccess: () => reset(),
+        });
     };
 
     return (
@@ -56,8 +58,17 @@ export default function TwoFactorAuthenticationForm({
 
                 <div>
                     {twoFactorEnabled ? (
-                        <form onSubmit={disableTwoFactor}>
-                            <Button variant="destructive" type="submit">
+                        <form onSubmit={disableTwoFactor} className="space-y-2">
+                            <input
+                                type="password"
+                                value={data.password}
+                                onChange={(event) => setData('password', event.target.value)}
+                                autoComplete="current-password"
+                                className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                placeholder="Current password"
+                            />
+                            {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+                            <Button variant="destructive" type="submit" disabled={processing}>
                                 Disable 2FA
                             </Button>
                         </form>

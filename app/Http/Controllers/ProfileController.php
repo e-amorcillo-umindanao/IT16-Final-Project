@@ -179,6 +179,10 @@ class ProfileController extends Controller
      */
     public function destroyTwoFactor(Request $request, AuditService $auditService): RedirectResponse
     {
+        $request->validate([
+            'password' => ['required', 'current_password'],
+        ]);
+
         $user = $request->user();
 
         $user->twoFactorRecoveryCodes()->delete();

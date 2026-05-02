@@ -49,7 +49,7 @@ Route::get('auth/google/callback', [GoogleOAuthController::class, 'callback'])
     ->middleware('throttle:google-oauth-callback')
     ->name('auth.google.callback');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'account-active', 'check-ip-policy'])->group(function () {
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');
 

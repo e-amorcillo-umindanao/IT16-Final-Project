@@ -18,6 +18,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -372,6 +373,7 @@ class AdminController extends Controller
 
     private function auditLogsQuery(Request $request): Builder
     {
+        $filters = $this->validatedAuditLogFilters($request);
         $query = AuditLog::with(['user', 'auditable' => fn ($query) => $query->withTrashed()])
             ->orderBy('created_at', $this->direction($request));
 
@@ -379,20 +381,20 @@ class AdminController extends Controller
             $query->where('category', $category);
         }
 
-        if ($request->filled('action')) {
-            $query->where('action', $request->action);
+        if (! empty($filters['action'])) {
+            $query->where('action', $filters['action']);
         }
 
-        if ($request->filled('from_date')) {
-            $query->whereDate('created_at', '>=', $request->from_date);
+        if (! empty($filters['from_date'])) {
+            $query->whereDate('created_at', '>=', $filters['from_date']);
         }
 
-        if ($request->filled('to_date')) {
-            $query->whereDate('created_at', '<=', $request->to_date);
+        if (! empty($filters['to_date'])) {
+            $query->whereDate('created_at', '<=', $filters['to_date']);
         }
 
-        if ($request->filled('user_id')) {
-            $query->where('user_id', $request->user_id);
+        if (! empty($filters['user_id'])) {
+            $query->where('user_id', $filters['user_id']);
         } elseif ($request->filled('user')) {
             $query->whereHas('user', function ($query) use ($request) {
                 $query->where('name', 'like', '%' . $request->user . '%')
@@ -401,6 +403,22 @@ class AdminController extends Controller
         }
 
         return $query;
+    }
+
+    /**
+     * @return array{action?: string, from_date?: string, to_date?: string, user_id?: int}
+     */
+    private function validatedAuditLogFilters(Request $request): array
+    {
+        return $request->validate([
+            'action' => ['nullable', 'string', Rule::in($this->auditService->knownActions())],
+            'from_date' => ['nullable', 'date_format:Y-m-d'],
+            'to_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from_date'],
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'user' => ['nullable', 'string', 'max:255'],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+            'category' => ['nullable', Rule::in(['all', AuditCategory::Security->value, AuditCategory::Audit->value])],
+        ]);
     }
 
     private function categoryFilter(Request $request): string
@@ -431,45 +449,6 @@ class AdminController extends Controller
         }
 
         return $from ? "From {$from}" : "Until {$to}";
-    }
-
-    /**
-     * Display a read-only list of all documents in the system.
-     */
-    public function documents(Request $request): Response
-    {
-        $query = Document::with('user:id,name,email')
-            ->latest();
-
-        if ($request->search) {
-            $search = $request->search;
-
-            $query->where(function ($q) use ($search) {
-                $q->where('original_name', 'like', "%{$search}%")
-                    ->orWhereHas('user', function ($userQuery) use ($search) {
-                        $userQuery->where('name', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        return Inertia::render('Admin/Documents', [
-            'documents' => $query->paginate(20)->withQueryString()
-                ->through(fn ($document) => [
-                    'id' => $document->id,
-                    'original_name' => $document->original_name,
-                    'mime_type' => $document->mime_type,
-                    'file_size' => $document->file_size,
-                    'created_at' => $document->created_at,
-                    'encryption_iv' => $document->encryption_iv,
-                    'user' => [
-                        'name' => $document->user->name,
-                        'email' => $document->user->email,
-                        'avatar_url' => $document->user->avatar_url,
-                    ],
-                ]),
-            'filters' => $request->only(['search']),
-        ]);
     }
 
     /**

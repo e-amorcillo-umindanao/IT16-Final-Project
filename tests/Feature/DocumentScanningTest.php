@@ -6,6 +6,7 @@ use App\Jobs\ScanDocumentWithVirusTotal;
 use App\Models\Document;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\EncryptionService;
 use App\Services\VirusTotalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -34,6 +35,7 @@ class DocumentScanningTest extends TestCase
     protected function tearDown(): void
     {
         File::deleteDirectory($this->vaultPath);
+        File::delete(storage_path('framework/testing/plain-scan-fixture.txt'));
 
         parent::tearDown();
     }
@@ -117,16 +119,24 @@ class DocumentScanningTest extends TestCase
             'scan_result' => 'pending',
         ]);
 
-        File::put($this->vaultPath.DIRECTORY_SEPARATOR.$document->encrypted_name, 'encrypted-payload');
+        $encrypted = app(EncryptionService::class)->encryptFile($this->writePlaintextFixture('plain-content'));
+        File::put($this->vaultPath.DIRECTORY_SEPARATOR.$document->encrypted_name, $encrypted['encrypted_content']);
+        $document->update([
+            'encryption_iv' => $encrypted['iv'],
+            'file_hash' => $encrypted['original_hash'],
+        ]);
 
         $this->mock(VirusTotalService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('scan')
                 ->once()
+                ->withArgs(function (string $path): bool {
+                    return File::exists($path) && File::get($path) === 'plain-content';
+                })
                 ->andReturn('malicious');
         });
 
         $job = new ScanDocumentWithVirusTotal($document);
-        $job->handle(app(VirusTotalService::class), app(AuditService::class));
+        $job->handle(app(VirusTotalService::class), app(AuditService::class), app(EncryptionService::class));
 
         $reloaded = Document::withTrashed()->findOrFail($document->id);
 
@@ -152,5 +162,13 @@ class DocumentScanningTest extends TestCase
             'description' => null,
             'scan_result' => 'clean',
         ], $attributes));
+    }
+
+    private function writePlaintextFixture(string $contents): string
+    {
+        $path = storage_path('framework/testing/plain-scan-fixture.txt');
+        File::put($path, $contents);
+
+        return $path;
     }
 }

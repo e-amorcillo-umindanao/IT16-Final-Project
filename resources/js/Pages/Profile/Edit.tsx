@@ -105,6 +105,9 @@ export default function Edit({
         password: '',
         password_confirmation: '',
     });
+    const disableTwoFactorForm = useForm({
+        password: '',
+    });
     const unlinkGoogleForm = useForm({
         password: '',
     });
@@ -120,6 +123,7 @@ export default function Edit({
     const [isAvatarRemoving, setIsAvatarRemoving] = useState(false);
     const [deletionDialogOpen, setDeletionDialogOpen] = useState(false);
     const [unlinkDialogOpen, setUnlinkDialogOpen] = useState(false);
+    const [disableTwoFactorDialogOpen, setDisableTwoFactorDialogOpen] = useState(false);
     const [avatarError, setAvatarError] = useState<string | null>(null);
     const flashedRecoveryCodes = page.props.flash?.recovery_codes ?? null;
     const pageErrors = page.props.errors ?? {};
@@ -277,10 +281,15 @@ export default function Edit({
         });
     };
 
-    const disableTwoFactor = () => {
-        router.delete(route('two-factor.destroy'), {
+    const disableTwoFactor = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        disableTwoFactorForm.post(route('two-factor.disable'), {
             preserveScroll: true,
             onSuccess: () => {
+                setDisableTwoFactorDialogOpen(false);
+                disableTwoFactorForm.reset();
+                disableTwoFactorForm.clearErrors();
                 toast.success('Two-factor authentication disabled.');
             },
         });
@@ -312,6 +321,12 @@ export default function Edit({
         setUnlinkDialogOpen(false);
         unlinkGoogleForm.clearErrors();
         unlinkGoogleForm.reset();
+    };
+
+    const closeDisableTwoFactorDialog = () => {
+        setDisableTwoFactorDialogOpen(false);
+        disableTwoFactorForm.clearErrors();
+        disableTwoFactorForm.reset();
     };
 
     const submitDeletionRequest = (event: FormEvent<HTMLFormElement>) => {
@@ -836,9 +851,13 @@ export default function Edit({
                                                 </AlertDialog>
                                             </div>
 
-                                            <AlertDialog>
+                                            <AlertDialog
+                                                open={disableTwoFactorDialogOpen}
+                                                onOpenChange={(open) => open ? setDisableTwoFactorDialogOpen(true) : closeDisableTwoFactorDialog()}
+                                            >
                                                 <AlertDialogTrigger asChild>
                                                     <Button
+                                                        type="button"
                                                         variant="outline"
                                                         className="w-full border-destructive/50 text-destructive hover:bg-destructive/10"
                                                     >
@@ -846,21 +865,46 @@ export default function Edit({
                                                     </Button>
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Disable 2FA?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            Disabling two-factor authentication reduces your account security. Are you sure?
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                        <AlertDialogAction
-                                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                                            onClick={disableTwoFactor}
-                                                        >
-                                                            Disable 2FA
-                                                        </AlertDialogAction>
-                                                    </AlertDialogFooter>
+                                                    <form onSubmit={disableTwoFactor} className="space-y-4">
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Disable 2FA?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                Enter your password to confirm. Disabling two-factor authentication reduces your account security.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+
+                                                        <div className="space-y-1.5">
+                                                            <Label htmlFor="disable_two_factor_password">Password</Label>
+                                                            <Input
+                                                                id="disable_two_factor_password"
+                                                                type="password"
+                                                                value={disableTwoFactorForm.data.password}
+                                                                onChange={(event) => disableTwoFactorForm.setData('password', event.target.value)}
+                                                                autoComplete="current-password"
+                                                            />
+                                                            <InputError message={disableTwoFactorForm.errors.password} />
+                                                        </div>
+
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel type="button" onClick={closeDisableTwoFactorDialog}>
+                                                                Cancel
+                                                            </AlertDialogCancel>
+                                                            <Button
+                                                                type="submit"
+                                                                variant="destructive"
+                                                                disabled={disableTwoFactorForm.processing}
+                                                            >
+                                                                {disableTwoFactorForm.processing ? (
+                                                                    <>
+                                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                                        Disabling...
+                                                                    </>
+                                                                ) : (
+                                                                    'Disable 2FA'
+                                                                )}
+                                                            </Button>
+                                                        </AlertDialogFooter>
+                                                    </form>
                                                 </AlertDialogContent>
                                             </AlertDialog>
                                         </CardContent>

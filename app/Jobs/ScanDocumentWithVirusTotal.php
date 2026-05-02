@@ -4,12 +4,14 @@ namespace App\Jobs;
 
 use App\Models\Document;
 use App\Services\AuditService;
+use App\Services\EncryptionService;
 use App\Services\VirusTotalService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 
 class ScanDocumentWithVirusTotal implements ShouldQueue
@@ -27,7 +29,7 @@ class ScanDocumentWithVirusTotal implements ShouldQueue
     ) {
     }
 
-    public function handle(VirusTotalService $virusTotal, AuditService $audit): void
+    public function handle(VirusTotalService $virusTotal, AuditService $audit, EncryptionService $encryption): void
     {
         $document = Document::query()->find($this->document->id);
 
@@ -36,7 +38,15 @@ class ScanDocumentWithVirusTotal implements ShouldQueue
         }
 
         $filePath = config('securevault.vault_path').DIRECTORY_SEPARATOR.$document->encrypted_name;
-        $result = $virusTotal->scan($filePath);
+        $scanPath = $this->writePlaintextScanFile($document, $filePath, $encryption);
+
+        try {
+            $result = $virusTotal->scan($scanPath);
+        } finally {
+            if (File::exists($scanPath)) {
+                File::delete($scanPath);
+            }
+        }
 
         $document->update([
             'scan_result' => $result,
@@ -58,6 +68,31 @@ class ScanDocumentWithVirusTotal implements ShouldQueue
             'document_id' => $document->id,
             'user_id' => $document->user_id,
         ]);
+    }
+
+    private function writePlaintextScanFile(Document $document, string $encryptedPath, EncryptionService $encryption): string
+    {
+        if (! File::exists($encryptedPath)) {
+            return $encryptedPath;
+        }
+
+        $tempDirectory = storage_path('app/temp/scans');
+        File::ensureDirectoryExists($tempDirectory, 0700, true);
+
+        $tempPath = tempnam($tempDirectory, 'vt_');
+
+        if ($tempPath === false) {
+            throw new \RuntimeException('Unable to create malware scan temp file.');
+        }
+
+        $plaintext = $encryption->decryptFile(
+            File::get($encryptedPath),
+            $document->encryption_iv,
+        );
+
+        File::put($tempPath, $plaintext);
+
+        return $tempPath;
     }
 
     public function failed(\Throwable $exception): void

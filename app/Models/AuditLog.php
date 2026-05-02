@@ -33,6 +33,7 @@ class AuditLog extends Model
         'user_agent',
         'hash',
         'previous_hash',
+        'hash_version',
         'created_at',
     ];
 
@@ -45,6 +46,7 @@ class AuditLog extends Model
     {
         return [
             'metadata' => 'array',
+            'hash_version' => 'integer',
             'created_at' => 'datetime',
         ];
     }

@@ -26,6 +26,15 @@ class LoginRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('email')) {
+            $this->merge([
+                'email' => mb_strtolower((string) $this->input('email')),
+            ]);
+        }
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -57,7 +66,8 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        $user = \App\Models\User::where('email', $this->email)->first();
+        $email = mb_strtolower((string) $this->input('email'));
+        $user = \App\Models\User::where('email', $email)->first();
         $auditService = app(\App\Services\AuditService::class);
         $location = app(IpInfoService::class)->lookup($this->ip())['location'] ?? 'Unknown location';
 
@@ -79,7 +89,7 @@ class LoginRequest extends FormRequest
         }
 
         // 2. Auth Attempt
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        if (! Auth::attempt(['email' => $email, 'password' => $this->input('password')], $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
             if ($user) {
@@ -88,14 +98,14 @@ class LoginRequest extends FormRequest
                 if ($user->failed_login_attempts >= 10) {
                     $user->lockAccount(15);
                     $auditService->log('account_locked', $user, [
-                        'email' => $this->email,
+                        'email' => $email,
                         'location' => $location,
                     ]);
                 }
             }
 
             $auditService->log('login_failed', null, [
-                'email' => $this->email,
+                'email' => $email,
                 'location' => $location,
             ]);
 

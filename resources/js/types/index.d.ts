@@ -25,7 +25,11 @@ export interface Document {
     encrypted_name: string;
     file_size: number;
     mime_type: string;
-    hmac_hash: string;
+    file_hash: string;
+    description?: string | null;
+    is_starred?: boolean;
+    current_version?: number;
+    scan_result?: 'pending' | 'clean' | 'unscanned' | 'unavailable' | 'malicious';
     created_at: string;
     updated_at: string;
     deleted_at?: string;
@@ -34,10 +38,9 @@ export interface Document {
 export interface DocumentShare {
     id: number;
     document_id: number;
-    owner_id: number;
-    shared_with_user_id?: number;
-    shared_with_email: string;
-    permission_level: 'view_only' | 'download' | 'full_access';
+    shared_by_id: number;
+    shared_with_id: number;
+    permission: 'view_only' | 'download' | 'full_access';
     expires_at?: string;
     created_at: string;
     updated_at: string;
@@ -50,15 +53,14 @@ export interface AuditLog {
     document_id?: number;
     action: string;
     category?: 'security' | 'audit';
-    table_name?: string;
-    record_id?: number;
-    old_values?: any;
-    new_values?: any;
+    auditable_type?: string | null;
+    auditable_id?: number | null;
     metadata?: any;
     ip_address?: string;
     user_agent?: string;
+    hash: string;
     previous_hash?: string;
-    current_hash: string;
+    hash_version?: number;
     created_at: string;
     user?: User;
 }
