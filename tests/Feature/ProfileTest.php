@@ -50,6 +50,18 @@ class ProfileTest extends TestCase
         $this->assertArrayNotHasKey('google_id', $props);
     }
 
+    public function test_google_avatar_is_absent_from_user_json_serialization(): void
+    {
+        $user = User::factory()->create([
+            'google_avatar' => 'https://example.com/google-avatar.png',
+        ]);
+
+        $serializedUser = $user->toArray();
+
+        $this->assertArrayNotHasKey('google_avatar', $serializedUser);
+        $this->assertSame('https://example.com/google-avatar.png', $serializedUser['avatar_url'] ?? null);
+    }
+
     public function test_profile_information_can_be_updated(): void
     {
         Notification::fake();

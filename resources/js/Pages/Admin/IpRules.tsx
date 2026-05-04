@@ -10,16 +10,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -34,12 +26,13 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { cidrContainsIp, parseCidr } from '@/lib/cidrContains';
 import { cn } from '@/lib/utils';
 import { PageProps } from '@/types';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { format } from 'date-fns';
 import {
     AlertTriangle,
     CheckCircle2,
     Monitor,
+    Shield,
     ShieldAlert,
     Trash2,
     XCircle,
@@ -151,21 +144,19 @@ export default function IpRules({ currentIp, rules }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="space-y-1">
-                    <h2 className="text-2xl font-semibold text-foreground">IP Access Rules</h2>
-                    <Breadcrumb>
-                        <BreadcrumbList>
-                            <BreadcrumbItem>
-                                <BreadcrumbLink asChild>
-                                    <Link href={route('admin.dashboard')}>Admin</Link>
-                                </BreadcrumbLink>
-                            </BreadcrumbItem>
-                            <BreadcrumbSeparator />
-                            <BreadcrumbItem>
-                                <BreadcrumbPage>IP Access Rules</BreadcrumbPage>
-                            </BreadcrumbItem>
-                        </BreadcrumbList>
-                    </Breadcrumb>
+                <div className="space-y-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                        Network Controls
+                    </div>
+                    <div className="space-y-2">
+                        <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
+                            IP Access Rules
+                        </h1>
+                        <p className="max-w-3xl text-sm text-stone-500">
+                            Manage the IP ranges allowed or denied access to your application. These rules
+                            apply immediately and should be reviewed carefully before saving.
+                        </p>
+                    </div>
                 </div>
             }
         >
@@ -173,29 +164,36 @@ export default function IpRules({ currentIp, rules }: Props) {
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-2 text-sm text-muted-foreground">
-                        <Monitor className="h-4 w-4 shrink-0" />
-                        <span>
-                            Your current IP address is{' '}
-                            <code className="font-mono font-medium text-foreground">{currentIp}</code> - ensure you do
-                            not block yourself.
-                        </span>
-                    </div>
+                    <Alert className="rounded-[28px] border border-[#efc7b8] bg-[#fdf0ea] px-5 py-4 text-[#8a3b1f] shadow-sm">
+                        <Monitor className="h-4 w-4 text-[#c65e38]" />
+                        <AlertDescription className="text-sm leading-7 text-[#8c4d35]">
+                            Your current IP address is <code className="font-mono font-semibold text-[#6d2c15]">{currentIp}</code>.
+                            Make sure you do not block yourself.
+                        </AlertDescription>
+                    </Alert>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Add Rule</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-5">
+                    <Card className="rounded-[30px] border border-[#ead8cd] bg-white/95 shadow-sm">
+                        <CardContent className="space-y-5 p-6">
+                            <div className="space-y-1">
+                                <h2 className="text-2xl font-semibold text-stone-950">Add Rule</h2>
+                                <p className="text-sm text-stone-500">
+                                    Create a new allowlist or blocklist entry using a valid CIDR range.
+                                </p>
+                            </div>
+
                             <form onSubmit={submitIntent} className="space-y-5">
-                                <div className="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)_minmax(0,1fr)_auto]">
+                                <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)_minmax(0,1fr)_auto]">
                                     <div className="space-y-2">
                                         <Label htmlFor="rule-type">Type</Label>
                                         <Select
                                             value={form.data.type}
                                             onValueChange={(value: RuleType) => form.setData('type', value)}
                                         >
-                                            <SelectTrigger id="rule-type" aria-label="Select rule type">
+                                            <SelectTrigger
+                                                id="rule-type"
+                                                aria-label="Select rule type"
+                                                className="h-12 rounded-2xl border-[#e8d7cc] bg-white shadow-none"
+                                            >
                                                 <SelectValue placeholder="Select type" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -203,9 +201,7 @@ export default function IpRules({ currentIp, rules }: Props) {
                                                 <SelectItem value="blocklist">Blocklist</SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        {form.errors.type && (
-                                            <p className="text-sm text-destructive">{form.errors.type}</p>
-                                        )}
+                                        {form.errors.type && <p className="text-sm text-destructive">{form.errors.type}</p>}
                                     </div>
 
                                     <div className="space-y-2">
@@ -215,50 +211,9 @@ export default function IpRules({ currentIp, rules }: Props) {
                                             value={form.data.cidr}
                                             onChange={(event) => form.setData('cidr', event.target.value)}
                                             placeholder="203.0.113.0/24"
+                                            className="h-12 rounded-2xl border-[#e8d7cc] bg-[#fffaf7] shadow-none focus-visible:ring-amber-200"
                                         />
-                                        {form.errors.cidr && (
-                                            <p className="text-sm text-destructive">{form.errors.cidr}</p>
-                                        )}
-                                        {selfLockoutRisk && (
-                                            <div className="mt-2 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                                                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                                                <span>
-                                                    <strong>Self-lockout risk:</strong> your current IP (
-                                                    <code className="font-mono">{currentIp}</code>) falls within this
-                                                    CIDR range. Adding this rule will block your own access.
-                                                </span>
-                                            </div>
-                                        )}
-                                        {cidrInfo && !selfLockoutRisk && (
-                                            <div
-                                                className={cn(
-                                                    'mt-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs',
-                                                    cidrInfo.valid
-                                                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                                                        : 'border-destructive/30 bg-destructive/10 text-destructive',
-                                                )}
-                                            >
-                                                {cidrInfo.valid ? (
-                                                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                                                ) : (
-                                                    <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                                                )}
-                                                <span>
-                                                    {cidrInfo.valid ? (
-                                                        <>
-                                                            <code className="font-mono">{cidrInfo.first}</code>
-                                                            {' - '}
-                                                            <code className="font-mono">{cidrInfo.last}</code>
-                                                            {' · '}
-                                                            {cidrInfo.count?.toLocaleString()} address
-                                                            {cidrInfo.count !== 1 ? 'es' : ''}
-                                                        </>
-                                                    ) : (
-                                                        cidrInfo.error
-                                                    )}
-                                                </span>
-                                            </div>
-                                        )}
+                                        {form.errors.cidr && <p className="text-sm text-destructive">{form.errors.cidr}</p>}
                                     </div>
 
                                     <div className="space-y-2">
@@ -268,17 +223,16 @@ export default function IpRules({ currentIp, rules }: Props) {
                                             value={form.data.label}
                                             onChange={(event) => form.setData('label', event.target.value)}
                                             placeholder="Office network"
+                                            className="h-12 rounded-2xl border-[#e8d7cc] bg-[#fffaf7] shadow-none focus-visible:ring-amber-200"
                                         />
-                                        {form.errors.label && (
-                                            <p className="text-sm text-destructive">{form.errors.label}</p>
-                                        )}
+                                        {form.errors.label && <p className="text-sm text-destructive">{form.errors.label}</p>}
                                     </div>
 
                                     <div className="flex items-end">
                                         <Button
                                             type="submit"
                                             disabled={form.processing || !cidrInfo?.valid}
-                                            className="w-full md:w-auto"
+                                            className="h-12 rounded-2xl bg-[#b24b23] px-6 text-white hover:bg-[#9f401c]"
                                         >
                                             Add Rule
                                         </Button>
@@ -286,79 +240,105 @@ export default function IpRules({ currentIp, rules }: Props) {
                                 </div>
                             </form>
 
-                            <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
-                                <ShieldAlert className="h-4 w-4" />
-                                <AlertDescription>
-                                    If any allowlist rule exists, all IPs not in the list are denied. Blocklist rules
-                                    only apply when no allowlist rules are present.
+                            {selfLockoutRisk && (
+                                <div className="flex items-start gap-3 rounded-[20px] border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                                    <span>
+                                        <strong>Self-lockout risk:</strong> your current IP (
+                                        <code className="font-mono">{currentIp}</code>) falls inside this CIDR range.
+                                        Saving this blocklist rule would deny your own access.
+                                    </span>
+                                </div>
+                            )}
+
+                            {cidrInfo && !selfLockoutRisk && (
+                                <div
+                                    className={cn(
+                                        'flex items-start gap-3 rounded-[20px] border px-4 py-3 text-sm',
+                                        cidrInfo.valid
+                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                            : 'border-destructive/30 bg-destructive/10 text-destructive',
+                                    )}
+                                >
+                                    {cidrInfo.valid ? (
+                                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                                    ) : (
+                                        <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                    )}
+                                    <span>
+                                        {cidrInfo.valid ? (
+                                            <>
+                                                <code className="font-mono">{cidrInfo.first}</code> -{' '}
+                                                <code className="font-mono">{cidrInfo.last}</code> /{' '}
+                                                {cidrInfo.count?.toLocaleString()} address
+                                                {cidrInfo.count !== 1 ? 'es' : ''}
+                                            </>
+                                        ) : (
+                                            cidrInfo.error
+                                        )}
+                                    </span>
+                                </div>
+                            )}
+
+                            <Alert className="rounded-[22px] border border-[#f0d6b9] bg-[#fff8ec] px-4 py-3 text-amber-700 shadow-none">
+                                <ShieldAlert className="h-4 w-4 text-amber-600" />
+                                <AlertDescription className="text-sm leading-7">
+                                    If any allowlist rule exists, all IPs not in that list are denied.
+                                    Blocklist rules only apply when no allowlist rules are present.
                                 </AlertDescription>
                             </Alert>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center justify-between gap-4">
-                                <CardTitle>Current Rules</CardTitle>
-                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                    {allowlistCount > 0 && (
-                                        <span>
-                                            <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                                                {allowlistCount}
-                                            </span>{' '}
-                                            allowlist
-                                        </span>
-                                    )}
-                                    {blocklistCount > 0 && (
-                                        <span>
-                                            <span className="font-medium text-destructive">{blocklistCount}</span>{' '}
-                                            blocklist
-                                        </span>
-                                    )}
-                                    {rules.length === 0 && <span>No rules configured</span>}
+                    <Card className="overflow-hidden rounded-[30px] border border-[#ead8cd] bg-white/95 shadow-sm">
+                        <CardContent className="p-0">
+                            <div className="flex items-center justify-between border-b border-[#ead8cd] bg-[#fff8f4] px-6 py-5">
+                                <h2 className="text-2xl font-semibold text-stone-950">Current Rules</h2>
+                                <div className="rounded-full border border-[#ead8cd] bg-white px-4 py-2 text-sm text-stone-600">
+                                    {rules.length} rule{rules.length !== 1 ? 's' : ''}
                                 </div>
                             </div>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Type</TableHead>
-                                        <TableHead>CIDR</TableHead>
-                                        <TableHead>Label</TableHead>
-                                        <TableHead>Added By</TableHead>
-                                        <TableHead>Added At</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {rules.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                                                No IP rules configured. All IPs are currently allowed.
-                                            </TableCell>
+
+                            {rules.length === 0 ? (
+                                <div className="flex min-h-[320px] flex-col items-center justify-center px-6 py-16 text-center">
+                                    <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[#f8e9e2] text-[#d8b8a8]">
+                                        <Shield className="h-10 w-10" />
+                                    </div>
+                                    <p className="text-3xl font-semibold text-stone-950">No rules configured</p>
+                                    <p className="mt-3 max-w-lg text-sm leading-7 text-stone-500">
+                                        No IP rules are configured yet. Until you add a rule, all IPs are currently allowed.
+                                    </p>
+                                </div>
+                            ) : (
+                                <Table>
+                                    <TableHeader className="bg-white [&_tr]:border-[#ead8cd]">
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead className="py-4 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Type</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">CIDR</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Label</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Added By</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Added At</TableHead>
+                                            <TableHead className="text-right text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Actions</TableHead>
                                         </TableRow>
-                                    ) : (
-                                        rules.map((rule) => (
-                                            <TableRow key={rule.id}>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {rules.map((rule) => (
+                                            <TableRow key={rule.id} className="border-[#f0e1d8] hover:bg-[#fffaf7]">
                                                 <TableCell>
-                                                    <Badge
-                                                        variant="outline"
-                                                        className={typeBadgeClass(rule.type)}
-                                                    >
+                                                    <Badge variant="outline" className={typeBadgeClass(rule.type)}>
                                                         {typeLabel(rule.type)}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="font-mono text-sm text-foreground">
+                                                <TableCell className="font-mono text-sm text-stone-950">
                                                     {rule.cidr}
                                                 </TableCell>
-                                                <TableCell className="text-sm text-muted-foreground">
+                                                <TableCell className="text-sm text-stone-600">
                                                     {rule.label || '-'}
                                                 </TableCell>
-                                                <TableCell className="text-sm text-foreground">
+                                                <TableCell className="text-sm text-stone-800">
                                                     {rule.creator?.name ?? 'Unknown'}
                                                 </TableCell>
-                                                <TableCell className="text-sm text-muted-foreground">
+                                                <TableCell className="text-sm text-stone-600">
                                                     {format(new Date(rule.created_at), 'MMM d, yyyy HH:mm')}
                                                 </TableCell>
                                                 <TableCell className="text-right">
@@ -366,7 +346,7 @@ export default function IpRules({ currentIp, rules }: Props) {
                                                         type="button"
                                                         variant="ghost"
                                                         size="sm"
-                                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                        className="rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive"
                                                         onClick={() => setRulePendingDelete(rule)}
                                                     >
                                                         <Trash2 className="h-4 w-4" />
@@ -374,10 +354,10 @@ export default function IpRules({ currentIp, rules }: Props) {
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
@@ -406,10 +386,8 @@ export default function IpRules({ currentIp, rules }: Props) {
                                 </p>
                                 {cidrInfo?.valid && (
                                     <p className="text-muted-foreground">
-                                        This covers <code className="font-mono">{cidrInfo.first}</code>
-                                        {' - '}
-                                        <code className="font-mono">{cidrInfo.last}</code> (
-                                        {cidrInfo.count?.toLocaleString()} address
+                                        This covers <code className="font-mono">{cidrInfo.first}</code> -{' '}
+                                        <code className="font-mono">{cidrInfo.last}</code> ({cidrInfo.count?.toLocaleString()} address
                                         {cidrInfo.count !== 1 ? 'es' : ''}).
                                     </p>
                                 )}

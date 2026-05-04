@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class DocumentVersionTest extends TestCase
@@ -18,21 +19,28 @@ class DocumentVersionTest extends TestCase
     use RefreshDatabase;
 
     private string $vaultPath;
+    private string $scanStagingPath;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->vaultPath = storage_path('framework/testing/vault');
+        $this->scanStagingPath = storage_path('framework/testing/scan-staging');
+
         config(['securevault.vault_path' => $this->vaultPath]);
+        config(['filesystems.disks.scan-staging.root' => $this->scanStagingPath]);
 
         File::deleteDirectory($this->vaultPath);
+        File::deleteDirectory($this->scanStagingPath);
         File::ensureDirectoryExists($this->vaultPath);
+        File::ensureDirectoryExists($this->scanStagingPath);
     }
 
     protected function tearDown(): void
     {
         File::deleteDirectory($this->vaultPath);
+        File::deleteDirectory($this->scanStagingPath);
 
         parent::tearDown();
     }
@@ -72,7 +80,13 @@ class DocumentVersionTest extends TestCase
         $this->assertSame('pending', $document->scan_result);
         $this->assertFileExists($this->vaultPath.DIRECTORY_SEPARATOR.'proposal-v1.enc');
         $this->assertFileExists($this->vaultPath.DIRECTORY_SEPARATOR.$document->encrypted_name);
-        Queue::assertPushed(ScanDocumentWithVirusTotal::class, 1);
+        Queue::assertPushed(ScanDocumentWithVirusTotal::class, function (ScanDocumentWithVirusTotal $job) use ($document): bool {
+            $this->assertSame($document->id, $job->documentId);
+            $this->assertTrue(Storage::disk('scan-staging')->exists($job->stagingName));
+            $this->assertStringStartsWith($this->scanStagingPath, Storage::disk('scan-staging')->path($job->stagingName));
+
+            return true;
+        });
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'document_version_uploaded',
             'auditable_type' => Document::class,

@@ -10,14 +10,6 @@ import {
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent } from '@/components/ui/card';
@@ -514,24 +506,20 @@ export default function Index({ documents, flash, sort, direction }: Props) {
         <AuthenticatedLayout
             header={
                 <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-1">
-                        <h2 className="text-xl font-semibold leading-tight text-foreground">My Vault</h2>
-                        <Breadcrumb>
-                            <BreadcrumbList>
-                                <BreadcrumbItem>
-                                    <BreadcrumbLink asChild>
-                                        <Link href="/dashboard">Main</Link>
-                                    </BreadcrumbLink>
-                                </BreadcrumbItem>
-                                <BreadcrumbSeparator />
-                                <BreadcrumbItem>
-                                    <BreadcrumbPage>My Vault</BreadcrumbPage>
-                                </BreadcrumbItem>
-                            </BreadcrumbList>
-                        </Breadcrumb>
+                    <div className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                            Secure Document Workspace
+                        </p>
+                        <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
+                            My Vault
+                        </h1>
+                        <p className="max-w-2xl text-sm leading-6 text-stone-600">
+                            Manage and securely store your academic and professional
+                            documents with clear scan and integrity visibility.
+                        </p>
                     </div>
                     <Link href={route('documents.create')} className="shrink-0">
-                        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+                        <Button className="bg-amber-700 text-white hover:bg-amber-800">
                             <Plus className="mr-2 h-4 w-4" />
                             Upload Document
                         </Button>
@@ -542,26 +530,26 @@ export default function Index({ documents, flash, sort, direction }: Props) {
             <Head title="My Vault" />
 
             <TooltipProvider>
-                <div className="py-10">
+                <div className="py-8">
                     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                         {totalDocuments === 0 ? (
                             <div className="flex min-h-[calc(100vh-18rem)] items-center justify-center">
-                                <Card className="flex w-full max-w-md flex-col items-center justify-center py-20">
+                                <Card className="flex w-full max-w-xl flex-col items-center justify-center rounded-[32px] border-stone-200/80 bg-white py-24 shadow-sm">
                                     <CardContent className="flex flex-col items-center gap-4 text-center">
-                                        <div className="relative rounded-xl bg-muted p-5">
-                                            <LockKeyhole className="h-16 w-16 text-muted-foreground" />
-                                            <div className="absolute -bottom-2 -right-2 rounded-full bg-primary p-1.5 text-primary-foreground">
+                                        <div className="relative rounded-[28px] bg-stone-100 p-6">
+                                            <LockKeyhole className="h-16 w-16 text-stone-500" />
+                                            <div className="absolute -bottom-2 -right-2 rounded-full bg-amber-700 p-1.5 text-white">
                                                 <ShieldCheck className="h-5 w-5" />
                                             </div>
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-semibold text-foreground">Your vault is empty</h3>
-                                            <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+                                            <h3 className="text-2xl font-semibold text-stone-950">Your vault is empty</h3>
+                                            <p className="mt-2 max-w-sm text-sm leading-6 text-stone-500">
                                                 Upload and encrypt your first document to get started.
                                             </p>
                                         </div>
                                         <Link href={route('documents.create')}>
-                                            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+                                            <Button className="bg-amber-700 text-white hover:bg-amber-800">
                                                 <Upload className="mr-2 h-4 w-4" />
                                                 Upload Document
                                             </Button>
@@ -571,7 +559,7 @@ export default function Index({ documents, flash, sort, direction }: Props) {
                             </div>
                         ) : (
                             <div className="space-y-6">
-                                <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+                                <div className="rounded-[28px] border border-stone-200/80 bg-white p-4 shadow-sm sm:p-5">
                                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                         <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
                                             <div className="relative w-full sm:max-w-sm">
@@ -581,13 +569,13 @@ export default function Index({ documents, flash, sort, direction }: Props) {
                                                     onChange={(event) => setSearch(event.target.value)}
                                                     placeholder="Search documents..."
                                                     aria-label="Search documents"
-                                                    className="bg-background pl-9"
+                                                    className="border-stone-200 bg-stone-50 pl-9"
                                                 />
                                             </div>
                                             <div className="w-full sm:w-[220px]">
                                                 <Select value={fileType} onValueChange={(value) => setFileType(value as FileFilter)}>
                                                     <SelectTrigger
-                                                        className="w-40 bg-background"
+                                                        className="w-40 border-stone-200 bg-stone-50"
                                                         aria-label="Filter documents by file type"
                                                     >
                                                         <SelectValue placeholder="All Types" />
@@ -604,14 +592,19 @@ export default function Index({ documents, flash, sort, direction }: Props) {
                                             <Button
                                                 variant={showStarredOnly ? 'default' : 'outline'}
                                                 size="sm"
-                                                className="gap-2"
+                                                className={cn(
+                                                    'gap-2',
+                                                    showStarredOnly
+                                                        ? 'bg-amber-700 text-white hover:bg-amber-800'
+                                                        : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50',
+                                                )}
                                                 onClick={() => setShowStarredOnly((current) => !current)}
                                             >
                                                 <Star className="h-3.5 w-3.5" />
                                                 Starred
                                             </Button>
                                         </div>
-                                        <p className="text-sm text-muted-foreground">
+                                        <p className="text-sm text-stone-500">
                                             {filteredCount} {filteredCount === 1 ? 'document' : 'documents'}
                                         </p>
                                         <div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -625,11 +618,11 @@ export default function Index({ documents, flash, sort, direction }: Props) {
                                 </div>
 
                                 {someSelected && (
-                                    <div className="animate-in fade-in slide-in-from-top-1 mb-2 flex flex-col gap-3 rounded-lg border border-border bg-muted/60 px-4 py-2.5 duration-150 sm:flex-row sm:items-center">
-                                        <span className="text-sm font-medium text-foreground">
+                                    <div className="animate-in fade-in slide-in-from-top-1 mb-2 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 duration-150 sm:flex-row sm:items-center">
+                                        <span className="text-sm font-medium text-stone-950">
                                             {selected.length} selected
                                         </span>
-                                        <div className="hidden h-4 w-px bg-border sm:block" />
+                                        <div className="hidden h-4 w-px bg-amber-200 sm:block" />
                                         <div className="flex flex-wrap items-center gap-2">
                                             <Button
                                                 variant="outline"
@@ -695,18 +688,18 @@ export default function Index({ documents, flash, sort, direction }: Props) {
                                     </div>
                                 )}
 
-                                <div className="overflow-hidden rounded-xl border border-border bg-card">
+                                    <div className="overflow-hidden rounded-[28px] border border-stone-200/80 bg-white shadow-sm">
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="hover:bg-transparent">
-                                                <TableHead className="w-12">
+                                                <TableHead className="w-12 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                                                     <Checkbox
                                                         checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
                                                         onCheckedChange={(checked) => toggleSelectAll(checked === true)}
                                                         aria-label="Select all visible documents"
                                                     />
                                                 </TableHead>
-                                                <TableHead className="w-14">Star</TableHead>
+                                                <TableHead className="w-14 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Star</TableHead>
                                                 <TableHead>
                                                     <SortableHeader
                                                         column="original_name"
@@ -732,9 +725,9 @@ export default function Index({ documents, flash, sort, direction }: Props) {
                                                         defaultDirection="desc"
                                                     />
                                                 </TableHead>
-                                                <TableHead className="hidden md:table-cell">Scan</TableHead>
-                                                <TableHead className="hidden md:table-cell">Integrity</TableHead>
-                                                <TableHead className="w-[112px] text-right">Actions</TableHead>
+                                                <TableHead className="hidden md:table-cell text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Scan Status</TableHead>
+                                                <TableHead className="hidden md:table-cell text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Integrity</TableHead>
+                                                <TableHead className="w-[112px] text-right text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -923,9 +916,9 @@ export default function Index({ documents, flash, sort, direction }: Props) {
                                 </div>
 
                                 {documents.total > 15 && (
-                                    <div className="flex items-center justify-between gap-3">
-                                        <p className="text-sm text-muted-foreground">
-                                            Page {documents.current_page} of {documents.last_page}
+                                    <div className="flex items-center justify-between gap-3 rounded-[24px] border border-stone-200/80 bg-white px-5 py-4 shadow-sm">
+                                        <p className="text-sm text-stone-500">
+                                            Showing {documents.from ?? 0} to {documents.to ?? 0} of {documents.total} results
                                         </p>
                                         <Pagination className="mx-0 w-auto justify-end">
                                             <PaginationContent>

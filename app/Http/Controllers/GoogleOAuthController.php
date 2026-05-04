@@ -125,34 +125,29 @@ class GoogleOAuthController extends Controller
             return $this->redirectWithGoogleError('login', 'Google did not return a usable account identity.');
         }
 
-        if (! str_ends_with($googleEmail, '@gmail.com')) {
-            $this->audit->logSystem('google_oauth_login_failed', metadata: [
-                'reason' => 'non_gmail_account',
-                'email' => $googleEmail,
-            ]);
-
-            return $this->redirectWithGoogleError('login', 'Only Gmail accounts are supported.');
-        }
-
-        if (! $this->isGoogleEmailVerified($googleUser)) {
-            $this->audit->logSystem('google_oauth_login_failed', metadata: [
-                'reason' => 'email_not_verified_by_google',
-                'email' => $googleEmail,
-            ]);
-
-            return $this->redirectWithGoogleError('login', 'Your Google email address must be verified before you can use Google sign-in.');
-        }
-
         $user = User::query()
             ->where('google_id', $googleId)
-            ->first()
-            ?? User::query()->where('email', $googleEmail)->first();
+            ->first();
 
         if (! $user) {
             $this->audit->logSystem('google_oauth_login_failed', metadata: [
-                'reason' => 'no_account',
-                'email' => $googleEmail,
+                'reason' => 'no_matching_google_id',
+                'google_email' => $googleEmail,
             ]);
+
+            $userByEmail = User::query()->where('email', $googleEmail)->first();
+
+            if ($userByEmail && ! $userByEmail->hasGoogleLinked()) {
+                return redirect()->route('login')->withErrors([
+                    'google' => 'This SecureVault account has not linked Google sign-in yet. Sign in with your password first, then link Google from your Profile settings.',
+                ]);
+            }
+
+            if ($userByEmail && $userByEmail->google_id !== $googleId) {
+                return redirect()->route('login')->withErrors([
+                    'google' => 'Google sign-in failed. Please sign in with your password or contact support.',
+                ]);
+            }
 
             return redirect()
                 ->route('register')
@@ -160,6 +155,24 @@ class GoogleOAuthController extends Controller
                 ->withErrors([
                     'google' => 'No SecureVault account was found for this Google account. Please register first.',
                 ]);
+        }
+
+        if (! str_ends_with($googleEmail, '@gmail.com')) {
+            $this->audit->logForUser($user, 'google_oauth_login_failed', metadata: [
+                'reason' => 'non_gmail_account',
+                'google_email' => $googleEmail,
+            ]);
+
+            return $this->redirectWithGoogleError('login', 'Only Gmail accounts are supported.');
+        }
+
+        if (! $this->isGoogleEmailVerified($googleUser)) {
+            $this->audit->logForUser($user, 'google_oauth_login_failed', metadata: [
+                'reason' => 'email_not_verified_by_google',
+                'google_email' => $googleEmail,
+            ]);
+
+            return $this->redirectWithGoogleError('login', 'Your Google email address must be verified before you can use Google sign-in.');
         }
 
         if (! $user->is_active) {
@@ -179,18 +192,6 @@ class GoogleOAuthController extends Controller
             return $this->redirectWithGoogleError(
                 'login',
                 'The Google account email does not match your SecureVault email.',
-            );
-        }
-
-        if (! $user->hasGoogleLinked() || $user->google_id !== $googleId) {
-            $this->audit->logForUser($user, 'google_oauth_login_failed', metadata: [
-                'reason' => 'google_not_linked',
-                'google_email' => $googleEmail,
-            ]);
-
-            return $this->redirectWithGoogleError(
-                'login',
-                'Google sign-in is not linked to your account yet. Link it from your Profile page first.',
             );
         }
 

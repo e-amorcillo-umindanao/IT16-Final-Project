@@ -61,6 +61,7 @@ export const AUDIT_ACTION_BADGES: Record<string, AuditBadge> = {
     google_oauth_linked: { icon: ShieldCheck, label: 'Google Linked', className: 'border-transparent bg-green-500/15 text-green-700 dark:text-green-400' },
     google_oauth_unlinked: { icon: ShieldOff, label: 'Google Unlinked', className: 'border-transparent bg-amber-500/15 text-amber-600 dark:text-amber-400' },
     google_oauth_denied: { icon: Activity, label: 'Google OAuth Denied', className: 'border-transparent bg-muted text-muted-foreground' },
+    email_verified: { icon: ShieldCheck, label: 'Email Verified', className: 'border-transparent bg-green-500/15 text-green-700 dark:text-green-400' },
     login_failed: { icon: LogIn, label: 'Login failed', className: 'border-transparent bg-destructive/15 text-destructive' },
     google_oauth_login_failed: { icon: ShieldAlert, label: 'Google Sign-In Failed', className: 'border-transparent bg-destructive/15 text-destructive' },
     google_oauth_link_failed: { icon: ShieldAlert, label: 'Google Link Failed', className: 'border-transparent bg-destructive/15 text-destructive' },

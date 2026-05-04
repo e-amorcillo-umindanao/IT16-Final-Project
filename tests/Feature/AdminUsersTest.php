@@ -77,4 +77,30 @@ class AdminUsersTest extends TestCase
                 ->where('users.data.0.id', $recentUser->id)
                 ->where('users.data.1.id', $olderUser->id));
     }
+
+    public function test_super_admin_does_not_see_their_own_account_in_the_users_table(): void
+    {
+        $superAdmin = User::factory()->create([
+            'name' => 'Hidden Super Admin',
+            'email' => 'hidden.super.admin@example.com',
+        ]);
+        $superAdmin->assignRole('super-admin');
+
+        $visibleUser = User::factory()->create([
+            'name' => 'Visible User',
+        ]);
+
+        $response = $this->actingAs($superAdmin)->get(route('admin.users'));
+
+        $response->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Admin/Users/Index')
+                ->where('users.total', 1)
+                ->where('users.data.0.id', $visibleUser->id)
+                ->missing('users.data.1'));
+
+        $payload = $response->viewData('page')['props']['users']['data'];
+
+        $this->assertNotContains($superAdmin->id, array_column($payload, 'id'));
+    }
 }

@@ -17,8 +17,10 @@
 /public/build
 /public/hot
 /public/storage
+/Documents/
 /storage/app/exports/*
 !/storage/app/exports/.gitkeep
+/storage/app/scan-staging/
 /storage/*.key
 /storage/pail
 /vendor

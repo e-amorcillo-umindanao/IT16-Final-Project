@@ -10,16 +10,8 @@ import {
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
     Select,
@@ -33,14 +25,10 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import UserAvatar from '@/components/UserAvatar';
 import { parseUserAgent } from '@/lib/parseUserAgent';
 import { cn } from '@/lib/utils';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
+import { differenceInHours, format, formatDistanceToNow, fromUnixTime } from 'date-fns';
 import {
-    differenceInHours,
-    format,
-    formatDistanceToNow,
-    fromUnixTime,
-} from 'date-fns';
-import {
+    Clock3,
     MapPin,
     Monitor,
     RefreshCw,
@@ -101,10 +89,11 @@ export default function AdminSessionsIndex({
     const [lastRefreshed, setLastRefreshed] = useState(() => new Date());
 
     const enrichedSessions = useMemo(
-        () => sessions.map((session) => ({
-            ...session,
-            device: parseUserAgent(session.user_agent),
-        })),
+        () =>
+            sessions.map((session) => ({
+                ...session,
+                device: parseUserAgent(session.user_agent),
+            })),
         [sessions],
     );
 
@@ -130,6 +119,8 @@ export default function AdminSessionsIndex({
         });
     }, [enrichedSessions, search]);
 
+    const currentSession = enrichedSessions.find((session) => session.id === currentSessionId) ?? null;
+    const nonCurrentSessions = filteredSessions.filter((session) => session.id !== currentSessionId);
     const showIdleState = terminableSessionsCount === 0 && search.trim() === '' && !selectedUser;
 
     const handleRevoke = (sessionId: string) => {
@@ -158,27 +149,24 @@ export default function AdminSessionsIndex({
     return (
         <AuthenticatedLayout
             header={
-                <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-2xl font-semibold text-foreground">Session Monitoring</h2>
-                        <Badge className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground hover:bg-primary">
-                            {sessions.length}
-                        </Badge>
+                <div className="space-y-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                        Session Oversight
                     </div>
-                    <p className="text-sm text-muted-foreground">System-wide active session oversight.</p>
-                    <Breadcrumb>
-                        <BreadcrumbList>
-                            <BreadcrumbItem>
-                                <BreadcrumbLink asChild>
-                                    <Link href="/admin">Admin</Link>
-                                </BreadcrumbLink>
-                            </BreadcrumbItem>
-                            <BreadcrumbSeparator />
-                            <BreadcrumbItem>
-                                <BreadcrumbPage>Session Monitoring</BreadcrumbPage>
-                            </BreadcrumbItem>
-                        </BreadcrumbList>
-                    </Breadcrumb>
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
+                                Session Monitoring
+                            </h1>
+                            <Badge className="rounded-full border border-[#efcdbf] bg-[#fff4ee] px-3 py-1 text-sm font-medium text-[#a64824] hover:bg-[#fff4ee]">
+                                {sessions.length}
+                            </Badge>
+                        </div>
+                        <p className="max-w-3xl text-sm text-stone-500">
+                            Review active authenticated sessions across the system, refresh the live view,
+                            and terminate compromised sessions without leaving the console.
+                        </p>
+                    </div>
                 </div>
             }
         >
@@ -186,126 +174,167 @@ export default function AdminSessionsIndex({
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-                            <div className="relative w-full sm:max-w-xs">
-                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    placeholder="Search by user, IP, or device..."
-                                    value={search}
-                                    onChange={(event) => setSearch(event.target.value)}
-                                    aria-label="Search sessions by user, IP address, or device"
-                                    className="pl-9"
-                                />
-                            </div>
+                    <Card className="rounded-[30px] border border-[#ead8cd] bg-[#fdf8f4] shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                                <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+                                    <div className="relative w-full sm:max-w-xl">
+                                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+                                        <Input
+                                            placeholder="Search by user, IP, or device..."
+                                            value={search}
+                                            onChange={(event) => setSearch(event.target.value)}
+                                            aria-label="Search sessions by user, IP address, or device"
+                                            className="h-12 rounded-2xl border-[#e8d7cc] bg-white pl-10 text-sm shadow-none focus-visible:ring-amber-200"
+                                        />
+                                    </div>
 
-                            <Select
-                                value={selectedUser ?? 'all'}
-                                onValueChange={(value) => {
-                                    router.get(route('admin.sessions'), {
-                                        user_id: value === 'all' ? undefined : value,
-                                    }, {
-                                        preserveScroll: true,
-                                        preserveState: true,
-                                    });
-                                }}
-                            >
-                                <SelectTrigger className="w-full sm:w-72" aria-label="Filter sessions by user">
-                                    <SelectValue placeholder="All users" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All users</SelectItem>
-                                    {users.map((user) => (
-                                        <SelectItem key={user.id} value={String(user.id)}>
-                                            {user.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                                    <Select
+                                        value={selectedUser ?? 'all'}
+                                        onValueChange={(value) => {
+                                            router.get(
+                                                route('admin.sessions'),
+                                                {
+                                                    user_id: value === 'all' ? undefined : value,
+                                                },
+                                                {
+                                                    preserveScroll: true,
+                                                    preserveState: true,
+                                                },
+                                            );
+                                        }}
+                                    >
+                                        <SelectTrigger
+                                            className="h-12 w-full rounded-2xl border-[#e8d7cc] bg-white shadow-none sm:w-72"
+                                            aria-label="Filter sessions by user"
+                                        >
+                                            <SelectValue placeholder="All users" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All users</SelectItem>
+                                            {users.map((user) => (
+                                                <SelectItem key={user.id} value={String(user.id)}>
+                                                    {user.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
 
-                        <div className="flex flex-wrap items-center gap-3">
-                            <span className="text-xs text-muted-foreground">
-                                Last refreshed {format(lastRefreshed, 'HH:mm:ss')}
-                            </span>
-                            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
-                                <RefreshCw className={cn('mr-2 h-4 w-4', refreshing && 'animate-spin')} />
-                                {refreshing ? 'Refreshing...' : 'Refresh'}
-                            </Button>
-                            <span className="text-sm text-muted-foreground">
-                                {filteredSessions.length} active session{filteredSessions.length !== 1 ? 's' : ''}
-                            </span>
-                        </div>
-                    </div>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
-                            <div className="flex items-center gap-2">
-                                <CardTitle className="font-semibold text-foreground">Active Sessions</CardTitle>
-                                <Badge className="rounded-full bg-primary/15 px-2 text-xs text-primary">
-                                    {sessions.length}
-                                </Badge>
-                            </div>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <div className="flex items-center gap-2 text-sm text-stone-500">
+                                        <Clock3 className="h-4 w-4" />
+                                        Last refreshed: {format(lastRefreshed, 'HH:mm:ss')}
+                                    </div>
                                     <Button
                                         variant="outline"
-                                        size="sm"
-                                        disabled={terminableSessionsCount === 0}
-                                        className="gap-2 border-destructive/50 text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
-                                        aria-label="Terminate all sessions except your current session"
+                                        className="h-12 rounded-2xl border-[#d7c3b7] bg-[#f7e6df] px-4 text-stone-700 hover:bg-[#f1ddd5]"
+                                        onClick={handleRefresh}
+                                        disabled={refreshing}
                                     >
-                                        <ShieldOff className="h-4 w-4" />
-                                        Terminate All
+                                        <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
+                                        {refreshing ? 'Refreshing...' : 'Refresh'}
                                     </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Terminate all other sessions?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This will terminate all sessions except yours. {terminableSessionsCount} other
-                                            {' '}session{terminableSessionsCount !== 1 ? 's' : ''} will be ended immediately.
-                                            {' '}Continue?
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction
-                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                            onClick={handleTerminateAll}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="overflow-hidden rounded-[30px] border border-[#ead8cd] bg-white/95 shadow-sm">
+                        <CardContent className="p-0">
+                            <div className="flex items-center justify-between border-b border-[#ead8cd] bg-[#fff8f4] px-6 py-5">
+                                <div className="flex items-center gap-3">
+                                    <h2 className="text-2xl font-semibold text-stone-950">Active Sessions</h2>
+                                    <Badge className="rounded-full border border-[#efcdbf] bg-[#fff4ee] px-3 py-1 text-sm font-medium text-[#a64824] hover:bg-[#fff4ee]">
+                                        {sessions.length}
+                                    </Badge>
+                                </div>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            disabled={terminableSessionsCount === 0}
+                                            className="rounded-2xl px-0 text-[#cf6c52] hover:bg-transparent hover:text-[#b24b23] disabled:opacity-50"
+                                            aria-label="Terminate all sessions except your current session"
                                         >
                                             Terminate All
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        </CardHeader>
-                        <CardContent className="p-0">
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Terminate all other sessions?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This will terminate all sessions except yours. {terminableSessionsCount} other
+                                                {' '}session{terminableSessionsCount !== 1 ? 's' : ''} will be ended immediately.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                onClick={handleTerminateAll}
+                                            >
+                                                Terminate All
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+
                             {showIdleState ? (
-                                <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
-                                    <ShieldCheck className="mb-4 h-10 w-10 opacity-20" />
-                                    <p className="text-sm font-medium text-foreground">No other active sessions</p>
-                                    <p className="mt-1 text-xs opacity-70">
-                                        Only your current session is active.
-                                    </p>
+                                <div className="flex min-h-[420px] flex-col justify-between">
+                                    <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+                                        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#f8e9e2] text-[#d8b8a8]">
+                                            <ShieldCheck className="h-10 w-10" />
+                                        </div>
+                                        <p className="text-3xl font-semibold text-stone-950">No other sessions</p>
+                                        <p className="mt-3 max-w-md text-sm leading-7 text-stone-500">
+                                            Only your current session is active.
+                                        </p>
+                                    </div>
+
+                                    {currentSession && (
+                                        <div className="border-t border-[#ead8cd] bg-[#fff8f4] px-6 py-5">
+                                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#ffd8ca] text-sm font-semibold text-stone-900">
+                                                        ME
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-lg font-medium text-stone-950">
+                                                            Current Session (This device)
+                                                        </p>
+                                                        <p className="text-sm text-stone-500">
+                                                            {currentSession.device.os} - {currentSession.device.browser} -{' '}
+                                                            {currentSession.ip_address ?? 'Unknown IP'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-emerald-700">
+                                                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                                                    <span className="text-sm font-medium">Active</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Session</TableHead>
-                                            <TableHead>User</TableHead>
-                                            <TableHead>IP Address</TableHead>
-                                            <TableHead>Last Active</TableHead>
-                                            <TableHead>Device</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
+                                    <TableHeader className="bg-white [&_tr]:border-[#ead8cd]">
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead className="py-4 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Session</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">User</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">IP Address</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Last Active</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Device</TableHead>
+                                            <TableHead className="text-right text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {filteredSessions.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
-                                                    No active sessions found.
+                                                <TableCell colSpan={6} className="py-16 text-center text-sm text-stone-500">
+                                                    No active sessions found for the current search.
                                                 </TableCell>
                                             </TableRow>
                                         ) : (
@@ -319,49 +348,34 @@ export default function AdminSessionsIndex({
                                                     <TableRow
                                                         key={session.id}
                                                         className={cn(
-                                                            'transition-colors',
-                                                            isCurrentSession
-                                                                ? 'border-l-2 border-l-primary bg-primary/5 hover:bg-primary/10'
-                                                                : lastActivity.isStale
-                                                                  ? 'bg-amber-500/5 hover:bg-amber-500/10'
-                                                                  : 'hover:bg-muted/50',
+                                                            'border-[#f0e1d8] transition-colors hover:bg-[#fffaf7]',
+                                                            isCurrentSession ? 'bg-[#fff8f4]' : '',
                                                         )}
                                                     >
-                                                        <TableCell>
-                                                            <div className="flex items-center gap-2.5">
-                                                                <div className="flex-shrink-0 rounded bg-muted p-1.5">
-                                                                    <Monitor className="h-4 w-4 text-muted-foreground" />
+                                                        <TableCell className="py-5">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#f6eee8]">
+                                                                    <Monitor className="h-4 w-4 text-stone-500" />
                                                                 </div>
                                                                 <div>
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-sm font-medium text-foreground">
+                                                                        <span className="text-sm font-medium text-stone-950">
                                                                             Web Session
                                                                         </span>
                                                                         {isCurrentSession && (
-                                                                            <>
-                                                                                <Badge
-                                                                                    variant="outline"
-                                                                                    className="border-primary/20 bg-primary/15 text-xs text-primary"
-                                                                                >
-                                                                                    Current
-                                                                                </Badge>
-                                                                                <Badge
-                                                                                    variant="outline"
-                                                                                    className="border-primary/20 bg-primary/15 text-xs text-primary"
-                                                                                >
-                                                                                    Your Session
-                                                                                </Badge>
-                                                                            </>
+                                                                            <Badge className="rounded-full border border-[#efcdbf] bg-[#fff4ee] px-2.5 py-0.5 text-xs font-medium text-[#a64824] hover:bg-[#fff4ee]">
+                                                                                Current
+                                                                            </Badge>
                                                                         )}
                                                                     </div>
-                                                                    <span className="font-mono text-xs text-muted-foreground">
+                                                                    <span className="font-mono text-xs text-stone-500">
                                                                         #{session.id.slice(0, 8)}
                                                                     </span>
                                                                 </div>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
-                                                            <div className="flex items-center gap-2.5">
+                                                            <div className="flex items-center gap-3">
                                                                 <UserAvatar
                                                                     user={{
                                                                         name: userName,
@@ -371,22 +385,20 @@ export default function AdminSessionsIndex({
                                                                     size="md"
                                                                 />
                                                                 <div>
-                                                                    <div className="text-sm font-medium text-foreground">
+                                                                    <div className="text-sm font-medium text-stone-950">
                                                                         {userName}
                                                                     </div>
-                                                                    <div className="text-xs text-muted-foreground">
-                                                                        {userEmail}
-                                                                    </div>
+                                                                    <div className="text-xs text-stone-500">{userEmail}</div>
                                                                 </div>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell>
                                                             <div className="flex flex-col">
-                                                                <code className="text-xs font-mono text-foreground">
+                                                                <code className="text-xs font-mono text-stone-800">
                                                                     {session.ip_address ?? '-'}
                                                                 </code>
                                                                 {session.location && (
-                                                                    <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                                                                    <span className="mt-1 flex items-center gap-1 text-xs text-stone-500">
                                                                         <MapPin className="h-3 w-3" />
                                                                         {session.location}
                                                                     </span>
@@ -398,15 +410,13 @@ export default function AdminSessionsIndex({
                                                                 <span
                                                                     className={cn(
                                                                         'text-sm',
-                                                                        lastActivity.isStale
-                                                                            ? 'text-amber-600 dark:text-amber-400'
-                                                                            : 'text-foreground',
+                                                                        lastActivity.isStale ? 'text-amber-600' : 'text-stone-800',
                                                                     )}
                                                                 >
                                                                     {lastActivity.label}
                                                                 </span>
                                                                 {lastActivity.isStale && (
-                                                                    <span className="text-xs text-muted-foreground">
+                                                                    <span className="text-xs text-stone-500">
                                                                         Inactive {lastActivity.hoursInactive}h
                                                                     </span>
                                                                 )}
@@ -415,15 +425,15 @@ export default function AdminSessionsIndex({
                                                         <TableCell>
                                                             <div className="flex items-center gap-2">
                                                                 {session.device.isMobile ? (
-                                                                    <Smartphone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                                                    <Smartphone className="h-4 w-4 shrink-0 text-stone-500" />
                                                                 ) : (
-                                                                    <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                                                    <Monitor className="h-4 w-4 shrink-0 text-stone-500" />
                                                                 )}
                                                                 <div className="flex flex-col">
-                                                                    <span className="text-sm text-foreground">
+                                                                    <span className="text-sm text-stone-900">
                                                                         {session.device.browser}
                                                                     </span>
-                                                                    <span className="text-xs text-muted-foreground">
+                                                                    <span className="text-xs text-stone-500">
                                                                         {session.device.os}
                                                                     </span>
                                                                 </div>
@@ -431,19 +441,17 @@ export default function AdminSessionsIndex({
                                                         </TableCell>
                                                         <TableCell className="text-right">
                                                             {isCurrentSession ? (
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className="border-border text-xs text-muted-foreground"
-                                                                >
-                                                                    Your Session
-                                                                </Badge>
+                                                                <div className="flex items-center justify-end gap-2 text-emerald-700">
+                                                                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                                                                    <span className="text-sm font-medium">Active</span>
+                                                                </div>
                                                             ) : (
                                                                 <AlertDialog>
                                                                     <AlertDialogTrigger asChild>
                                                                         <Button
                                                                             variant="ghost"
                                                                             size="sm"
-                                                                            className="gap-1.5 text-destructive hover:bg-destructive/10"
+                                                                            className="rounded-xl text-destructive hover:bg-destructive/10"
                                                                             aria-label={`Terminate session for ${userName}`}
                                                                         >
                                                                             <X className="h-3.5 w-3.5" />
@@ -454,8 +462,7 @@ export default function AdminSessionsIndex({
                                                                         <AlertDialogHeader>
                                                                             <AlertDialogTitle>Terminate this session?</AlertDialogTitle>
                                                                             <AlertDialogDescription>
-                                                                                Terminate this session for {userName}? They will be logged
-                                                                                {' '}out immediately.
+                                                                                Terminate this session for {userName}? They will be logged out immediately.
                                                                             </AlertDialogDescription>
                                                                         </AlertDialogHeader>
                                                                         <AlertDialogFooter>

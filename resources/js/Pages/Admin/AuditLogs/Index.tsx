@@ -5,17 +5,9 @@ import UserAvatar from '@/components/UserAvatar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import {
     Pagination,
@@ -52,10 +44,9 @@ import {
     ChevronUp,
     Download,
     FileDown,
-    ShieldCheck,
     ShieldAlert,
-    SlidersHorizontal,
     Terminal,
+    X,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -181,6 +172,7 @@ const ACTION_GROUPS = [
     {
         label: 'Security',
         options: [
+            { value: 'email_verified', label: 'Email verified' },
             { value: 'document_scan_blocked', label: 'Document scan blocked' },
             { value: 'malware_detected', label: 'Malware detected' },
             { value: 'integrity_violation', label: 'Integrity violation' },
@@ -225,6 +217,25 @@ function formatDateValue(date?: Date) {
     return date ? format(date, 'yyyy-MM-dd') : '';
 }
 
+function ActiveFilterChip({
+    label,
+    onClear,
+}: {
+    label: string;
+    onClear: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClear}
+            className="inline-flex items-center gap-2 rounded-full border border-[#efc7b8] bg-[#fff4ee] px-3 py-1.5 text-sm text-[#a64824] transition-colors hover:bg-[#fdebe4]"
+        >
+            <span>{label}</span>
+            <X className="h-3.5 w-3.5" />
+        </button>
+    );
+}
+
 function AuditPagination({
     logs,
     filters,
@@ -233,12 +244,12 @@ function AuditPagination({
     filters: Props['filters'];
 }) {
     const cleanedFilters = Object.fromEntries(
-        Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')
+        Object.entries(filters).filter(([, value]) => value !== undefined && value !== ''),
     );
 
     return (
-        <div className="flex items-center justify-between border-t border-border px-4 py-3">
-            <p className="text-sm text-muted-foreground">
+        <div className="flex flex-col gap-3 border-t border-[#ead8cd] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-stone-500">
                 Showing {logs.from ?? 0}-{logs.to ?? 0} of {logs.total} logs
             </p>
             <Pagination className="mx-0 w-auto justify-end">
@@ -321,33 +332,35 @@ export default function AdminAuditLogsIndex({
     const [toDate, setToDate] = useState<Date | undefined>(parseDateValue(filters.to_date ?? ''));
     const [fromDateOpen, setFromDateOpen] = useState(false);
     const [toDateOpen, setToDateOpen] = useState(false);
+
     const category = localFilters.category ?? 'all';
-    const title = category === 'security'
-        ? 'Security Events'
-        : category === 'audit'
-          ? 'General Activity'
-          : 'Global Activity Trail';
-    const subtitle = category === 'security'
-        ? 'Security incidents, authentication, and session controls'
-        : category === 'audit'
-          ? 'Document, sharing, and administration activity'
-          : 'Combined system-wide security and activity history';
+    const title =
+        category === 'security'
+            ? 'Security Events'
+            : category === 'audit'
+              ? 'General Activity'
+              : 'Global Activity Trail';
+    const subtitle =
+        category === 'security'
+            ? 'Security incidents, authentication, and session controls'
+            : category === 'audit'
+              ? 'Document, sharing, and administration activity'
+              : 'Combined system-wide security and activity history';
 
     const exportQuery = Object.fromEntries(
-        Object.entries(localFilters).filter(([, value]) => value !== undefined && value !== '')
+        Object.entries(localFilters).filter(([, value]) => value !== undefined && value !== ''),
     );
     const activeQuery = {
         ...exportQuery,
         direction,
     };
     const hasActiveFilter = Boolean(
-        (localFilters.category && localFilters.category !== 'all')
-        || localFilters.action
-        || localFilters.from_date
-        || localFilters.to_date
-        || localFilters.user_id
+        (localFilters.category && localFilters.category !== 'all') ||
+            localFilters.action ||
+            localFilters.from_date ||
+            localFilters.to_date ||
+            localFilters.user_id,
     );
-    const exportLabel = hasActiveFilter ? 'Export filtered results' : 'Export all';
     const cluster = detectCluster(
         logs.data,
         FAILURE_ACTIONS,
@@ -393,51 +406,57 @@ export default function AdminAuditLogsIndex({
             user_id: String(userId),
         }));
 
-        router.get(route('admin.audit-logs'), {
-            user_id: userId,
-            category: localFilters.category,
-            action: localFilters.action,
-            from_date: localFilters.from_date,
-            to_date: localFilters.to_date,
-            direction,
-        }, {
-            preserveScroll: true,
-            preserveState: true,
-        });
+        router.get(
+            route('admin.audit-logs'),
+            {
+                user_id: userId,
+                category: localFilters.category,
+                action: localFilters.action,
+                from_date: localFilters.from_date,
+                to_date: localFilters.to_date,
+                direction,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+            },
+        );
     };
 
     const handleTimestampSort = () => {
-        router.get(route('admin.audit-logs'), {
-            direction: direction === 'desc' ? 'asc' : 'desc',
-            category: filters.category,
-            action: filters.action,
-            from_date: filters.from_date,
-            to_date: filters.to_date,
-            user_id: filters.user_id,
-        }, {
-            preserveScroll: true,
-            preserveState: true,
-        });
+        router.get(
+            route('admin.audit-logs'),
+            {
+                direction: direction === 'desc' ? 'asc' : 'desc',
+                category: filters.category,
+                action: filters.action,
+                from_date: filters.from_date,
+                to_date: filters.to_date,
+                user_id: filters.user_id,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+            },
+        );
     };
 
     return (
         <AuthenticatedLayout
             header={
-                <div className="space-y-1">
-                    <h2 className="text-xl font-semibold leading-tight text-foreground">Global Audit Log</h2>
-                    <Breadcrumb>
-                        <BreadcrumbList>
-                            <BreadcrumbItem>
-                                <BreadcrumbLink asChild>
-                                    <Link href="/admin">Admin</Link>
-                                </BreadcrumbLink>
-                            </BreadcrumbItem>
-                            <BreadcrumbSeparator />
-                            <BreadcrumbItem>
-                                <BreadcrumbPage>Audit Logs</BreadcrumbPage>
-                            </BreadcrumbItem>
-                        </BreadcrumbList>
-                    </Breadcrumb>
+                <div className="space-y-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                        Security Intelligence
+                    </div>
+                    <div className="space-y-2">
+                        <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
+                            Audit Log
+                        </h1>
+                        <p className="max-w-3xl text-sm text-stone-500">
+                            Review system-wide security and activity events, inspect suspicious clusters,
+                            and export the audit trail for reporting or investigation.
+                        </p>
+                    </div>
                 </div>
             }
         >
@@ -445,365 +464,486 @@ export default function AdminAuditLogsIndex({
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <Card>
-                        <CardContent className="pt-5">
+                    <div className="rounded-[30px] border border-[#ecd8ce] bg-[#fdf8f4] p-6 shadow-sm">
+                        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                            <div className="space-y-3">
+                                <Badge className="rounded-full border border-[#efcdbf] bg-[#fff4ee] px-3 py-1 text-sm font-medium text-[#a64824] hover:bg-[#fff4ee]">
+                                    Audit review
+                                </Badge>
+                                <div className="space-y-1">
+                                    <h2 className="text-4xl font-semibold tracking-tight text-stone-950">
+                                        Inspect the platform's full audit trail
+                                    </h2>
+                                    <p className="max-w-3xl text-sm leading-7 text-stone-500">
+                                        The system already supports category, action, date, and user filtering.
+                                        This layout keeps those controls prominent while staying grounded in the
+                                        actual SecureVault audit data model.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="h-11 rounded-2xl border-[#d7c3b7] bg-white px-4 text-stone-700"
+                                    asChild
+                                >
+                                    <a href={route('admin.audit-logs.export', activeQuery)}>
+                                        <Download className="h-4 w-4" />
+                                        Export CSV
+                                    </a>
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-11 rounded-2xl border-[#d7c3b7] bg-white px-4 text-stone-700"
+                                    asChild
+                                >
+                                    <a
+                                        href={route('admin.audit-logs.export-pdf', activeQuery)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <FileDown className="h-4 w-4" />
+                                        Export PDF
+                                    </a>
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Card className="rounded-[30px] border border-[#ead8cd] bg-white/95 shadow-sm">
+                        <CardContent className="space-y-5 p-5">
                             <AuditCategoryTabs
                                 value={category}
                                 onChange={setCategory}
                                 securityCount={securityCount}
                             />
-                            <div className="flex flex-wrap items-end gap-6">
-                                <div className="flex flex-col gap-1.5">
-                                    <Label htmlFor="action" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                        Action Type
-                                    </Label>
-                                    <Select
-                                        value={localFilters.action || 'all'}
-                                        onValueChange={(value) =>
-                                            setLocalFilters((current) => ({
-                                                ...current,
-                                                action: value === 'all' ? '' : value,
-                                            }))
-                                        }
-                                    >
-                                        <SelectTrigger id="action" className="w-48 bg-background">
-                                            <SelectValue placeholder="All Actions" />
-                                        </SelectTrigger>
-                                        <SelectContent className="max-h-80 overflow-y-auto">
-                                            <SelectItem value="all">All actions</SelectItem>
-                                            {ACTION_GROUPS.map((group) => (
-                                                <SelectGroup key={group.label}>
-                                                    <SelectLabel>{group.label}</SelectLabel>
-                                                    {group.options.map((option) => (
-                                                        <SelectItem key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectGroup>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
 
-                                <div className="flex flex-col gap-1.5">
-                                    <Label htmlFor="from_date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                        From Date
-                                    </Label>
-                                    <Popover open={fromDateOpen} onOpenChange={setFromDateOpen}>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                id="from_date"
-                                                type="button"
-                                                variant="outline"
-                                                className={`w-44 justify-start text-left font-normal ${!fromDate ? 'text-muted-foreground' : ''}`}
+                            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                                <div className="flex flex-1 flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-end">
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="action"
+                                            className="text-xs font-semibold uppercase tracking-wider text-stone-500"
+                                        >
+                                            Action Type
+                                        </Label>
+                                        <Select
+                                            value={localFilters.action || 'all'}
+                                            onValueChange={(value) =>
+                                                setLocalFilters((current) => ({
+                                                    ...current,
+                                                    action: value === 'all' ? '' : value,
+                                                }))
+                                            }
+                                        >
+                                            <SelectTrigger
+                                                id="action"
+                                                className="w-52 rounded-2xl border-[#e8d7cc] bg-white shadow-none"
                                             >
-                                                <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
-                                                {fromDate
-                                                    ? format(fromDate, 'MMM d, yyyy')
-                                                    : 'Start date'}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                mode="single"
-                                                selected={fromDate}
-                                                onSelect={(date) => {
-                                                    setFromDate(date);
-                                                    setLocalFilters((current) => ({
-                                                        ...current,
-                                                        from_date: formatDateValue(date),
-                                                    }));
-                                                    if (!date || (toDate && date > toDate)) {
-                                                        setToDate(undefined);
+                                                <SelectValue placeholder="All Actions" />
+                                            </SelectTrigger>
+                                            <SelectContent className="max-h-80 overflow-y-auto">
+                                                <SelectItem value="all">All actions</SelectItem>
+                                                {ACTION_GROUPS.map((group) => (
+                                                    <SelectGroup key={group.label}>
+                                                        <SelectLabel>{group.label}</SelectLabel>
+                                                        {group.options.map((option) => (
+                                                            <SelectItem key={option.value} value={option.value}>
+                                                                {option.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectGroup>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="from_date"
+                                            className="text-xs font-semibold uppercase tracking-wider text-stone-500"
+                                        >
+                                            From Date
+                                        </Label>
+                                        <Popover open={fromDateOpen} onOpenChange={setFromDateOpen}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    id="from_date"
+                                                    type="button"
+                                                    variant="outline"
+                                                    className={cn(
+                                                        'w-44 justify-start rounded-2xl border-[#e8d7cc] bg-white text-left font-normal shadow-none',
+                                                        !fromDate && 'text-stone-500',
+                                                    )}
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                                                    {fromDate ? format(fromDate, 'MMM d, yyyy') : 'Start date'}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={fromDate}
+                                                    onSelect={(date) => {
+                                                        setFromDate(date);
                                                         setLocalFilters((current) => ({
                                                             ...current,
                                                             from_date: formatDateValue(date),
-                                                            to_date: '',
                                                         }));
-                                                    }
-                                                    setFromDateOpen(false);
-                                                }}
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
+                                                        setFromDateOpen(false);
+                                                    }}
+                                                    disabled={(date) => (toDate ? date > toDate : false)}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
 
-                                <div className="flex flex-col gap-1.5">
-                                    <Label htmlFor="to_date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                        To Date
-                                    </Label>
-                                    <Popover open={toDateOpen} onOpenChange={setToDateOpen}>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                id="to_date"
-                                                type="button"
-                                                variant="outline"
-                                                className={`w-44 justify-start text-left font-normal ${!toDate ? 'text-muted-foreground' : ''}`}
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="to_date"
+                                            className="text-xs font-semibold uppercase tracking-wider text-stone-500"
+                                        >
+                                            To Date
+                                        </Label>
+                                        <Popover open={toDateOpen} onOpenChange={setToDateOpen}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    id="to_date"
+                                                    type="button"
+                                                    variant="outline"
+                                                    className={cn(
+                                                        'w-44 justify-start rounded-2xl border-[#e8d7cc] bg-white text-left font-normal shadow-none',
+                                                        !toDate && 'text-stone-500',
+                                                    )}
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                                                    {toDate ? format(toDate, 'MMM d, yyyy') : 'End date'}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={toDate}
+                                                    onSelect={(date) => {
+                                                        setToDate(date);
+                                                        setLocalFilters((current) => ({
+                                                            ...current,
+                                                            to_date: formatDateValue(date),
+                                                        }));
+                                                        setToDateOpen(false);
+                                                    }}
+                                                    disabled={(date) => (fromDate ? date < fromDate : false)}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label
+                                            htmlFor="user_id"
+                                            className="text-xs font-semibold uppercase tracking-wider text-stone-500"
+                                        >
+                                            User
+                                        </Label>
+                                        <Select
+                                            value={localFilters.user_id || 'all'}
+                                            onValueChange={(value) => {
+                                                setLocalFilters((current) => ({
+                                                    ...current,
+                                                    user_id: value === 'all' ? '' : value,
+                                                }));
+                                            }}
+                                        >
+                                            <SelectTrigger
+                                                id="user_id"
+                                                className="w-56 rounded-2xl border-[#e8d7cc] bg-white shadow-none"
+                                                aria-label="Filter by user"
                                             >
-                                                <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
-                                                {toDate
-                                                    ? format(toDate, 'MMM d, yyyy')
-                                                    : 'End date'}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                mode="single"
-                                                selected={toDate}
-                                                onSelect={(date) => {
-                                                    setToDate(date);
-                                                    setLocalFilters((current) => ({
-                                                        ...current,
-                                                        to_date: formatDateValue(date),
-                                                    }));
-                                                    setToDateOpen(false);
-                                                }}
-                                                disabled={(date) => (fromDate ? date < fromDate : false)}
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
+                                                <SelectValue placeholder="All users" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All users</SelectItem>
+                                                {users.map((user) => (
+                                                    <SelectItem key={user.id} value={String(user.id)}>
+                                                        {user.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
 
-                                <div className="flex flex-col gap-1.5">
-                                    <Label htmlFor="user_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                                        User
-                                    </Label>
-                                    <Select
-                                        value={localFilters.user_id || 'all'}
-                                        onValueChange={(value) => {
-                                            setLocalFilters((current) => ({
-                                                ...current,
-                                                user_id: value === 'all' ? '' : value,
-                                            }));
-                                            router.get(route('admin.audit-logs'), {
-                                                user_id: value === 'all' ? undefined : value,
-                                                category: localFilters.category,
-                                                action: localFilters.action,
-                                                from_date: localFilters.from_date,
-                                                to_date: localFilters.to_date,
-                                                direction,
-                                            }, {
-                                                preserveScroll: true,
-                                                preserveState: true,
-                                            });
-                                        }}
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Button
+                                        className="h-11 rounded-2xl bg-[#b24b23] px-4 text-white hover:bg-[#9f401c]"
+                                        onClick={applyFilters}
                                     >
-                                        <SelectTrigger id="user_id" className="w-52 bg-background" aria-label="Filter by user">
-                                            <SelectValue placeholder="All users" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All users</SelectItem>
-                                            {users.map((user) => (
-                                                <SelectItem key={user.id} value={String(user.id)}>
-                                                    {user.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="flex items-end gap-2 pb-0">
-                                    <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90" onClick={applyFilters}>
-                                        <SlidersHorizontal className="h-4 w-4" />
                                         Apply Filters
                                     </Button>
-                                    <Button type="button" variant="ghost" className="text-muted-foreground" onClick={resetFilters}>
-                                        Reset
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className="h-11 rounded-2xl text-stone-500 hover:bg-[#f7ede7] hover:text-stone-800"
+                                        onClick={resetFilters}
+                                    >
+                                        Clear All
                                     </Button>
                                 </div>
                             </div>
+
+                            {hasActiveFilter && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {localFilters.from_date && localFilters.to_date && (
+                                        <ActiveFilterChip
+                                            label={`Date range: ${localFilters.from_date} to ${localFilters.to_date}`}
+                                            onClear={() => {
+                                                setFromDate(undefined);
+                                                setToDate(undefined);
+                                                setLocalFilters((current) => ({
+                                                    ...current,
+                                                    from_date: '',
+                                                    to_date: '',
+                                                }));
+                                            }}
+                                        />
+                                    )}
+                                    {localFilters.action && (
+                                        <ActiveFilterChip
+                                            label={`Action: ${localFilters.action}`}
+                                            onClear={() =>
+                                                setLocalFilters((current) => ({
+                                                    ...current,
+                                                    action: '',
+                                                }))
+                                            }
+                                        />
+                                    )}
+                                    {localFilters.user_id && (
+                                        <ActiveFilterChip
+                                            label={`User filter active`}
+                                            onClear={() =>
+                                                setLocalFilters((current) => ({
+                                                    ...current,
+                                                    user_id: '',
+                                                }))
+                                            }
+                                        />
+                                    )}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
                     {cluster.detected && (
-                        <Alert variant="destructive">
-                            <ShieldAlert className="h-4 w-4" />
-                            <AlertTitle>Rapid failure cluster detected</AlertTitle>
-                            <AlertDescription>
-                                {cluster.count} consecutive failures were recorded within{' '}
-                                {cluster.windowSeconds} seconds
-                                {cluster.ip ? ` from ${cluster.ip}` : ''}.
-                                {' '}This may indicate a brute-force attempt. Review the entries below.
+                        <Alert className="rounded-[28px] border border-[#f1bdb2] bg-[#fff1ec] px-5 py-4 text-[#a93b1e] shadow-sm">
+                            <ShieldAlert className="h-4 w-4 text-[#d14b26]" />
+                            <AlertTitle className="text-base font-semibold text-[#962f17]">
+                                Rapid failure cluster detected
+                            </AlertTitle>
+                            <AlertDescription className="mt-1 text-sm leading-7 text-[#a24a33]">
+                                {cluster.count} consecutive failures were recorded within {cluster.windowSeconds} seconds
+                                {cluster.ip ? ` from ${cluster.ip}` : ''}. This may indicate a brute-force attempt.
                             </AlertDescription>
                         </Alert>
                     )}
 
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">
-                                Event activity - today by hour
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <EventsChart data={hourlyChart} />
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
-                            <div className="flex items-center gap-2">
-                                <ShieldCheck className="h-4 w-4 text-primary" />
-                                <div>
-                                    <CardTitle className="font-semibold text-foreground">{title}</CardTitle>
-                                    <p className="mt-0.5 text-xs uppercase tracking-wide text-muted-foreground">
-                                        {subtitle} · {logs.total} total entries
-                                    </p>
+                    <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+                        <Card className="rounded-[30px] border border-[#ead8cd] bg-white/95 shadow-sm">
+                            <CardContent className="p-6">
+                                <div className="space-y-1">
+                                    <h3 className="text-2xl font-semibold text-stone-950">Event Activity</h3>
+                                    <p className="text-sm text-stone-500">Today by hour</p>
                                 </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" asChild>
-                                    <a href={route('admin.audit-logs.export', activeQuery)}>
-                                        <Download className="h-4 w-4" />
-                                        {exportLabel} (CSV)
-                                    </a>
-                                </Button>
-                                <Button variant="outline" size="sm" asChild>
-                                    <a href={route('admin.audit-logs.export-pdf', activeQuery)} target="_blank" rel="noopener noreferrer">
-                                        <FileDown className="h-4 w-4" />
-                                        {exportLabel} (PDF)
-                                    </a>
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            {logs.data.length === 0 ? (
-                                <Card className="border-0 shadow-none">
-                                    <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                                        <Activity className="mb-3 h-10 w-10 text-muted-foreground" />
-                                        <p className="font-medium text-foreground">No activity found</p>
-                                        <p className="mt-1 text-sm text-muted-foreground">
-                                            Try adjusting your filters or date range.
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleTimestampSort}
-                                                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                                                >
-                                                    Timestamp
-                                                    {direction === 'asc' ? (
-                                                        <ChevronUp className="h-3 w-3" />
-                                                    ) : (
-                                                        <ChevronDown className="h-3 w-3" />
-                                                    )}
-                                                </button>
-                                            </TableHead>
-                                            <TableHead>User</TableHead>
-                                            <TableHead>Action</TableHead>
-                                            <TableHead>Target / Details</TableHead>
-                                            <TableHead>IP Address</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {logs.data.map((log) => {
-                                            const actionBadge = getAuditActionBadge(log.action);
-                                            const ActionIcon = actionBadge.icon;
-                                            const location = (log.metadata as Record<string, any> | null)?.location;
-                                            const locationLabel = typeof location === 'string'
-                                                ? location
-                                                : location && typeof location === 'object'
-                                                  ? [location.city, location.region, location.country].filter(Boolean).join(', ')
-                                                  : null;
+                                <div className="mt-6">
+                                    <EventsChart data={hourlyChart} />
+                                </div>
+                            </CardContent>
+                        </Card>
 
-                                            return (
-                                                <TableRow key={log.id} className="hover:bg-muted/50">
-                                                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                                                        <RelativeTime
-                                                            datetime={log.created_at}
-                                                            formatted={format(new Date(log.created_at), 'MMM dd, yyyy HH:mm:ss')}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => log.user_id && filterByUser(log.user_id)}
-                                                            disabled={!log.user_id}
-                                                            className={cn(
-                                                                'flex items-center gap-2.5 text-left',
-                                                                log.user_id ? 'cursor-pointer hover:underline' : 'cursor-default',
-                                                            )}
-                                                            aria-label={log.user_id ? `Filter logs by ${log.user?.name}` : 'System event'}
-                                                        >
-                                                            {log.user ? (
-                                                                <>
-                                                                    <UserAvatar user={log.user} size="md" />
-                                                                    <div>
-                                                                        <div className="text-sm font-medium text-foreground">{log.user.name}</div>
-                                                                        <div className="text-xs text-muted-foreground">{log.user.email}</div>
-                                                                    </div>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <Avatar className="h-8 w-8">
-                                                                        <AvatarFallback className="bg-muted text-muted-foreground">
-                                                                            <Terminal className="h-3.5 w-3.5" />
-                                                                        </AvatarFallback>
-                                                                    </Avatar>
-                                                                    <div>
-                                                                        <div className="text-sm font-medium italic text-foreground">System</div>
-                                                                    </div>
-                                                                </>
-                                                            )}
-                                                        </button>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            {category === 'all' && (
-                                                                <span
-                                                                    className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                                                                        log.category === 'security'
-                                                                            ? 'bg-destructive/10 text-destructive'
-                                                                            : 'bg-muted text-muted-foreground'
-                                                                    }`}
-                                                                >
-                                                                    {log.category === 'security' ? 'Security' : 'Activity'}
-                                                                </span>
-                                                            )}
-                                                            <Badge
-                                                                variant="outline"
-                                                                className={`gap-1 text-xs font-medium uppercase tracking-wide ${actionBadge.className}`}
-                                                            >
-                                                                <ActionIcon className="h-3 w-3" />
-                                                                {actionBadge.label}
-                                                            </Badge>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className="text-sm text-foreground">{log.description}</span>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <span className="cursor-help rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                                                                        {log.ip_address || '-'}
-                                                                    </span>
-                                                                </TooltipTrigger>
-                                                                {locationLabel && (
-                                                                    <TooltipContent>
-                                                                        <p>{locationLabel}</p>
-                                                                    </TooltipContent>
+                        <Card className="overflow-hidden rounded-[30px] border border-[#ead8cd] bg-white/95 shadow-sm">
+                            <CardContent className="p-0">
+                                <div className="flex flex-col gap-4 border-b border-[#ead8cd] px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="space-y-1">
+                                        <h3 className="text-2xl font-semibold text-stone-950">{title}</h3>
+                                        <p className="text-sm text-stone-500">
+                                            {subtitle} - {logs.total} total entries
+                                        </p>
+                                    </div>
+                                    <div className="rounded-full border border-[#ead8cd] bg-[#fffaf7] px-4 py-2 text-sm text-stone-600">
+                                        {hasActiveFilter ? 'Filtered view' : 'Complete log view'}
+                                    </div>
+                                </div>
+
+                                {logs.data.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+                                        <Activity className="mb-4 h-10 w-10 text-stone-300" />
+                                        <p className="text-lg font-semibold text-stone-900">No activity found</p>
+                                        <p className="mt-2 max-w-md text-sm text-stone-500">
+                                            Try adjusting your category, action, or date filters to surface matching log entries.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <Table>
+                                        <TableHeader className="bg-[#fff8f4] [&_tr]:border-[#ead8cd]">
+                                            <TableRow className="hover:bg-transparent">
+                                                <TableHead className="py-4 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleTimestampSort}
+                                                        className="flex items-center gap-1 transition-colors hover:text-stone-900"
+                                                    >
+                                                        Timestamp
+                                                        {direction === 'asc' ? (
+                                                            <ChevronUp className="h-3 w-3" />
+                                                        ) : (
+                                                            <ChevronDown className="h-3 w-3" />
+                                                        )}
+                                                    </button>
+                                                </TableHead>
+                                                <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                                    User
+                                                </TableHead>
+                                                <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                                    Action
+                                                </TableHead>
+                                                <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                                    Target / Details
+                                                </TableHead>
+                                                <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                                    IP Address
+                                                </TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {logs.data.map((log) => {
+                                                const actionBadge = getAuditActionBadge(log.action);
+                                                const ActionIcon = actionBadge.icon;
+                                                const location = (log.metadata as Record<string, any> | null)?.location;
+                                                const locationLabel =
+                                                    typeof location === 'string'
+                                                        ? location
+                                                        : location && typeof location === 'object'
+                                                          ? [location.city, location.region, location.country]
+                                                                .filter(Boolean)
+                                                                .join(', ')
+                                                          : null;
+
+                                                return (
+                                                    <TableRow
+                                                        key={log.id}
+                                                        className={cn(
+                                                            'border-[#f0e1d8] hover:bg-[#fffaf7]',
+                                                            FAILURE_ACTIONS.has(log.action)
+                                                                ? 'bg-[#fff9f7]'
+                                                                : '',
+                                                        )}
+                                                    >
+                                                        <TableCell className="whitespace-nowrap py-5 text-sm text-stone-600">
+                                                            <RelativeTime
+                                                                datetime={log.created_at}
+                                                                formatted={format(
+                                                                    new Date(log.created_at),
+                                                                    'MMM dd, yyyy HH:mm:ss',
                                                                 )}
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </CardContent>
-                        {logs.last_page > 1 && <AuditPagination logs={logs} filters={filters} />}
-                    </Card>
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => log.user_id && filterByUser(log.user_id)}
+                                                                disabled={!log.user_id}
+                                                                className={cn(
+                                                                    'flex items-center gap-3 text-left',
+                                                                    log.user_id ? 'cursor-pointer hover:underline' : 'cursor-default',
+                                                                )}
+                                                                aria-label={log.user_id ? `Filter logs by ${log.user?.name}` : 'System event'}
+                                                            >
+                                                                {log.user ? (
+                                                                    <>
+                                                                        <UserAvatar user={log.user} size="md" />
+                                                                        <div>
+                                                                            <div className="text-sm font-medium text-stone-950">
+                                                                                {log.user.name}
+                                                                            </div>
+                                                                            <div className="text-xs text-stone-500">
+                                                                                {log.user.email}
+                                                                            </div>
+                                                                        </div>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Avatar className="h-9 w-9">
+                                                                            <AvatarFallback className="bg-[#f6eee8] text-stone-500">
+                                                                                <Terminal className="h-3.5 w-3.5" />
+                                                                            </AvatarFallback>
+                                                                        </Avatar>
+                                                                        <div>
+                                                                            <div className="text-sm font-medium italic text-stone-950">
+                                                                                System
+                                                                            </div>
+                                                                            <div className="text-xs text-stone-500">
+                                                                                Automated process
+                                                                            </div>
+                                                                        </div>
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                {category === 'all' && (
+                                                                    <span
+                                                                        className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-wide ${
+                                                                            log.category === 'security'
+                                                                                ? 'bg-[#fff0ea] text-[#b24b23]'
+                                                                                : 'bg-[#f3f0ec] text-stone-500'
+                                                                        }`}
+                                                                    >
+                                                                        {log.category === 'security' ? 'Security' : 'Activity'}
+                                                                    </span>
+                                                                )}
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className={`gap-1 rounded-xl border px-2.5 py-1 text-xs font-medium uppercase tracking-wide ${actionBadge.className}`}
+                                                                >
+                                                                    <ActionIcon className="h-3 w-3" />
+                                                                    {actionBadge.label}
+                                                                </Badge>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <span className="text-sm leading-6 text-stone-800">
+                                                                {log.description}
+                                                            </span>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <span className="cursor-help rounded-full bg-[#f7efe9] px-3 py-1 font-mono text-xs text-stone-600">
+                                                                            {log.ip_address || '-'}
+                                                                        </span>
+                                                                    </TooltipTrigger>
+                                                                    {locationLabel && (
+                                                                        <TooltipContent>
+                                                                            <p>{locationLabel}</p>
+                                                                        </TooltipContent>
+                                                                    )}
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </CardContent>
+                            {logs.last_page > 1 && <AuditPagination logs={logs} filters={filters} />}
+                        </Card>
+                    </div>
                 </div>
             </div>
         </AuthenticatedLayout>

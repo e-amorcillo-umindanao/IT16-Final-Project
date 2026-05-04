@@ -31,6 +31,17 @@ class RecoveryCodeService
         return $codes;
     }
 
+    public function isValid(User $user, string $code): bool
+    {
+        $normalizedCode = Str::upper(trim($code));
+        $bcryptHasher = Hash::driver('bcrypt');
+
+        return $user->twoFactorRecoveryCodes()
+            ->whereNull('used_at')
+            ->get()
+            ->contains(fn (TwoFactorRecoveryCode $record): bool => $bcryptHasher->check($normalizedCode, $record->code_hash));
+    }
+
     public function consume(User $user, string $code): bool
     {
         $normalizedCode = Str::upper(trim($code));

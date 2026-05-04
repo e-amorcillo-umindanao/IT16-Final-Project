@@ -17,10 +17,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class DocumentController extends Controller
 {
@@ -108,33 +110,41 @@ class DocumentController extends Controller
         ]);
 
         $file = $request->file('document');
-        
-        // Encrypt content
-        $encryptedData = $this->encryptionService->encryptFile($file->getRealPath());
-        
-        $encryptedName = Str::uuid()->toString() . '.enc';
-        $vaultPath = config('securevault.vault_path');
-        
-        if (!File::exists($vaultPath)) {
-            File::makeDirectory($vaultPath, 0755, true);
+        $stagingName = null;
+
+        try {
+            $stagingName = $this->stagePlaintextUploadForScanning($file);
+            $encryptedData = $this->encryptionService->encryptFile($file->getRealPath());
+            $encryptedName = Str::uuid()->toString() . '.enc';
+            $vaultPath = config('securevault.vault_path');
+
+            if (! File::exists($vaultPath)) {
+                File::makeDirectory($vaultPath, 0755, true);
+            }
+
+            File::put($vaultPath . '/' . $encryptedName, $encryptedData['encrypted_content']);
+
+            $document = Document::create([
+                'user_id' => Auth::id(),
+                'original_name' => $file->getClientOriginalName(),
+                'encrypted_name' => $encryptedName,
+                'mime_type' => $file->getMimeType(),
+                'file_size' => $file->getSize(),
+                'file_hash' => $encryptedData['original_hash'],
+                'encryption_iv' => $encryptedData['iv'],
+                'description' => $request->description,
+                'scan_result' => 'pending',
+            ]);
+
+            $this->auditService->log('document_uploaded', $document);
+            ScanDocumentWithVirusTotal::dispatch($document->id, $stagingName);
+        } catch (Throwable $exception) {
+            if (is_string($stagingName)) {
+                Storage::disk('scan-staging')->delete($stagingName);
+            }
+
+            throw $exception;
         }
-
-        File::put($vaultPath . '/' . $encryptedName, $encryptedData['encrypted_content']);
-
-        $document = Document::create([
-            'user_id' => Auth::id(),
-            'original_name' => $file->getClientOriginalName(),
-            'encrypted_name' => $encryptedName,
-            'mime_type' => $file->getMimeType(),
-            'file_size' => $file->getSize(),
-            'file_hash' => $encryptedData['original_hash'],
-            'encryption_iv' => $encryptedData['iv'],
-            'description' => $request->description,
-            'scan_result' => 'pending',
-        ]);
-
-        $this->auditService->log('document_uploaded', $document);
-        ScanDocumentWithVirusTotal::dispatch($document);
 
         return redirect()->route('documents.index')->with('success', 'Document uploaded and queued for malware scanning.');
     }
@@ -256,31 +266,43 @@ class DocumentController extends Controller
             ],
         ]);
 
-        $this->versionService->archiveCurrentVersion($document);
-
         $file = $request->file('file');
-        $encryptedData = $this->encryptionService->encryptFile($file->getRealPath());
-        $encryptedName = Str::uuid()->toString().'.enc';
-        $vaultPath = config('securevault.vault_path');
+        $stagingName = null;
 
-        if (! File::exists($vaultPath)) {
-            File::makeDirectory($vaultPath, 0755, true);
+        try {
+            $stagingName = $this->stagePlaintextUploadForScanning($file);
+
+            $this->versionService->archiveCurrentVersion($document);
+
+            $encryptedData = $this->encryptionService->encryptFile($file->getRealPath());
+            $encryptedName = Str::uuid()->toString().'.enc';
+            $vaultPath = config('securevault.vault_path');
+
+            if (! File::exists($vaultPath)) {
+                File::makeDirectory($vaultPath, 0755, true);
+            }
+
+            File::put($vaultPath.'/'.$encryptedName, $encryptedData['encrypted_content']);
+
+            $document->update([
+                'original_name' => $file->getClientOriginalName(),
+                'encrypted_name' => $encryptedName,
+                'mime_type' => $file->getMimeType(),
+                'file_size' => $file->getSize(),
+                'file_hash' => $encryptedData['original_hash'],
+                'encryption_iv' => $encryptedData['iv'],
+                'scan_result' => 'pending',
+                'current_version' => $document->current_version + 1,
+            ]);
+
+            ScanDocumentWithVirusTotal::dispatch($document->id, $stagingName);
+        } catch (Throwable $exception) {
+            if (is_string($stagingName)) {
+                Storage::disk('scan-staging')->delete($stagingName);
+            }
+
+            throw $exception;
         }
-
-        File::put($vaultPath.'/'.$encryptedName, $encryptedData['encrypted_content']);
-
-        $document->update([
-            'original_name' => $file->getClientOriginalName(),
-            'encrypted_name' => $encryptedName,
-            'mime_type' => $file->getMimeType(),
-            'file_size' => $file->getSize(),
-            'file_hash' => $encryptedData['original_hash'],
-            'encryption_iv' => $encryptedData['iv'],
-            'scan_result' => 'pending',
-            'current_version' => $document->current_version + 1,
-        ]);
-
-        ScanDocumentWithVirusTotal::dispatch($document);
 
         $this->auditService->log('document_version_uploaded', $document, [
             'document_name' => $document->original_name,
@@ -728,6 +750,15 @@ class DocumentController extends Controller
             ->first();
 
         return $share?->permission ?? 'none';
+    }
+
+    private function stagePlaintextUploadForScanning(\Illuminate\Http\UploadedFile $file): string
+    {
+        $stagingName = Str::uuid()->toString().'.tmp';
+
+        Storage::disk('scan-staging')->put($stagingName, File::get($file->getRealPath()));
+
+        return $stagingName;
     }
 
     private function normalizeScanResult(mixed $scanResult): string

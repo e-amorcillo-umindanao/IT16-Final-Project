@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 Schedule::command('vault:purge-trash')->daily();
 Schedule::command('securevault:purge-expired-exports')->daily();
 Schedule::command('securevault:purge-deletions')->dailyAt('02:00');
+Schedule::command('securevault:clear-scan-staging')->everyThirtyMinutes();

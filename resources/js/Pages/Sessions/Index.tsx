@@ -1,4 +1,4 @@
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -11,30 +11,14 @@ import {
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { parseUserAgent } from '@/lib/parseUserAgent';
 import { cn } from '@/lib/utils';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { formatDistanceToNow, fromUnixTime } from 'date-fns';
-import {
-    Info,
-    LogOut,
-    MapPin,
-    Monitor,
-    Smartphone,
-} from 'lucide-react';
+import { Info, LogOut, MapPin, Monitor, Smartphone } from 'lucide-react';
 
 interface SessionRow {
     id: string;
@@ -63,27 +47,23 @@ export default function SessionsIndex({ sessions, currentSessionId }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                        <h2 className="text-2xl font-semibold text-foreground">Active Sessions</h2>
-                        <Badge className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground hover:bg-primary">
-                            {sessions.length}
-                        </Badge>
+                <div className="space-y-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                        Device Access
                     </div>
-                    <p className="text-sm text-muted-foreground">Manage your active login sessions.</p>
-                    <Breadcrumb>
-                        <BreadcrumbList>
-                            <BreadcrumbItem>
-                                <BreadcrumbLink asChild>
-                                    <Link href={route('dashboard')}>Main</Link>
-                                </BreadcrumbLink>
-                            </BreadcrumbItem>
-                            <BreadcrumbSeparator />
-                            <BreadcrumbItem>
-                                <BreadcrumbPage>Sessions</BreadcrumbPage>
-                            </BreadcrumbItem>
-                        </BreadcrumbList>
-                    </Breadcrumb>
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
+                                Active Sessions
+                            </h1>
+                            <Badge className="rounded-full border border-[#efcdbf] bg-[#fff4ee] px-3 py-1 text-sm font-medium text-[#a64824] hover:bg-[#fff4ee]">
+                                {sessions.length}
+                            </Badge>
+                        </div>
+                        <p className="max-w-3xl text-sm text-stone-500">
+                            Manage and revoke your active sessions across devices.
+                        </p>
+                    </div>
                 </div>
             }
         >
@@ -91,162 +71,135 @@ export default function SessionsIndex({ sessions, currentSessionId }: Props) {
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <Alert className="border-l-4 border-l-primary bg-primary/5">
-                        <Info className="h-4 w-4 text-primary" />
-                        <AlertDescription className="text-sm text-foreground">
-                            Your current session is marked. Revoking it will log you out immediately.
-                        </AlertDescription>
+                    <Alert className="rounded-[28px] border border-[#efc7b8] bg-[#fdf0ea] px-5 py-4 text-[#8a3b1f] shadow-sm">
+                        <Info className="h-4 w-4 text-[#c65e38]" />
+                        <div className="space-y-1">
+                            <AlertTitle className="text-base font-semibold text-[#6d2c15]">
+                                Session Security
+                            </AlertTitle>
+                            <AlertDescription className="text-sm leading-7 text-[#8c4d35]">
+                                Revoking a session will immediately log out the associated device.
+                                If you notice unrecognized activity, revoke the session and change your
+                                password immediately.
+                            </AlertDescription>
+                        </div>
                     </Alert>
 
-                    <Separator className="my-6" />
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
-                            <div className="flex items-center gap-2">
-                                <CardTitle className="font-semibold text-foreground">Active Sessions</CardTitle>
-                                <Badge className="rounded-full bg-primary/15 px-2 text-xs text-primary">
-                                    {sessions.length}
-                                </Badge>
-                            </div>
-                        </CardHeader>
+                    <Card className="overflow-hidden rounded-[30px] border border-[#ead8cd] bg-white/95 shadow-sm">
                         <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Session</TableHead>
-                                        <TableHead>IP Address</TableHead>
-                                        <TableHead>Last Active</TableHead>
-                                        <TableHead>Device</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {sessions.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
-                                                No active sessions found.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        sessions.map((session) => {
-                                            const isCurrentSession = session.id === currentSessionId;
-                                            const device = parseUserAgent(session.user_agent);
+                            <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(220px,0.9fr)_auto] border-b border-[#ead8cd] bg-[#fff8f4] px-6 py-5 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                <div>Device &amp; Session</div>
+                                <div>Location &amp; IP</div>
+                                <div className="text-right">Actions</div>
+                            </div>
 
-                                            return (
-                                                <TableRow
-                                                    key={session.id}
-                                                    className={cn(
-                                                        'hover:bg-muted/50',
-                                                        isCurrentSession && 'border-l-2 border-l-primary bg-primary/5 hover:bg-primary/10',
-                                                    )}
-                                                >
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2.5">
-                                                            <div className="flex-shrink-0 rounded bg-muted p-1.5">
-                                                                {device.isMobile ? (
-                                                                    <Smartphone className="h-4 w-4 text-muted-foreground" />
-                                                                ) : (
-                                                                    <Monitor className="h-4 w-4 text-muted-foreground" />
-                                                                )}
-                                                            </div>
-                                                            <div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-sm font-medium text-foreground">
-                                                                        Web Session
-                                                                    </span>
-                                                                    {isCurrentSession && (
-                                                                        <Badge
-                                                                            variant="outline"
-                                                                            className="border-primary/20 bg-primary/15 text-xs text-primary"
-                                                                        >
-                                                                            Current
-                                                                        </Badge>
-                                                                    )}
-                                                                </div>
-                                                                <span className="font-mono text-xs text-muted-foreground">
-                                                                    #{session.id.slice(0, 8)}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-col">
-                                                            <code className="text-xs font-mono text-foreground">
-                                                                {session.ip_address ?? '-'}
-                                                            </code>
-                                                            {session.location && (
-                                                                <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                                                                    <MapPin className="h-3 w-3" />
-                                                                    {session.location}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <span className="text-sm text-muted-foreground">
-                                                            {formatLastActivity(session.last_activity)}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            {device.isMobile ? (
-                                                                <Smartphone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                                            ) : (
-                                                                <Monitor className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                                            )}
-                                                            <div className="flex flex-col">
-                                                                <span className="text-sm text-foreground">{device.browser}</span>
-                                                                <span className="text-xs text-muted-foreground">{device.os}</span>
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        {isCurrentSession ? (
-                                                            <Badge
-                                                                variant="outline"
-                                                                className="border-border text-xs text-muted-foreground"
-                                                            >
-                                                                Current
-                                                            </Badge>
+                            {sessions.length === 0 ? (
+                                <div className="px-6 py-16 text-center text-sm text-stone-500">
+                                    No active sessions found.
+                                </div>
+                            ) : (
+                                <div>
+                                    {sessions.map((session) => {
+                                        const isCurrentSession = session.id === currentSessionId;
+                                        const device = parseUserAgent(session.user_agent);
+
+                                        return (
+                                            <div
+                                                key={session.id}
+                                                className={cn(
+                                                    'grid grid-cols-1 gap-5 border-b border-[#f0e1d8] px-6 py-6 md:grid-cols-[minmax(0,1.4fr)_minmax(220px,0.9fr)_auto] md:items-center',
+                                                    isCurrentSession ? 'bg-[#fffaf7]' : 'bg-white',
+                                                )}
+                                            >
+                                                <div className="flex items-start gap-4">
+                                                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#efcdbf] bg-[#fff4ee] text-[#8d4a2f]">
+                                                        {device.isMobile ? (
+                                                            <Smartphone className="h-5 w-5" />
                                                         ) : (
-                                                            <AlertDialog>
-                                                                <AlertDialogTrigger asChild>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="gap-1.5 text-destructive hover:bg-destructive/10"
-                                                                        aria-label={`Revoke session from ${session.ip_address ?? 'unknown IP address'}`}
-                                                                    >
-                                                                        <LogOut className="h-3.5 w-3.5" />
-                                                                        Revoke
-                                                                    </Button>
-                                                                </AlertDialogTrigger>
-                                                                <AlertDialogContent>
-                                                                    <AlertDialogHeader>
-                                                                        <AlertDialogTitle>Revoke session?</AlertDialogTitle>
-                                                                        <AlertDialogDescription>
-                                                                            This will immediately end this session. The device will be logged out.
-                                                                        </AlertDialogDescription>
-                                                                    </AlertDialogHeader>
-                                                                    <AlertDialogFooter>
-                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                        <AlertDialogAction
-                                                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                                                            onClick={() => handleRevoke(session.id)}
-                                                                        >
-                                                                            Revoke
-                                                                        </AlertDialogAction>
-                                                                    </AlertDialogFooter>
-                                                                </AlertDialogContent>
-                                                            </AlertDialog>
+                                                            <Monitor className="h-5 w-5" />
                                                         )}
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
-                                    )}
-                                </TableBody>
-                            </Table>
+                                                    </div>
+
+                                                    <div className="space-y-1">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <p className="text-2xl font-semibold tracking-tight text-stone-950">
+                                                                {device.os}
+                                                            </p>
+                                                            {isCurrentSession && (
+                                                                <Badge className="rounded-full border border-[#efc7b8] bg-[#fff1eb] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#b24b23] hover:bg-[#fff1eb]">
+                                                                    Current Session
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-lg text-stone-800">{device.browser}</p>
+                                                        <p className="text-sm text-stone-500">
+                                                            Last active: {formatLastActivity(session.last_activity)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <p className="text-2xl text-stone-950">
+                                                        {session.ip_address ?? '-'}
+                                                    </p>
+                                                    <div className="flex items-center gap-2 text-lg text-stone-700">
+                                                        {session.location ? (
+                                                            <>
+                                                                <MapPin className="h-4 w-4 text-stone-400" />
+                                                                <span>{session.location}</span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-stone-500">Unknown location</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center justify-start md:justify-end">
+                                                    {isCurrentSession ? (
+                                                        <Button
+                                                            variant="outline"
+                                                            disabled
+                                                            className="h-11 rounded-2xl border-[#efd8cf] bg-white px-6 text-base text-[#d2aaa0] disabled:opacity-100"
+                                                        >
+                                                            Current
+                                                        </Button>
+                                                    ) : (
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    className="h-11 rounded-2xl border-destructive bg-white px-6 text-base text-destructive hover:bg-destructive/5"
+                                                                    aria-label={`Revoke session from ${session.ip_address ?? 'unknown IP address'}`}
+                                                                >
+                                                                    Revoke
+                                                                </Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>Revoke session?</AlertDialogTitle>
+                                                                    <AlertDialogDescription>
+                                                                        This will immediately end this session. The associated device will be logged out.
+                                                                    </AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                    <AlertDialogAction
+                                                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                                        onClick={() => handleRevoke(session.id)}
+                                                                    >
+                                                                        <LogOut className="mr-2 h-4 w-4" />
+                                                                        Revoke
+                                                                    </AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>

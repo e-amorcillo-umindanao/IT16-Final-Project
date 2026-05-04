@@ -9,19 +9,8 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import UserAvatar from '@/components/UserAvatar';
-import { RoleBadge, normalizeRoleBadgeRole } from '@/components/RoleBadge';
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { SortableHeader } from '@/components/SortableHeader';
 import {
     Dialog,
     DialogContent,
@@ -38,7 +27,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Label } from '@/components/ui/label';
 import {
     Pagination,
     PaginationContent,
@@ -49,9 +38,12 @@ import {
     PaginationPrevious,
 } from '@/components/ui/pagination';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
+import { RoleBadge, normalizeRoleBadgeRole } from '@/components/RoleBadge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SortableHeader } from '@/components/SortableHeader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import UserAvatar from '@/components/UserAvatar';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { cn } from '@/lib/utils';
 import { PageProps, PaginatedResponse } from '@/types';
@@ -158,7 +150,7 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
             role: filters.role ?? '',
             status: filters.status ?? '',
             verification,
-        }).filter(([, value]) => value !== undefined && value !== '' && value !== 'all')
+        }).filter(([, value]) => value !== undefined && value !== '' && value !== 'all'),
     );
 
     const submitFilters = (override?: Partial<{ search: string; role: string; status: string }>) => {
@@ -175,7 +167,7 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
                 verification,
                 sort,
                 direction,
-            }).filter(([, value]) => value && value !== 'all')
+            }).filter(([, value]) => value && value !== 'all'),
         );
 
         router.get(route('admin.users'), query, {
@@ -216,7 +208,7 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
             {
                 preserveScroll: true,
                 onFinish: () => setRoleDialogOpen(false),
-            }
+            },
         );
     };
 
@@ -236,21 +228,19 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
     return (
         <AuthenticatedLayout
             header={
-                <div className="space-y-1">
-                    <h2 className="text-2xl font-semibold text-foreground">User Management</h2>
-                    <Breadcrumb>
-                        <BreadcrumbList>
-                            <BreadcrumbItem>
-                                <BreadcrumbLink asChild>
-                                    <Link href="/admin">Admin</Link>
-                                </BreadcrumbLink>
-                            </BreadcrumbItem>
-                            <BreadcrumbSeparator />
-                            <BreadcrumbItem>
-                                <BreadcrumbPage>User Management</BreadcrumbPage>
-                            </BreadcrumbItem>
-                        </BreadcrumbList>
-                    </Breadcrumb>
+                <div className="space-y-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                        Admin Control
+                    </div>
+                    <div className="space-y-2">
+                        <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
+                            User Management
+                        </h1>
+                        <p className="max-w-3xl text-sm text-stone-500">
+                            Search, review, and manage account access across the system. Status,
+                            2FA, verification, and recent activity stay visible in one place.
+                        </p>
+                    </div>
                 </div>
             }
         >
@@ -258,28 +248,63 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <Card>
-                        <CardContent className="p-4">
+                    <div className="flex flex-col gap-4 rounded-[30px] border border-[#ecd8ce] bg-[#fdf8f4] p-6 shadow-sm lg:flex-row lg:items-end lg:justify-between">
+                        <div className="space-y-3">
+                            <Badge className="rounded-full border border-[#efcdbf] bg-[#fff4ee] px-3 py-1 text-sm font-medium text-[#a64824] hover:bg-[#fff4ee]">
+                                Admin directory
+                            </Badge>
+                            <div className="space-y-1">
+                                <h2 className="text-4xl font-semibold tracking-tight text-stone-950">
+                                    Accounts, roles, and verification in one view
+                                </h2>
+                                <p className="max-w-3xl text-sm leading-7 text-stone-500">
+                                    This workspace is optimized for reviewing account posture quickly
+                                    without losing access to deeper actions like audit review and role changes.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <Button
+                                variant="outline"
+                                className="h-11 rounded-2xl border-[#d7c3b7] bg-white px-4 text-stone-700"
+                                asChild
+                            >
+                                <a href={route('admin.users.export')}>
+                                    <Download className="h-4 w-4" />
+                                    Export CSV
+                                </a>
+                            </Button>
+                            <div className="rounded-full border border-[#ead8cd] bg-white px-4 py-2 text-sm text-stone-600">
+                                {currentCountLabel}
+                            </div>
+                            <div aria-live="polite" className="sr-only">
+                                {currentCountLabel}
+                            </div>
+                        </div>
+                    </div>
+
+                    <Card className="rounded-[30px] border border-[#ead8cd] bg-white/95 shadow-sm">
+                        <CardContent className="p-5">
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                 <form
                                     onSubmit={(event: FormEvent) => {
                                         event.preventDefault();
                                         submitFilters();
                                     }}
-                                    className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center"
+                                    className="flex flex-1 flex-col gap-3 xl:flex-row xl:items-center"
                                 >
-                                    <div className="relative w-full lg:max-w-sm">
-                                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <div className="relative w-full xl:max-w-xl">
+                                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                                         <Input
                                             value={search}
                                             onChange={(event) => setSearch(event.target.value)}
                                             placeholder="Search by name or email..."
                                             aria-label="Search users by name or email"
-                                            className="pl-9"
+                                            className="h-12 rounded-2xl border-[#e8d7cc] bg-[#fffaf7] pl-10 text-sm shadow-none focus-visible:ring-amber-200"
                                         />
                                     </div>
 
-                                    <div className="w-full lg:w-[180px]">
+                                    <div className="w-full xl:w-[180px]">
                                         <Select
                                             value={role}
                                             onValueChange={(value) => {
@@ -287,7 +312,10 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
                                                 submitFilters({ role: value });
                                             }}
                                         >
-                                            <SelectTrigger aria-label="Filter users by role">
+                                            <SelectTrigger
+                                                aria-label="Filter users by role"
+                                                className="h-12 rounded-2xl border-[#e8d7cc] bg-white shadow-none"
+                                            >
                                                 <SelectValue placeholder="All Roles" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -299,7 +327,7 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
                                         </Select>
                                     </div>
 
-                                    <div className="w-full lg:w-[160px]">
+                                    <div className="w-full xl:w-[180px]">
                                         <Select
                                             value={status}
                                             onValueChange={(value) => {
@@ -307,11 +335,14 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
                                                 submitFilters({ status: value });
                                             }}
                                         >
-                                            <SelectTrigger aria-label="Filter users by status">
-                                                <SelectValue placeholder="All" />
+                                            <SelectTrigger
+                                                aria-label="Filter users by status"
+                                                className="h-12 rounded-2xl border-[#e8d7cc] bg-white shadow-none"
+                                            >
+                                                <SelectValue placeholder="All Statuses" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="all">All</SelectItem>
+                                                <SelectItem value="all">All Statuses</SelectItem>
                                                 <SelectItem value="active">Active</SelectItem>
                                                 <SelectItem value="inactive">Inactive</SelectItem>
                                             </SelectContent>
@@ -319,49 +350,48 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
                                     </div>
                                 </form>
 
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                                    <Button variant="outline" asChild>
-                                        <a href={route('admin.users.export')}>
-                                            <Download className="h-4 w-4" />
-                                            Export
-                                        </a>
-                                    </Button>
-                                    <p className="text-sm text-muted-foreground">{currentCountLabel}</p>
-                                    <div aria-live="polite" className="sr-only">
-                                        {currentCountLabel}
-                                    </div>
-                                    <button
+                                <div className="flex items-center gap-3">
+                                    <Button
                                         type="button"
+                                        variant="outline"
+                                        className="h-12 rounded-2xl border-[#d7c3b7] bg-white px-4 text-stone-700"
                                         onClick={resetFilters}
-                                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                                     >
                                         Reset
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
+                    <Card className="overflow-hidden rounded-[30px] border border-[#ead8cd] bg-white/95 shadow-sm">
                         <CardContent className="p-0">
                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>
+                                <TableHeader className="bg-[#fff8f4] [&_tr]:border-[#ead8cd]">
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableHead className="py-4 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                                             <SortableHeader
                                                 column="name"
-                                                label="Name"
+                                                label="User"
                                                 currentSort={sort}
                                                 currentDirection={direction}
                                                 routeName="admin.users"
                                                 query={activeQuery}
                                             />
                                         </TableHead>
-                                        <TableHead>Role</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-xs">2FA</TableHead>
-                                        <TableHead className="text-xs">Verified</TableHead>
-                                        <TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Role
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Status
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            2FA
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Verified
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                                             <SortableHeader
                                                 column="last_login_at"
                                                 label="Last Active"
@@ -372,14 +402,18 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
                                                 query={activeQuery}
                                             />
                                         </TableHead>
-                                        <TableHead>Last Login IP</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Last Login IP
+                                        </TableHead>
+                                        <TableHead className="text-right text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Actions
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {users.data.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                                            <TableCell colSpan={8} className="h-40 text-center text-stone-500">
                                                 No users matched your current filters.
                                             </TableCell>
                                         </TableRow>
@@ -389,231 +423,245 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
                                             const pendingDeletionBadge = (
                                                 <Badge
                                                     variant="outline"
-                                                    className="border-destructive/30 bg-destructive/15 text-xs text-destructive"
+                                                    className="rounded-full border-[#eac8bb] bg-[#fff1eb] px-2.5 py-1 text-xs text-[#b04c23]"
                                                 >
                                                     Pending Deletion
                                                 </Badge>
                                             );
 
                                             return (
-                                            <TableRow
-                                                key={user.id}
-                                                className={cn(
-                                                    'transition-colors hover:bg-muted/50',
-                                                    !user.is_active && 'opacity-50',
-                                                )}
-                                            >
-                                                <TableCell>
-                                                    <div className="flex items-center gap-3">
-                                                        <UserAvatar user={user} size="md" />
-                                                        <div>
-                                                            <div className="text-sm font-medium text-foreground">{user.name}</div>
-                                                            <div className="text-xs text-muted-foreground">{user.email}</div>
-                                                            {user.deletion_requested_at && (
-                                                                <div className="mt-1">
-                                                                    {isSuperAdminViewer && user.deletion_scheduled_for ? (
-                                                                        <TooltipProvider>
-                                                                            <Tooltip>
-                                                                                <TooltipTrigger asChild>
-                                                                                    <span>{pendingDeletionBadge}</span>
-                                                                                </TooltipTrigger>
-                                                                                <TooltipContent>
-                                                                                    Scheduled for {format(new Date(user.deletion_scheduled_for), 'PPP')}
-                                                                                </TooltipContent>
-                                                                            </Tooltip>
-                                                                        </TooltipProvider>
-                                                                    ) : (
-                                                                        pendingDeletionBadge
-                                                                    )}
+                                                <TableRow
+                                                    key={user.id}
+                                                    className={cn(
+                                                        'border-[#f0e1d8] hover:bg-[#fffaf7]',
+                                                        !user.is_active && 'opacity-70',
+                                                    )}
+                                                >
+                                                    <TableCell className="py-5">
+                                                        <div className="flex items-center gap-3">
+                                                            <UserAvatar user={user} size="md" />
+                                                            <div className="min-w-0">
+                                                                <div className="text-sm font-medium text-stone-950">
+                                                                    {user.name}
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <RoleBadge role={normalizeRoleBadgeRole(user.role)} />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <span
-                                                            className={`h-2 w-2 rounded-full ${
-                                                                user.is_active ? 'bg-green-500' : 'bg-muted-foreground'
-                                                            }`}
-                                                        />
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={
-                                                                user.is_active
-                                                                    ? 'border-green-500/20 bg-green-500/10 text-xs text-green-700 dark:text-green-400'
-                                                                    : 'border-border text-xs text-muted-foreground'
-                                                            }
-                                                        >
-                                                            {user.is_active ? 'Active' : 'Inactive'}
-                                                        </Badge>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <span className="inline-flex">
-                                                                    {user.two_factor_enabled ? (
-                                                                        <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                                                                    ) : (
-                                                                        <ShieldOff className="h-4 w-4 text-muted-foreground opacity-40" />
-                                                                    )}
-                                                                </span>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                {user.two_factor_enabled ? '2FA enabled' : '2FA not enabled'}
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <span className="inline-flex">
-                                                                    {user.email_verified_at ? (
-                                                                        <MailCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                                                                    ) : (
-                                                                        <MailX className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                                                                    )}
-                                                                </span>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                {user.email_verified_at ? 'Email verified' : 'Email not verified'}
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                </TableCell>
-                                                <TableCell className="text-sm text-muted-foreground">
-                                                    {formatRelativeTime(user.last_login_at)}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                                                        {user.last_login_ip ?? '-'}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        {!isSelf && (
-                                                            <TooltipProvider>
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="group h-8 w-8"
-                                                                            aria-label={user.is_active ? 'Deactivate user' : 'Activate user'}
-                                                                            onClick={() => handleToggleActive(user)}
-                                                                        >
-                                                                            {user.is_active ? (
-                                                                                <PauseCircle className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-destructive" />
-                                                                            ) : (
-                                                                                <PlayCircle className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400" />
-                                                                            )}
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent>
-                                                                        {user.is_active ? 'Deactivate user' : 'Activate user'}
-                                                                    </TooltipContent>
-                                                                </Tooltip>
-                                                            </TooltipProvider>
-                                                        )}
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    aria-label={`Actions for ${user.name}`}
-                                                                >
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuItem asChild>
-                                                                    <Link href={route('admin.audit-logs', { user: user.email })}>
-                                                                        <ScrollText className="mr-2 h-4 w-4" />
-                                                                        View Audit Logs
-                                                                    </Link>
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuSeparator />
-                                                                {!isSelf && (
-                                                                    <>
-                                                                        {user.is_active ? (
-                                                                            <DropdownMenuItem
-                                                                                className="text-destructive focus:text-destructive"
-                                                                                onClick={() => handleToggleActive(user)}
-                                                                            >
-                                                                                <UserX className="mr-2 h-4 w-4" />
-                                                                                Deactivate Account
-                                                                            </DropdownMenuItem>
+                                                                <div className="text-sm text-stone-500">
+                                                                    {user.email}
+                                                                </div>
+                                                                {user.deletion_requested_at && (
+                                                                    <div className="mt-2">
+                                                                        {isSuperAdminViewer && user.deletion_scheduled_for ? (
+                                                                            <TooltipProvider>
+                                                                                <Tooltip>
+                                                                                    <TooltipTrigger asChild>
+                                                                                        <span>{pendingDeletionBadge}</span>
+                                                                                    </TooltipTrigger>
+                                                                                    <TooltipContent>
+                                                                                        Scheduled for{' '}
+                                                                                        {format(
+                                                                                            new Date(user.deletion_scheduled_for),
+                                                                                            'PPP',
+                                                                                        )}
+                                                                                    </TooltipContent>
+                                                                                </Tooltip>
+                                                                            </TooltipProvider>
                                                                         ) : (
-                                                                            <DropdownMenuItem
-                                                                                className="text-green-700 focus:text-green-700"
+                                                                            pendingDeletionBadge
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <RoleBadge role={normalizeRoleBadgeRole(user.role)} />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            <span
+                                                                className={cn(
+                                                                    'h-2.5 w-2.5 rounded-full',
+                                                                    user.is_active ? 'bg-emerald-500' : 'bg-stone-300',
+                                                                )}
+                                                            />
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={cn(
+                                                                    'rounded-full px-2.5 py-1 text-xs',
+                                                                    user.is_active
+                                                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                                                        : 'border-stone-200 bg-stone-50 text-stone-500',
+                                                                )}
+                                                            >
+                                                                {user.is_active ? 'Active' : 'Inactive'}
+                                                            </Badge>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span className="inline-flex rounded-full bg-[#f8f3ef] p-2">
+                                                                        {user.two_factor_enabled ? (
+                                                                            <ShieldCheck className="h-4 w-4 text-emerald-700" />
+                                                                        ) : (
+                                                                            <ShieldOff className="h-4 w-4 text-stone-400" />
+                                                                        )}
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    {user.two_factor_enabled ? '2FA enabled' : '2FA not enabled'}
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span className="inline-flex rounded-full bg-[#f8f3ef] p-2">
+                                                                        {user.email_verified_at ? (
+                                                                            <MailCheck className="h-4 w-4 text-emerald-700" />
+                                                                        ) : (
+                                                                            <MailX className="h-4 w-4 text-amber-600" />
+                                                                        )}
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    {user.email_verified_at ? 'Email verified' : 'Email not verified'}
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </TableCell>
+                                                    <TableCell className="text-sm text-stone-600">
+                                                        {formatRelativeTime(user.last_login_at)}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span className="rounded-full bg-[#f7efe9] px-3 py-1 font-mono text-xs text-stone-600">
+                                                            {user.last_login_ip ?? '-'}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            {!isSelf && (
+                                                                <TooltipProvider>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="group h-9 w-9 rounded-full"
+                                                                                aria-label={user.is_active ? 'Deactivate user' : 'Activate user'}
                                                                                 onClick={() => handleToggleActive(user)}
                                                                             >
-                                                                                <UserCheck className="mr-2 h-4 w-4" />
-                                                                                Activate Account
-                                                                            </DropdownMenuItem>
-                                                                        )}
-                                                                        <DropdownMenuSeparator />
-                                                                        <DropdownMenuItem onClick={() => openRoleDialog(user)}>
-                                                                            <Shield className="mr-2 h-4 w-4" />
-                                                                            Change Role
-                                                                        </DropdownMenuItem>
-                                                                    </>
-                                                                )}
-                                                                {isSelf && (
-                                                                    <DropdownMenuItem disabled className="text-muted-foreground">
-                                                                        <ShieldOff className="mr-2 h-4 w-4" />
-                                                                        Cannot modify own account
+                                                                                {user.is_active ? (
+                                                                                    <PauseCircle className="h-4 w-4 text-stone-500 transition-colors group-hover:text-destructive" />
+                                                                                ) : (
+                                                                                    <PlayCircle className="h-4 w-4 text-stone-500 transition-colors group-hover:text-emerald-700" />
+                                                                                )}
+                                                                            </Button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent>
+                                                                            {user.is_active ? 'Deactivate user' : 'Activate user'}
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                </TooltipProvider>
+                                                            )}
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-9 w-9 rounded-full"
+                                                                        aria-label={`Actions for ${user.name}`}
+                                                                    >
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem asChild>
+                                                                        <Link href={route('admin.audit-logs', { user: user.email })}>
+                                                                            <ScrollText className="mr-2 h-4 w-4" />
+                                                                            View Audit Logs
+                                                                        </Link>
                                                                     </DropdownMenuItem>
-                                                                )}
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
+                                                                    <DropdownMenuSeparator />
+                                                                    {!isSelf && (
+                                                                        <>
+                                                                            {user.is_active ? (
+                                                                                <DropdownMenuItem
+                                                                                    className="text-destructive focus:text-destructive"
+                                                                                    onClick={() => handleToggleActive(user)}
+                                                                                >
+                                                                                    <UserX className="mr-2 h-4 w-4" />
+                                                                                    Deactivate Account
+                                                                                </DropdownMenuItem>
+                                                                            ) : (
+                                                                                <DropdownMenuItem
+                                                                                    className="text-green-700 focus:text-green-700"
+                                                                                    onClick={() => handleToggleActive(user)}
+                                                                                >
+                                                                                    <UserCheck className="mr-2 h-4 w-4" />
+                                                                                    Activate Account
+                                                                                </DropdownMenuItem>
+                                                                            )}
+                                                                            <DropdownMenuSeparator />
+                                                                            <DropdownMenuItem onClick={() => openRoleDialog(user)}>
+                                                                                <Shield className="mr-2 h-4 w-4" />
+                                                                                Change Role
+                                                                            </DropdownMenuItem>
+                                                                        </>
+                                                                    )}
+                                                                    {isSelf && (
+                                                                        <DropdownMenuItem disabled className="text-muted-foreground">
+                                                                            <ShieldOff className="mr-2 h-4 w-4" />
+                                                                            Cannot modify own account
+                                                                        </DropdownMenuItem>
+                                                                    )}
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
                                             );
                                         })
                                     )}
                                 </TableBody>
                             </Table>
+
+                            <div className="flex flex-col gap-4 border-t border-[#ead8cd] px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                <p className="text-sm text-stone-500">{currentCountLabel}</p>
+                                {users.last_page > 1 && (
+                                    <Pagination className="mx-0 w-auto justify-end">
+                                        <PaginationContent>
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    href={users.prev_page_url ?? '#'}
+                                                    className={!users.prev_page_url ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                            {users.links.slice(1, -1).map((link, index) => (
+                                                <PaginationItem key={`${link.label}-${index}`}>
+                                                    {link.label === '...' ? (
+                                                        <PaginationEllipsis />
+                                                    ) : (
+                                                        <PaginationLink href={link.url ?? '#'} isActive={link.active}>
+                                                            {link.label}
+                                                        </PaginationLink>
+                                                    )}
+                                                </PaginationItem>
+                                            ))}
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    href={users.next_page_url ?? '#'}
+                                                    className={!users.next_page_url ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
+                                )}
+                            </div>
                         </CardContent>
                     </Card>
-
-                    {users.last_page > 1 && (
-                        <Pagination>
-                            <PaginationContent>
-                                <PaginationItem>
-                                    <PaginationPrevious
-                                        href={users.prev_page_url ?? '#'}
-                                        className={!users.prev_page_url ? 'pointer-events-none opacity-50' : ''}
-                                    />
-                                </PaginationItem>
-                                {users.links.slice(1, -1).map((link, index) => (
-                                    <PaginationItem key={`${link.label}-${index}`}>
-                                        {link.label === '...' ? (
-                                            <PaginationEllipsis />
-                                        ) : (
-                                            <PaginationLink href={link.url ?? '#'} isActive={link.active}>
-                                                {link.label}
-                                            </PaginationLink>
-                                        )}
-                                    </PaginationItem>
-                                ))}
-                                <PaginationItem>
-                                    <PaginationNext
-                                        href={users.next_page_url ?? '#'}
-                                        className={!users.next_page_url ? 'pointer-events-none opacity-50' : ''}
-                                    />
-                                </PaginationItem>
-                            </PaginationContent>
-                        </Pagination>
-                    )}
                 </div>
             </div>
 
@@ -635,7 +683,7 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
                             className={cn(
                                 selectedUser?.is_active
                                     ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-                                    : 'bg-green-700 text-white hover:bg-green-700/90'
+                                    : 'bg-green-700 text-white hover:bg-green-700/90',
                             )}
                             onClick={handleStatusToggle}
                         >
@@ -650,10 +698,15 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
                     <DialogHeader>
                         <DialogTitle>Change Role</DialogTitle>
                         <DialogDescription>
-                            Changing {selectedUser?.name}'s role takes effect immediately and is logged in the audit trail.
+                            Changing {selectedUser?.name}&apos;s role takes effect immediately and
+                            is logged in the audit trail.
                         </DialogDescription>
                     </DialogHeader>
-                    <RadioGroup value={selectedRole} onValueChange={(value) => setSelectedRole(value as AssignableRole)} className="space-y-2 py-2">
+                    <RadioGroup
+                        value={selectedRole}
+                        onValueChange={(value) => setSelectedRole(value as AssignableRole)}
+                        className="space-y-2 py-2"
+                    >
                         {(['super-admin', 'admin', 'user'] as AssignableRole[]).map((roleOption) => (
                             <div
                                 key={roleOption}

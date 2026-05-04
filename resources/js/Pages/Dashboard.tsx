@@ -1,18 +1,7 @@
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { TimeBasedGreeting } from '@/components/TimeBasedGreeting';
-import UserAvatar from '@/components/UserAvatar';
-import { Separator } from '@/components/ui/separator';
 import {
     Table,
     TableBody,
@@ -21,17 +10,11 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { cn } from '@/lib/utils';
 import { PageProps } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import {
     ArrowRight,
     FileText,
@@ -40,7 +23,7 @@ import {
     Monitor,
     ShieldAlert,
     ShieldCheck,
-    Upload,
+    ShieldX,
     Users,
 } from 'lucide-react';
 
@@ -84,6 +67,152 @@ interface DashboardProps extends PageProps {
     recent_activity: RecentActivity[];
 }
 
+function formatBytes(bytes: number) {
+    if (bytes === 0) {
+        return '0 B';
+    }
+
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const power = Math.min(
+        Math.floor(Math.log(bytes) / Math.log(1024)),
+        units.length - 1,
+    );
+    const value = bytes / 1024 ** power;
+
+    return `${value >= 10 ? value.toFixed(0) : value.toFixed(1)} ${units[power]}`;
+}
+
+function getGreeting() {
+    const hour = new Date().getHours();
+
+    if (hour < 12) {
+        return 'Good morning';
+    }
+
+    if (hour < 17) {
+        return 'Good afternoon';
+    }
+
+    return 'Good evening';
+}
+
+function getActivityLabel(action: string) {
+    switch (action) {
+        case 'login':
+        case 'login_success':
+            return 'Login verified';
+        case 'login_failed':
+            return 'Login failure';
+        case 'document_uploaded':
+            return 'Upload verified';
+        case 'document_downloaded':
+            return 'Document downloaded';
+        case 'document_shared':
+            return 'Document shared';
+        case 'document_deleted':
+            return 'Moved to trash';
+        case 'integrity_violation':
+            return 'Integrity alert';
+        case '2fa_enabled':
+        case 'two_factor_enabled':
+            return '2FA enabled';
+        case '2fa_disabled':
+        case 'two_factor_disabled':
+            return '2FA disabled';
+        case 'logout':
+            return 'Session ended';
+        default:
+            return action
+                .replaceAll('_', ' ')
+                .replace(/\b\w/g, (character) => character.toUpperCase());
+    }
+}
+
+function getActivityDescription(entry: RecentActivity) {
+    const metadata = entry.metadata ?? {};
+    const documentName =
+        (typeof metadata.document_name === 'string' && metadata.document_name) ||
+        (typeof metadata.original_name === 'string' && metadata.original_name);
+    const documentLabel = documentName ? `"${documentName}"` : 'a document';
+
+    switch (entry.action) {
+        case 'login':
+        case 'login_success':
+            return 'Successful sign-in from a trusted session.';
+        case 'login_failed':
+            return 'A failed sign-in attempt was recorded.';
+        case 'logout':
+            return 'The current session was closed successfully.';
+        case 'document_uploaded':
+            return `${documentLabel} was encrypted and stored.`;
+        case 'document_downloaded':
+            return `${documentLabel} was downloaded from your vault.`;
+        case 'document_shared':
+            return `${documentLabel} was shared with another user.`;
+        case 'document_deleted':
+            return `${documentLabel} was moved to trash.`;
+        case 'integrity_violation':
+            return `${documentLabel} failed an integrity verification.`;
+        case '2fa_enabled':
+        case 'two_factor_enabled':
+            return 'Two-factor authentication is now protecting this account.';
+        case '2fa_disabled':
+        case 'two_factor_disabled':
+            return 'Two-factor authentication has been disabled.';
+        default:
+            return entry.action.replaceAll('_', ' ');
+    }
+}
+
+function getActivityTone(action: string) {
+    switch (action) {
+        case 'login':
+        case 'login_success':
+        case 'document_uploaded':
+        case 'document_downloaded':
+        case '2fa_enabled':
+        case 'two_factor_enabled':
+            return {
+                dot: 'bg-emerald-500',
+                badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+            };
+        case 'login_failed':
+        case 'document_deleted':
+        case 'integrity_violation':
+        case '2fa_disabled':
+        case 'two_factor_disabled':
+            return {
+                dot: 'bg-rose-500',
+                badge: 'border-rose-200 bg-rose-50 text-rose-700',
+            };
+        default:
+            return {
+                dot: 'bg-amber-500',
+                badge: 'border-amber-200 bg-amber-50 text-amber-700',
+            };
+    }
+}
+
+function getDocumentTone(mimeType: string) {
+    if (mimeType.includes('pdf')) {
+        return 'text-rose-600 bg-rose-50 border-rose-100';
+    }
+
+    if (mimeType.includes('sheet') || mimeType.includes('excel')) {
+        return 'text-emerald-700 bg-emerald-50 border-emerald-100';
+    }
+
+    if (
+        mimeType.includes('word') ||
+        mimeType.includes('officedocument.word') ||
+        mimeType.includes('msword')
+    ) {
+        return 'text-blue-700 bg-blue-50 border-blue-100';
+    }
+
+    return 'text-stone-700 bg-stone-50 border-stone-200';
+}
+
 export default function Dashboard({
     auth,
     stats,
@@ -96,527 +225,434 @@ export default function Dashboard({
     const canViewAdminDashboard = permissions.includes('view_admin_dashboard');
     const hasFailedLogins = stats.failed_logins_24h > 0;
     const hasTwoFactorEnabled = user.two_factor_enabled === true;
-    const twoFactorDeadline = user.two_factor_deadline ? new Date(user.two_factor_deadline) : null;
+    const twoFactorDeadline = user.two_factor_deadline
+        ? new Date(user.two_factor_deadline)
+        : null;
     const firstName = user.name.split(/\s+/)[0] ?? user.name;
 
-    const status = hasFailedLogins
+    const securityState = hasFailedLogins
         ? {
-              label: 'At Risk',
-              className: 'border border-destructive/20 bg-destructive/10 text-destructive',
+              label: 'Review Needed',
+              badgeClassName:
+                  'border-rose-200 bg-rose-50 text-rose-700',
+              summaryClassName: 'text-rose-700',
           }
         : hasTwoFactorEnabled
           ? {
                 label: 'Optimal',
-                className: 'border border-status-success/20 bg-status-success/10 text-status-success',
+                badgeClassName:
+                    'border-emerald-200 bg-emerald-50 text-emerald-700',
+                summaryClassName: 'text-emerald-700',
             }
           : {
-                label: 'Review Needed',
-                className: 'border border-primary/20 bg-primary/10 text-primary',
+                label: 'Protected',
+                badgeClassName:
+                    'border-amber-200 bg-amber-50 text-amber-700',
+                summaryClassName: 'text-amber-700',
             };
-    const vaultStatus = status.label;
-
-    const formatBytes = (bytes: number) => {
-        if (bytes === 0) {
-            return '0 B';
-        }
-
-        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const power = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-        const value = bytes / 1024 ** power;
-
-        return `${value >= 10 ? value.toFixed(0) : value.toFixed(1)} ${units[power]}`;
-    };
-
-    const formatRelativeTime = (value?: string | null) => {
-        if (!value) {
-            return 'No recent login recorded';
-        }
-
-        return formatDistanceToNow(new Date(value), { addSuffix: true });
-    };
-
-    const getGreeting = (): string => {
-        const hour = new Date().getHours();
-
-        if (hour < 12) {
-            return 'Good morning';
-        }
-
-        if (hour < 17) {
-            return 'Good afternoon';
-        }
-
-        return 'Good evening';
-    };
-
-    const getGreetingEmoji = (): string => {
-        const hour = new Date().getHours();
-
-        if (hour < 12) {
-            return '☀️';
-        }
-
-        if (hour < 17) {
-            return '🌤️';
-        }
-
-        return '🌙';
-    };
-
-    const getFileIcon = (mimeType: string) => {
-        if (mimeType.includes('pdf')) {
-            return <FileText className="h-4 w-4 text-destructive" />;
-        }
-
-        if (mimeType.includes('sheet') || mimeType.includes('excel')) {
-            return <FileText className="h-4 w-4 text-status-success" />;
-        }
-
-        if (mimeType.includes('word') || mimeType.includes('officedocument.word') || mimeType.includes('msword')) {
-            return <FileText className="h-4 w-4 text-primary" />;
-        }
-
-        return <FileText className="h-4 w-4 text-muted-foreground" />;
-    };
-
-    const getActivitySeverity = (action: string) => {
-        switch (action) {
-            case 'document_uploaded':
-            case 'document_downloaded':
-            case '2fa_enabled':
-            case 'login':
-                return 'bg-status-success';
-            case 'document_shared':
-            case 'password_changed':
-            case 'profile_updated':
-            case 'logout':
-            case 'session_revoked':
-            case '2fa_disabled':
-                return 'bg-primary';
-            case 'login_failed':
-            case 'document_deleted':
-            case 'integrity_violation':
-            case 'account_locked':
-            case '2fa_failed':
-                return 'bg-destructive';
-            default:
-                return 'bg-primary';
-        }
-    };
-
-    const getActivityLabel = (action: string) => {
-        switch (action) {
-            case 'login':
-                return 'Login';
-            case 'logout':
-                return 'Logout';
-            case 'document_uploaded':
-                return 'Upload';
-            case 'document_downloaded':
-                return 'Download';
-            case 'document_shared':
-                return 'Shared';
-            case 'signed_url_generated':
-                return 'Share Link';
-            case 'signed_url_accessed':
-                return 'Link Accessed';
-            case 'share_revoked':
-                return 'Share Revoked';
-            case 'document_deleted':
-                return 'Deleted';
-            case 'document_restored':
-                return 'Restored';
-            case 'integrity_violation':
-                return 'Integrity Alert';
-            case 'login_failed':
-                return 'Failed Login';
-            case '2fa_enabled':
-                return '2FA Enabled';
-            case '2fa_disabled':
-                return '2FA Disabled';
-            case '2fa_failed':
-                return '2FA Failed';
-            case 'session_revoked':
-                return 'Session Revoked';
-            default:
-                return action.replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-        }
-    };
-
-    const getActivityDescription = (entry: RecentActivity) => {
-        const metadata = entry.metadata ?? {};
-        const documentName =
-            (typeof metadata.document_name === 'string' && metadata.document_name) ||
-            (typeof metadata.original_name === 'string' && metadata.original_name);
-        const documentLabel = documentName ? `"${documentName}"` : 'a document';
-        const location = metadata.location as { city?: string; country?: string } | undefined;
-
-        switch (entry.action) {
-            case 'login':
-            case 'login_success':
-                return location?.city
-                    ? `Signed in from ${[location.city, location.country].filter(Boolean).join(', ')}`
-                    : 'Signed in successfully';
-            case 'login_failed':
-                return 'Failed login attempt';
-            case 'logout':
-                return typeof metadata.ip_address === 'string'
-                    ? `Signed out from ${metadata.ip_address}`
-                    : entry.ip_address
-                      ? `Signed out from ${entry.ip_address}`
-                      : 'Signed out';
-            case 'document_uploaded':
-                return `Uploaded ${documentLabel}`;
-            case 'document_downloaded':
-                return `Downloaded ${documentLabel}`;
-            case 'document_shared':
-                return typeof metadata.shared_with === 'string'
-                    ? `Shared ${documentLabel} with ${metadata.shared_with}`
-                    : `Shared ${documentLabel}`;
-            case 'document_deleted':
-                return `Moved ${documentLabel} to trash`;
-            case 'document_restored':
-                return `Restored ${documentLabel}`;
-            case 'document_starred':
-                return `Starred ${documentLabel}`;
-            case 'document_unstarred':
-                return `Unstarred ${documentLabel}`;
-            case 'signed_url_generated':
-                return typeof metadata.expires_hours === 'number'
-                    ? `Generated share link for ${documentLabel} (${metadata.expires_hours}h)`
-                    : `Generated share link for ${documentLabel}`;
-            case 'signed_url_accessed':
-                return `Share link accessed for ${documentLabel}`;
-            case 'share_revoked':
-                return typeof metadata.revoked_from === 'string'
-                    ? `Revoked access to ${documentLabel} from ${metadata.revoked_from}`
-                    : `Revoked access to ${documentLabel}`;
-            case '2fa_enabled':
-            case 'two_factor_enabled':
-                return 'Two-factor authentication enabled';
-            case '2fa_disabled':
-            case 'two_factor_disabled':
-                return 'Two-factor authentication disabled';
-            case 'password_changed':
-                return 'Password updated';
-            case 'profile_updated':
-                return 'Profile information updated';
-            case 'account_locked':
-                return 'Account locked after failed attempts';
-            case 'session_revoked':
-            case 'session_terminated':
-                return 'Active session revoked';
-            case 'integrity_violation':
-                return `Integrity check failed for ${documentLabel}`;
-            case 'bulk_download':
-                return typeof metadata.document_count === 'number'
-                    ? `Downloaded ${metadata.document_count} documents as ZIP`
-                    : 'Bulk download performed';
-            case 'bulk_delete':
-                return typeof metadata.document_count === 'number'
-                    ? `Moved ${metadata.document_count} documents to trash`
-                    : 'Bulk delete performed';
-            default:
-                return entry.action.replace(/_/g, ' ');
-        }
-    };
-
-    const getActivityBadgeClassName = (action: string) => {
-        switch (action) {
-            case 'document_uploaded':
-            case 'document_downloaded':
-            case '2fa_enabled':
-            case 'login':
-                return 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30';
-            case 'login_failed':
-            case 'document_deleted':
-            case 'integrity_violation':
-            case 'account_locked':
-            case '2fa_failed':
-                return 'bg-destructive/15 text-destructive border-destructive/30';
-            default:
-                return 'bg-primary/15 text-primary border-primary/30';
-        }
-    };
 
     const statCards = [
         {
             label: 'Documents',
             value: stats.document_count,
             icon: FileText,
-            valueClassName: 'text-foreground',
-            description: 'Encrypted files in vault',
-            tooltip: 'Total encrypted documents in your vault',
-            href: '/documents',
-            cardClassName: 'cursor-pointer min-h-[130px] hover:border-primary/50',
+            detail: 'Encrypted files in your vault',
+            href: route('documents.index'),
+            iconClassName: 'bg-amber-50 text-amber-700',
         },
         {
             label: 'Shared',
             value: stats.shared_with_me,
             icon: Users,
-            valueClassName: 'text-foreground',
-            description: 'Shared with you',
-            tooltip: 'Documents that other users shared with your account',
-            href: '/shared',
-            cardClassName: 'cursor-pointer min-h-[130px] hover:border-primary/50',
+            detail: 'Items shared with your account',
+            href: route('shared.index'),
+            iconClassName: 'bg-teal-50 text-teal-700',
         },
         {
             label: 'Sessions',
             value: stats.active_sessions,
             icon: Monitor,
-            valueClassName: 'text-foreground',
-            description: 'Active logins',
-            tooltip: 'Current active sessions for your SecureVault account',
-            href: '/sessions',
-            cardClassName: 'cursor-pointer min-h-[130px] hover:border-primary/50',
+            detail: 'Active sessions right now',
+            href: route('sessions.index'),
+            iconClassName: 'bg-emerald-50 text-emerald-700',
         },
         {
             label: 'Failed Logins',
             value: stats.failed_logins_24h,
             icon: ShieldAlert,
-            valueClassName: hasFailedLogins ? 'text-destructive' : 'text-foreground',
-            description: 'Security attempts today',
-            tooltip: 'Failed login attempts recorded in the last 24 hours',
-            href: '/activity',
-            cardClassName: hasFailedLogins
-                ? 'cursor-pointer min-h-[130px] border-amber-500/30 bg-amber-500/5'
-                : 'cursor-pointer min-h-[130px] hover:border-primary/50',
+            detail: 'Recorded in the last 24 hours',
+            href: route('activity.index'),
+            iconClassName: hasFailedLogins
+                ? 'bg-rose-50 text-rose-700'
+                : 'bg-stone-100 text-stone-700',
         },
     ];
 
     return (
-        <AuthenticatedLayout>
+        <AuthenticatedLayout
+            header={
+                <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                        Super Admin Workspace
+                    </p>
+                    <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
+                        Dashboard
+                    </h1>
+                    <p className="max-w-2xl text-sm leading-6 text-stone-600">
+                        Monitor vault health, recent document activity, and the
+                        most important security signals from one place.
+                    </p>
+                </div>
+            }
+        >
             <Head title="Dashboard" />
 
-            <div className="py-10">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
-                        <div className="space-y-6 md:col-span-8">
-                            <Breadcrumb>
-                                <BreadcrumbList>
-                                    <BreadcrumbItem>
-                                        <BreadcrumbLink asChild>
-                                            <Link href="/dashboard">Main</Link>
-                                        </BreadcrumbLink>
-                                    </BreadcrumbItem>
-                                    <BreadcrumbSeparator />
-                                    <BreadcrumbItem>
-                                        <BreadcrumbPage>Dashboard</BreadcrumbPage>
-                                    </BreadcrumbItem>
-                                </BreadcrumbList>
-                            </Breadcrumb>
+            <div className="py-8">
+                <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+                    {days_until_password_expiry !== null &&
+                        days_until_password_expiry <= 14 && (
+                            <Alert className="border-amber-200 bg-amber-50 text-amber-800 [&>svg]:text-amber-700">
+                                <ShieldAlert className="h-4 w-4" />
+                                <AlertTitle>Password expiring soon</AlertTitle>
+                                <AlertDescription>
+                                    Your password will expire in{' '}
+                                    {days_until_password_expiry} day
+                                    {days_until_password_expiry === 1 ? '' : 's'}.{' '}
+                                    <Link
+                                        href={route('profile.edit')}
+                                        className="font-medium underline underline-offset-4"
+                                    >
+                                        Update it now
+                                    </Link>{' '}
+                                    to avoid being locked out.
+                                </AlertDescription>
+                            </Alert>
+                        )}
 
-                            <Card className="overflow-hidden">
-                                <CardContent className="flex flex-col gap-5 p-6 lg:flex-row lg:items-start lg:justify-between">
-                                    <div className="space-y-3">
-                                        <div className="space-y-2">
-                                            <p className="text-sm font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                                                Overview
-                                            </p>
-                                            <div className="space-y-1">
-                                                <h1 className="text-3xl font-semibold tracking-tight text-foreground">Dashboard</h1>
-                                                <TimeBasedGreeting firstName={firstName} />
+                    {!hasTwoFactorEnabled && twoFactorDeadline && (() => {
+                        const hoursLeft = Math.max(
+                            0,
+                            Math.floor((twoFactorDeadline.getTime() - Date.now()) / 36e5),
+                        );
+                        const isUrgent = hoursLeft < 24;
+
+                        return (
+                            <Alert
+                                className={cn(
+                                    isUrgent
+                                        ? 'border-rose-200 bg-rose-50 text-rose-800 [&>svg]:text-rose-700'
+                                        : 'border-amber-200 bg-amber-50 text-amber-800 [&>svg]:text-amber-700',
+                                )}
+                            >
+                                <ShieldAlert className="h-4 w-4" />
+                                <AlertTitle>Two-factor authentication required</AlertTitle>
+                                <AlertDescription>
+                                    {hoursLeft > 0
+                                        ? `You have ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'} remaining to enable 2FA before restrictions apply.`
+                                        : 'Your grace period has expired. Enable 2FA now to restore full access.'}{' '}
+                                    <Link
+                                        href={route('profile.edit')}
+                                        className="font-medium underline underline-offset-4"
+                                    >
+                                        Set up 2FA now
+                                    </Link>
+                                    .
+                                </AlertDescription>
+                            </Alert>
+                        );
+                    })()}
+
+                    <div className="space-y-6">
+                        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.75fr)_minmax(340px,1fr)]">
+                            <Card className="rounded-[28px] border-stone-200/80 bg-white shadow-sm">
+                                <CardContent className="p-6 sm:p-7">
+                                    <div className="flex h-full flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                                        <div className="space-y-4">
+                                            <div className="space-y-2">
+                                                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                                                    Overview
+                                                </p>
+                                                <div className="space-y-1">
+                                                    <h2 className="text-4xl font-semibold tracking-tight text-stone-950">
+                                                        {getGreeting()}, {firstName}!
+                                                    </h2>
+                                                    <p className="max-w-2xl text-sm leading-6 text-stone-600">
+                                                        Your vault security status is{' '}
+                                                        <span
+                                                            className={cn(
+                                                                'font-medium',
+                                                                securityState.summaryClassName,
+                                                            )}
+                                                        >
+                                                            {securityState.label}
+                                                        </span>
+                                                        . Last login was{' '}
+                                                        {user.last_login_at
+                                                            ? formatDistanceToNow(
+                                                                  new Date(user.last_login_at),
+                                                                  { addSuffix: true },
+                                                              )
+                                                            : 'not recorded'}
+                                                        .
+                                                    </p>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-3">
-                                            <span className={cn('inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold', status.className)}>
-                                                {status.label}
-                                            </span>
-                                            <p className="text-sm text-muted-foreground">
-                                                Your vault security status is{' '}
-                                                <span
-                                                    className={cn(
-                                                        'font-medium',
-                                                        vaultStatus === 'Optimal'
-                                                            ? 'text-green-700 dark:text-green-400'
-                                                            : vaultStatus === 'Review Needed'
-                                                              ? 'text-amber-700 dark:text-amber-400'
-                                                              : 'text-destructive'
-                                                    )}
-                                                >
-                                                    {vaultStatus}
-                                                </span>
-                                                . Last login was {formatRelativeTime(user.last_login_at)}.
-                                            </p>
-                                        </div>
-                                    </div>
 
-                                    <div className="flex flex-wrap items-center gap-3">
-                                        <Button variant="outline" asChild>
-                                            <Link href={route('activity.index')}>View Audit Logs</Link>
-                                        </Button>
-                                        {canViewAdminDashboard && (
-                                            <Button asChild>
-                                                <Link href={route('admin.dashboard')}>Admin Dashboard</Link>
+                                            <Badge
+                                                variant="outline"
+                                                className={cn(
+                                                    'w-fit rounded-full px-3 py-1 text-sm font-semibold',
+                                                    securityState.badgeClassName,
+                                                )}
+                                            >
+                                                {securityState.label}
+                                            </Badge>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-3">
+                                            <Button
+                                                variant="outline"
+                                                asChild
+                                                className="border-stone-200 bg-white text-stone-900 hover:bg-stone-50"
+                                            >
+                                                <Link href={route('activity.index')}>
+                                                    View Audit Logs
+                                                </Link>
                                             </Button>
-                                        )}
+                                            {canViewAdminDashboard && (
+                                                <Button
+                                                    asChild
+                                                    className="bg-amber-700 text-white hover:bg-amber-800"
+                                                >
+                                                    <Link href={route('admin.dashboard')}>
+                                                        Admin Dashboard
+                                                    </Link>
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
 
-                            {days_until_password_expiry !== null && days_until_password_expiry <= 14 && (
-                                <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
-                                    <ShieldAlert className="h-4 w-4" />
-                                    <AlertTitle>Password expiring soon</AlertTitle>
-                                    <AlertDescription>
-                                        Your password will expire in {days_until_password_expiry} day(s).{' '}
-                                        <Link href={route('profile.edit')} className="font-medium underline underline-offset-4">
-                                            Update it now
-                                        </Link>{' '}
-                                        to avoid being locked out.
-                                    </AlertDescription>
-                                </Alert>
-                            )}
+                            <Card className="rounded-[28px] border-stone-200/80 bg-white shadow-sm">
+                                <CardHeader className="border-b border-stone-200/80 pb-5">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <CardTitle className="text-2xl font-semibold text-stone-950">
+                                            Recent Activity
+                                        </CardTitle>
+                                        <Link
+                                            href={route('activity.index')}
+                                            className="text-sm font-medium text-amber-700 hover:text-amber-800"
+                                        >
+                                            View All
+                                        </Link>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-5 p-5 xl:max-h-[460px] xl:overflow-y-auto">
+                                    {recent_activity.length === 0 ? (
+                                        <p className="text-sm text-stone-500">
+                                            No recent activity recorded.
+                                        </p>
+                                    ) : (
+                                        recent_activity.map((entry, index) => {
+                                            const tone = getActivityTone(entry.action);
 
-                            {!hasTwoFactorEnabled && twoFactorDeadline && (() => {
-                                const hoursLeft = Math.max(
-                                    0,
-                                    Math.floor((twoFactorDeadline.getTime() - Date.now()) / 36e5)
-                                );
-                                const isUrgent = hoursLeft < 24;
+                                            return (
+                                                <div
+                                                    key={`${entry.action}-${entry.created_at}-${index}`}
+                                                    className="flex gap-4"
+                                                >
+                                                    <div className="flex flex-col items-center">
+                                                        <span
+                                                            className={cn(
+                                                                'mt-1 h-3 w-3 rounded-full',
+                                                                tone.dot,
+                                                            )}
+                                                        />
+                                                        {index !==
+                                                            recent_activity.length - 1 && (
+                                                            <span className="mt-2 h-full w-px bg-stone-200" />
+                                                        )}
+                                                    </div>
+                                                    <div className="min-w-0 flex-1 space-y-2 pb-2">
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={cn(
+                                                                'w-fit rounded-full text-xs font-medium',
+                                                                tone.badge,
+                                                            )}
+                                                        >
+                                                            {getActivityLabel(entry.action)}
+                                                        </Badge>
+                                                        <p className="text-sm leading-6 text-stone-700">
+                                                            {getActivityDescription(entry)}
+                                                        </p>
+                                                        <p className="text-xs font-medium text-stone-500">
+                                                            {format(
+                                                                new Date(entry.created_at),
+                                                                "MMM d, yyyy 'at' p",
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                            {statCards.map((card) => {
+                                const Icon = card.icon;
 
                                 return (
-                                    <Alert className={cn(
-                                        isUrgent
-                                            ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                                            : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                                    )}>
-                                        <ShieldAlert className="h-4 w-4" />
-                                        <AlertTitle>Two-Factor Authentication Required</AlertTitle>
-                                        <AlertDescription>
-                                            {hoursLeft > 0
-                                                ? `You have ${hoursLeft} hour${hoursLeft === 1 ? '' : 's'} remaining to enable 2FA. After this, your account will be restricted until 2FA is set up.`
-                                                : 'Your grace period has expired. Enable 2FA now to restore full access.'}{' '}
-                                            <Link
-                                                href={route('two-factor.setup')}
-                                                className="font-medium underline underline-offset-4"
-                                            >
-                                                Set up 2FA now
-                                            </Link>
-                                        </AlertDescription>
-                                    </Alert>
-                                );
-                            })()}
-
-                            <TooltipProvider>
-                                <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                                    {statCards.map(({ label, value, icon: Icon, valueClassName, description, tooltip, href, cardClassName }) => (
-                                        <Link key={label} href={href}>
-                                            <Card className={cn('transition-colors', cardClassName)}>
-                                                <CardHeader className="pb-2">
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <CardTitle className="text-xs font-semibold uppercase tracking-wider leading-tight text-muted-foreground">
-                                                            {label}
-                                                        </CardTitle>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <div className="cursor-help rounded-lg border border-border bg-muted p-2 flex-shrink-0">
-                                                                    <Icon className="h-4 w-4 text-muted-foreground" />
-                                                                </div>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>{tooltip}</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
+                                    <Link key={card.label} href={card.href}>
+                                        <Card className="h-full rounded-[24px] border-stone-200/80 bg-white shadow-sm transition-colors hover:border-amber-200">
+                                            <CardContent className="space-y-5 p-5">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div>
+                                                        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-stone-500">
+                                                            {card.label}
+                                                        </p>
                                                     </div>
-                                                </CardHeader>
-                                                <CardContent className="pb-4">
-                                                    <div className={cn('text-3xl font-bold text-foreground', valueClassName)}>{value}</div>
-                                                    <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-                                                </CardContent>
-                                            </Card>
-                                        </Link>
-                                    ))}
-                                </div>
-                            </TooltipProvider>
+                                                    <div
+                                                        className={cn(
+                                                            'flex h-10 w-10 items-center justify-center rounded-2xl',
+                                                            card.iconClassName,
+                                                        )}
+                                                    >
+                                                        <Icon className="h-5 w-5" />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-4xl font-semibold tracking-tight text-stone-950">
+                                                        {card.value}
+                                                    </p>
+                                                    <p className="text-sm text-stone-500">
+                                                        {card.detail}
+                                                    </p>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </Link>
+                                );
+                            })}
+                        </div>
 
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <HardDrive className="h-5 w-5 text-primary" />
-                                        Vault Storage
-                                    </CardTitle>
-                                    <CardDescription>Measured storage and document averages for your encrypted vault.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="grid gap-4 border-t border-border pt-6 sm:grid-cols-3">
-                                    <div className="rounded-lg border border-border bg-muted/40 p-4">
-                                        <p className="text-sm text-muted-foreground">Encrypted Storage Used</p>
-                                        <p className="mt-2 text-2xl font-semibold text-foreground">{formatBytes(stats.storage_used)}</p>
-                                    </div>
-                                    <div className="rounded-lg border border-border bg-muted/40 p-4">
-                                        <p className="text-sm text-muted-foreground">Total Documents</p>
-                                        <p className="mt-2 text-2xl font-semibold text-foreground">{stats.total_documents}</p>
-                                    </div>
-                                    <div className="rounded-lg border border-border bg-muted/40 p-4">
-                                        <p className="text-sm text-muted-foreground">Average File Size</p>
-                                        <p className="mt-2 text-2xl font-semibold text-foreground">{formatBytes(stats.average_file_size)}</p>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between gap-4">
+                        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_320px]">
+                            <Card className="rounded-[28px] border-stone-200/80 bg-white shadow-sm">
+                                <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-stone-200/80 pb-5">
                                     <div>
-                                        <CardTitle>Recent Documents</CardTitle>
-                                        <CardDescription>Your five latest uploads in SecureVault.</CardDescription>
+                                        <CardTitle className="text-2xl font-semibold text-stone-950">
+                                            Recent Documents
+                                        </CardTitle>
+                                        <CardDescription className="text-sm text-stone-600">
+                                            Latest files added to your vault
+                                        </CardDescription>
                                     </div>
-                                    <Button variant="ghost" asChild className="text-muted-foreground hover:text-foreground">
+                                    <Button
+                                        variant="ghost"
+                                        asChild
+                                        className="text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+                                    >
                                         <Link href={route('documents.index')}>
                                             View All
-                                            <ArrowRight className="ml-2 h-4 w-4" />
+                                            <ArrowRight className="ml-1 h-4 w-4" />
                                         </Link>
                                     </Button>
                                 </CardHeader>
-                                <CardContent className="border-t border-border p-0">
+                                <CardContent className="p-0">
                                     {recent_documents.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                                                <Lock className="h-5 w-5" />
+                                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-stone-100 text-stone-500">
+                                                <Lock className="h-6 w-6" />
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="font-medium text-foreground">Your vault is empty.</p>
-                                                <p className="text-sm text-muted-foreground">Upload your first document.</p>
+                                                <p className="font-medium text-stone-950">
+                                                    Your vault is empty
+                                                </p>
+                                                <p className="text-sm text-stone-500">
+                                                    Upload your first document to begin protecting it.
+                                                </p>
                                             </div>
                                         </div>
                                     ) : (
                                         <Table>
                                             <TableHeader>
-                                                <TableRow>
-                                                    <TableHead className="px-6">File</TableHead>
-                                                    <TableHead>Size</TableHead>
-                                                    <TableHead>Uploaded</TableHead>
-                                                    <TableHead className="px-6 text-right"></TableHead>
+                                                <TableRow className="hover:bg-transparent">
+                                                    <TableHead className="px-6 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                                        Name
+                                                    </TableHead>
+                                                    <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                                        Size
+                                                    </TableHead>
+                                                    <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                                        Uploaded
+                                                    </TableHead>
+                                                    <TableHead className="px-6 text-right text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                                        Actions
+                                                    </TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {recent_documents.map((document) => (
-                                                    <TableRow key={document.id} className="hover:bg-muted/50">
-                                                        <TableCell className="px-6">
-                                                            <div className="flex min-w-0 items-center gap-3">
-                                                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                                                                    {getFileIcon(document.mime_type)}
+                                                    <TableRow
+                                                        key={document.id}
+                                                        className="hover:bg-stone-50/80"
+                                                    >
+                                                        <TableCell className="px-6 py-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div
+                                                                    className={cn(
+                                                                        'flex h-11 w-11 items-center justify-center rounded-2xl border',
+                                                                        getDocumentTone(
+                                                                            document.mime_type,
+                                                                        ),
+                                                                    )}
+                                                                >
+                                                                    <FileText className="h-5 w-5" />
                                                                 </div>
                                                                 <div className="min-w-0">
                                                                     <Link
-                                                                        href={route('documents.show', document.id)}
-                                                                        className="block truncate font-medium text-foreground hover:underline"
+                                                                        href={route(
+                                                                            'documents.show',
+                                                                            document.id,
+                                                                        )}
+                                                                        className="block truncate font-medium text-stone-950 hover:underline"
                                                                     >
                                                                         {document.original_name}
                                                                     </Link>
                                                                 </div>
                                                             </div>
                                                         </TableCell>
-                                                        <TableCell className="text-sm text-muted-foreground">
-                                                            {formatBytes(document.file_size)}
+                                                        <TableCell className="text-sm text-stone-600">
+                                                            {formatBytes(
+                                                                document.file_size,
+                                                            )}
                                                         </TableCell>
-                                                        <TableCell className="text-sm text-muted-foreground">
-                                                            {formatDistanceToNow(new Date(document.created_at), { addSuffix: true })}
+                                                        <TableCell className="text-sm text-stone-600">
+                                                            {format(
+                                                                new Date(
+                                                                    document.created_at,
+                                                                ),
+                                                                'MMM d, yyyy p',
+                                                            )}
                                                         </TableCell>
                                                         <TableCell className="px-6 text-right">
-                                                            <Button variant="ghost" size="sm" asChild>
-                                                                <Link href={route('documents.show', document.id)}>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                asChild
+                                                                className="text-stone-600 hover:bg-stone-100 hover:text-stone-950"
+                                                            >
+                                                                <Link
+                                                                    href={route(
+                                                                        'documents.show',
+                                                                        document.id,
+                                                                    )}
+                                                                >
                                                                     Open
-                                                                    <ArrowRight className="ml-2 h-4 w-4" />
                                                                 </Link>
                                                             </Button>
                                                         </TableCell>
@@ -627,101 +663,142 @@ export default function Dashboard({
                                     )}
                                 </CardContent>
                             </Card>
-                        </div>
 
-                        <div className="space-y-6 md:col-span-4">
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
-                                    <CardTitle className="text-sm font-semibold text-foreground">
-                                        Recent Activity
+                            <Card className="rounded-[28px] border-stone-200/80 bg-white shadow-sm">
+                                <CardHeader className="border-b border-stone-200/80 pb-5">
+                                    <CardTitle className="text-2xl font-semibold text-stone-950">
+                                        Vault Storage
                                     </CardTitle>
-                                    <Link href="/activity" className="text-xs text-primary hover:underline">
-                                        View All
-                                    </Link>
+                                    <CardDescription className="text-sm text-stone-600">
+                                        Current storage utilization
+                                    </CardDescription>
                                 </CardHeader>
-                                <CardContent className="space-y-3 pt-4">
-                                    {recent_activity.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">No recent activity recorded.</p>
-                                    ) : (
-                                        recent_activity.map((entry, index) => (
-                                            <div
-                                                key={`${entry.action}-${entry.created_at}-${index}`}
-                                                className="flex items-start gap-3"
-                                            >
-                                                <UserAvatar user={user} size="md" />
-                                                <div className="min-w-0 flex-1 space-y-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={getActivityBadgeClassName(entry.action)}
-                                                        >
-                                                            {getActivityLabel(entry.action)}
-                                                        </Badge>
-                                                        <span className={cn('h-2 w-2 shrink-0 rounded-full', getActivitySeverity(entry.action))} />
-                                                    </div>
-                                                    <p className="text-sm text-muted-foreground">{getActivityDescription(entry)}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
+                                <CardContent className="space-y-4 p-5">
+                                    <div className="rounded-2xl border border-stone-200/80 bg-stone-50/70 p-4">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Encrypted Storage Used
+                                        </p>
+                                        <p className="mt-3 text-3xl font-semibold tracking-tight text-stone-950">
+                                            {formatBytes(stats.storage_used)}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-2xl border border-stone-200/80 bg-stone-50/70 p-4">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Total Documents
+                                        </p>
+                                        <p className="mt-3 text-3xl font-semibold tracking-tight text-stone-950">
+                                            {stats.total_documents}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-2xl border border-stone-200/80 bg-stone-50/70 p-4">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Average File Size
+                                        </p>
+                                        <p className="mt-3 text-3xl font-semibold tracking-tight text-stone-950">
+                                            {formatBytes(stats.average_file_size)}
+                                        </p>
+                                    </div>
                                 </CardContent>
                             </Card>
+                        </div>
 
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-sm uppercase tracking-[0.22em] text-muted-foreground">
-                                        Vault Status
+                        <div className="grid gap-6 lg:grid-cols-2">
+                            <Card className="rounded-[28px] border-stone-200/80 bg-white shadow-sm">
+                                <CardHeader className="border-b border-stone-200/80 pb-5">
+                                    <CardTitle className="flex items-center gap-2 text-2xl font-semibold text-stone-950">
+                                        <ShieldCheck className="h-5 w-5 text-emerald-700" />
+                                        Security Status
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent className="space-y-4 border-t border-border pt-6">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div className="flex items-center gap-3">
-                                            <span className="h-2.5 w-2.5 rounded-full bg-status-success" />
-                                            <span className="text-sm text-foreground">Encrypted Connection</span>
-                                        </div>
-                                        <Badge
-                                            variant="outline"
-                                            className="border-green-500/30 bg-green-500/15 text-xs text-green-700 dark:text-green-400"
-                                        >
+                                <CardContent className="space-y-5 p-5">
+                                    <div className="flex items-center justify-between gap-4 border-b border-stone-100 pb-4">
+                                        <span className="text-sm text-stone-700">
+                                            Encrypted Connection
+                                        </span>
+                                        <span className="inline-flex items-center gap-2 text-sm font-medium text-emerald-700">
+                                            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
                                             Active
-                                        </Badge>
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between gap-4 border-b border-stone-100 pb-4">
+                                        <span className="text-sm text-stone-700">
+                                            2FA Status
+                                        </span>
+                                        <span
+                                            className={cn(
+                                                'inline-flex items-center gap-2 text-sm font-medium',
+                                                hasTwoFactorEnabled
+                                                    ? 'text-emerald-700'
+                                                    : 'text-amber-700',
+                                            )}
+                                        >
+                                            <span
+                                                className={cn(
+                                                    'h-2.5 w-2.5 rounded-full',
+                                                    hasTwoFactorEnabled
+                                                        ? 'bg-emerald-500'
+                                                        : 'bg-amber-500',
+                                                )}
+                                            />
+                                            {hasTwoFactorEnabled ? 'Enabled' : 'Disabled'}
+                                        </span>
                                     </div>
 
                                     <div className="flex items-center justify-between gap-4">
-                                        <div className="flex items-center gap-3">
-                                            <span className={cn('h-2.5 w-2.5 rounded-full', hasTwoFactorEnabled ? 'bg-status-success' : 'bg-primary')} />
-                                            <span className="text-sm text-foreground">2FA</span>
-                                        </div>
-                                        <Badge
-                                            variant="outline"
-                                            className={cn(
-                                                'text-xs',
-                                                hasTwoFactorEnabled
-                                                    ? 'border-green-500/30 bg-green-500/15 text-green-700 dark:text-green-400'
-                                                    : 'border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400'
-                                            )}
-                                        >
-                                            {hasTwoFactorEnabled ? 'Enabled' : 'Disabled'}
-                                        </Badge>
+                                        <span className="text-sm text-stone-700">
+                                            Last Login IP
+                                        </span>
+                                        <span className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-1 font-mono text-xs text-stone-700">
+                                            {user.last_login_ip || 'Unavailable'}
+                                        </span>
                                     </div>
 
                                     {!hasTwoFactorEnabled && (
-                                        <Button variant="ghost" asChild className="h-auto justify-start px-0 text-primary hover:bg-transparent hover:text-primary/80">
+                                        <Button
+                                            variant="ghost"
+                                            asChild
+                                            className="h-auto justify-start px-0 text-amber-700 hover:bg-transparent hover:text-amber-800"
+                                        >
                                             <Link href={route('profile.edit')}>
                                                 Enable 2FA
                                                 <ArrowRight className="ml-1 h-4 w-4" />
                                             </Link>
                                         </Button>
                                     )}
+                                </CardContent>
+                            </Card>
 
-                                    <Separator className="my-4" />
-
-                                    <div className="space-y-1 rounded-lg border border-border bg-muted/40 p-4">
-                                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Last Login IP</p>
-                                        <p className="font-mono text-sm text-foreground">{user.last_login_ip || 'Unavailable'}</p>
+                            <Card className="rounded-[28px] border-stone-200/80 bg-white shadow-sm">
+                                <CardHeader className="border-b border-stone-200/80 pb-5">
+                                    <CardTitle className="flex items-center gap-2 text-2xl font-semibold text-stone-950">
+                                        <HardDrive className="h-5 w-5 text-amber-700" />
+                                        Vault Snapshot
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="grid gap-4 p-5 sm:grid-cols-2">
+                                    <div className="rounded-2xl border border-stone-200/80 bg-stone-50/70 p-4">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Recent Document Count
+                                        </p>
+                                        <p className="mt-2 text-2xl font-semibold text-stone-950">
+                                            {recent_documents.length}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-2xl border border-stone-200/80 bg-stone-50/70 p-4">
+                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Failed Logins Today
+                                        </p>
+                                        <div className="mt-2 flex items-center gap-2">
+                                            {hasFailedLogins ? (
+                                                <ShieldX className="h-5 w-5 text-rose-700" />
+                                            ) : (
+                                                <ShieldCheck className="h-5 w-5 text-emerald-700" />
+                                            )}
+                                            <p className="text-2xl font-semibold text-stone-950">
+                                                {stats.failed_logins_24h}
+                                            </p>
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>

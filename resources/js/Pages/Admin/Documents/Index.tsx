@@ -1,16 +1,8 @@
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import UserAvatar from '@/components/UserAvatar';
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { FileTypeBadge } from '@/components/FileTypeBadge';
 import { Input } from '@/components/ui/input';
 import {
     Pagination,
@@ -21,15 +13,15 @@ import {
     PaginationNext,
     PaginationPrevious,
 } from '@/components/ui/pagination';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { FileTypeBadge } from '@/components/FileTypeBadge';
 import { ScanBadge, type ScanResult } from '@/components/ScanBadge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SortableHeader } from '@/components/SortableHeader';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import UserAvatar from '@/components/UserAvatar';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { PageProps, PaginatedResponse } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { format } from 'date-fns';
 import {
     Download,
@@ -107,7 +99,14 @@ function getFileIcon(mimeType: string) {
     }
 }
 
-export default function AdminDocumentsIndex({ documents, filters, sort, direction, selectedOwner, users }: Props) {
+export default function AdminDocumentsIndex({
+    documents,
+    filters,
+    sort,
+    direction,
+    selectedOwner,
+    users,
+}: Props) {
     const [search, setSearch] = useState(filters.search ?? '');
     const [type, setType] = useState(filters.type ?? 'all');
     const [ownerId, setOwnerId] = useState(selectedOwner ?? 'all');
@@ -153,21 +152,19 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
     return (
         <AuthenticatedLayout
             header={
-                <div className="space-y-1">
-                    <h2 className="text-2xl font-semibold text-foreground">All Documents</h2>
-                    <Breadcrumb>
-                        <BreadcrumbList>
-                            <BreadcrumbItem>
-                                <BreadcrumbLink asChild>
-                                    <Link href="/admin">Admin</Link>
-                                </BreadcrumbLink>
-                            </BreadcrumbItem>
-                            <BreadcrumbSeparator />
-                            <BreadcrumbItem>
-                                <BreadcrumbPage>All Documents</BreadcrumbPage>
-                            </BreadcrumbItem>
-                        </BreadcrumbList>
-                    </Breadcrumb>
+                <div className="space-y-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                        Admin Library
+                    </div>
+                    <div className="space-y-2">
+                        <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
+                            All Documents
+                        </h1>
+                        <p className="max-w-3xl text-sm text-stone-500">
+                            Review every stored document across the system in read-only mode, with
+                            quick visibility into ownership, scanning, encryption, and integrity.
+                        </p>
+                    </div>
                 </div>
             }
         >
@@ -175,36 +172,72 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
-                        <ShieldAlert className="h-4 w-4" />
-                        <AlertDescription>
-                            You are viewing all system documents in read-only mode. Download, delete, and share controls are hidden.
+                    <Alert className="rounded-[28px] border border-[#efc7b8] bg-[#fdf0ea] px-5 py-4 text-[#8a3b1f] shadow-sm">
+                        <ShieldAlert className="h-4 w-4 text-[#c65e38]" />
+                        <AlertDescription className="text-sm leading-7 text-[#8c4d35]">
+                            You are viewing all system documents in read-only mode. Download,
+                            delete, and share controls are hidden.
                         </AlertDescription>
                     </Alert>
 
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="rounded-[30px] border border-[#ecd8ce] bg-[#fdf8f4] p-6 shadow-sm">
+                        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                            <div className="space-y-3">
+                                <Badge className="rounded-full border border-[#efcdbf] bg-[#fff4ee] px-3 py-1 text-sm font-medium text-[#a64824] hover:bg-[#fff4ee]">
+                                    Document oversight
+                                </Badge>
+                                <div className="space-y-1">
+                                    <h2 className="text-4xl font-semibold tracking-tight text-stone-950">
+                                        Search the full enterprise document inventory
+                                    </h2>
+                                    <p className="max-w-3xl text-sm leading-7 text-stone-500">
+                                        This view favors review and auditability over editing. Keep
+                                        filters broad, inspect ownership, and move into document details
+                                        only when something needs closer attention.
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="h-11 rounded-2xl border-[#d7c3b7] bg-white px-4 text-stone-700"
+                                    asChild
+                                >
+                                    <a href={route('admin.documents.export')}>
+                                        <Download className="h-4 w-4" />
+                                        Export CSV
+                                    </a>
+                                </Button>
+                                <div className="rounded-full border border-[#ead8cd] bg-white px-4 py-2 text-sm text-stone-600">
+                                    {currentCountLabel}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <Card className="rounded-[30px] border border-[#ead8cd] bg-white/95 shadow-sm">
+                        <CardContent className="p-5">
+                            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                                 <form
                                     id="admin-documents-filters"
                                     onSubmit={(event: FormEvent) => {
                                         event.preventDefault();
                                         submitFilters();
                                     }}
-                                    className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center"
+                                    className="flex flex-1 flex-col gap-3 xl:flex-row xl:items-center"
                                 >
-                                    <div className="relative w-full lg:max-w-sm">
-                                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <div className="relative w-full xl:max-w-sm">
+                                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
                                         <Input
                                             value={search}
                                             onChange={(event) => setSearch(event.target.value)}
-                                            placeholder="Search filenames..."
+                                            placeholder="Filter documents..."
                                             aria-label="Search documents by filename"
-                                            className="pl-9"
+                                            className="h-12 rounded-2xl border-[#e8d7cc] bg-[#fffaf7] pl-10 text-sm shadow-none focus-visible:ring-amber-200"
                                         />
                                     </div>
 
-                                    <div className="w-full lg:w-[180px]">
+                                    <div className="w-full xl:w-[180px]">
                                         <Select
                                             value={type}
                                             onValueChange={(value) => {
@@ -212,7 +245,10 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                                 submitFilters({ type: value });
                                             }}
                                         >
-                                            <SelectTrigger aria-label="Filter documents by type">
+                                            <SelectTrigger
+                                                aria-label="Filter documents by type"
+                                                className="h-12 rounded-2xl border-[#e8d7cc] bg-white shadow-none"
+                                            >
                                                 <SelectValue placeholder="All Types" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -225,7 +261,7 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                         </Select>
                                     </div>
 
-                                    <div className="w-full lg:w-[280px]">
+                                    <div className="w-full xl:w-[240px]">
                                         <Select
                                             value={ownerId}
                                             onValueChange={(value) => {
@@ -233,7 +269,10 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                                 submitFilters({ ownerId: value });
                                             }}
                                         >
-                                            <SelectTrigger aria-label="Filter documents by owner">
+                                            <SelectTrigger
+                                                aria-label="Filter documents by owner"
+                                                className="h-12 rounded-2xl border-[#e8d7cc] bg-white shadow-none"
+                                            >
                                                 <SelectValue placeholder="All owners" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -248,33 +287,28 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                     </div>
                                 </form>
 
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                                    <Button form="admin-documents-filters" type="submit" variant="outline">
-                                        <SlidersHorizontal className="h-4 w-4" />
-                                        Filter
-                                    </Button>
-                                    <Button variant="outline" asChild>
-                                        <a href={route('admin.documents.export')}>
-                                            <Download className="h-4 w-4" />
-                                            Export CSV
-                                        </a>
-                                    </Button>
-                                    <p className="text-sm text-muted-foreground">{currentCountLabel}</p>
-                                    <div aria-live="polite" className="sr-only">
-                                        {currentCountLabel}
-                                    </div>
-                                </div>
+                                <Button
+                                    form="admin-documents-filters"
+                                    type="submit"
+                                    variant="outline"
+                                    className="h-12 rounded-2xl border-[#d7c3b7] bg-white px-4 text-stone-700"
+                                >
+                                    <SlidersHorizontal className="h-4 w-4" />
+                                    Apply Filters
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
+                    <Card className="overflow-hidden rounded-[30px] border border-[#ead8cd] bg-white/95 shadow-sm">
                         <CardContent className="p-0">
                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Document Name</TableHead>
-                                        <TableHead>
+                                <TableHeader className="bg-[#fff8f4] [&_tr]:border-[#ead8cd]">
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableHead className="py-4 text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Document Name
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                                             <SortableHeader
                                                 column="owner"
                                                 label="Owner"
@@ -285,9 +319,13 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                                 query={activeQuery}
                                             />
                                         </TableHead>
-                                        <TableHead>Type</TableHead>
-                                        <TableHead>Scan Status</TableHead>
-                                        <TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Type
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Scan Status
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                                             <SortableHeader
                                                 column="file_size"
                                                 label="Size"
@@ -298,7 +336,7 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                                 query={activeQuery}
                                             />
                                         </TableHead>
-                                        <TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                                             <SortableHeader
                                                 column="created_at"
                                                 label="Uploaded"
@@ -309,16 +347,22 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                                 query={activeQuery}
                                             />
                                         </TableHead>
-                                        <TableHead>Encryption</TableHead>
-                                        <TableHead>Integrity</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Encryption
+                                        </TableHead>
+                                        <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Integrity
+                                        </TableHead>
+                                        <TableHead className="text-right text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                            Actions
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {documents.data.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
-                                                No documents found.
+                                            <TableCell colSpan={9} className="py-16 text-center text-stone-500">
+                                                No documents found for the current filters.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
@@ -328,26 +372,30 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                             return (
                                                 <TableRow
                                                     key={doc.id}
-                                                    className="cursor-pointer hover:bg-muted/50"
+                                                    className="cursor-pointer border-[#f0e1d8] hover:bg-[#fffaf7]"
                                                     onClick={() => handleRowClick(doc.id)}
                                                 >
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <FileIcon className="h-4 w-4 flex-shrink-0 text-primary" />
-                                                            <div>
-                                                                <div className="max-w-[200px] truncate text-sm font-medium text-foreground">
+                                                    <TableCell className="py-5">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f9efe9]">
+                                                                <FileIcon className="h-5 w-5 text-[#b24b23]" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <div className="max-w-[240px] truncate text-sm font-medium text-stone-950">
                                                                     {doc.original_name}
                                                                 </div>
-                                                                <div className="text-xs text-muted-foreground">#{doc.id}</div>
+                                                                <div className="text-xs text-stone-500">#{doc.id}</div>
                                                             </div>
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex items-center gap-3">
                                                             <UserAvatar user={doc.user} size="sm" />
-                                                            <div>
-                                                                <div className="text-sm text-foreground">{doc.user.name}</div>
-                                                                <div className="text-xs text-muted-foreground">{doc.user.email}</div>
+                                                            <div className="min-w-0">
+                                                                <div className="text-sm text-stone-950">{doc.user.name}</div>
+                                                                <div className="max-w-[180px] truncate text-xs text-stone-500">
+                                                                    {doc.user.email}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </TableCell>
@@ -357,12 +405,11 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                                     <TableCell>
                                                         <ScanBadge result={doc.scan_result} />
                                                     </TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground">
+                                                    <TableCell className="text-sm text-stone-600">
                                                         {formatFileSize(doc.file_size)}
                                                     </TableCell>
-                                                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                                                        <div>{format(new Date(doc.created_at), 'MMM dd, yyyy')}</div>
-                                                        <div>{format(new Date(doc.created_at), 'HH:mm')}</div>
+                                                    <TableCell className="whitespace-nowrap text-sm text-stone-600">
+                                                        {format(new Date(doc.created_at), 'MMM dd, yyyy')}
                                                     </TableCell>
                                                     <TableCell>
                                                         <TooltipProvider>
@@ -370,10 +417,10 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                                                 <TooltipTrigger asChild>
                                                                     <Badge
                                                                         variant="outline"
-                                                                        className="gap-1 border-0 bg-emerald-500/15 text-xs text-emerald-700 dark:text-emerald-400"
+                                                                        className="rounded-xl border-[#ebd5ca] bg-[#f9efe9] px-2.5 py-1 text-xs text-stone-700"
                                                                     >
-                                                                        <Lock className="h-3 w-3" />
-                                                                        Encrypted
+                                                                        <Lock className="mr-1 h-3 w-3" />
+                                                                        AES-256
                                                                     </Badge>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>
@@ -389,14 +436,14 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                                                     {doc.file_hash ? (
                                                                         <Badge
                                                                             variant="outline"
-                                                                            className="border-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                                                            className="rounded-xl border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700"
                                                                         >
-                                                                            Hash present
+                                                                            Verified
                                                                         </Badge>
                                                                     ) : (
                                                                         <Badge
                                                                             variant="outline"
-                                                                            className="border-0 bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                                                            className="rounded-xl border-amber-200 bg-amber-50 px-2.5 py-1 text-xs text-amber-700"
                                                                         >
                                                                             No hash
                                                                         </Badge>
@@ -405,8 +452,8 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                                                 <TooltipContent>
                                                                     <p>
                                                                         {doc.file_hash
-                                                                            ? 'SHA-256 hash recorded — integrity verified at download'
-                                                                            : 'No integrity hash on record for this file'}
+                                                                            ? 'SHA-256 hash recorded for integrity verification'
+                                                                            : 'No integrity hash is currently stored for this file'}
                                                                     </p>
                                                                 </TooltipContent>
                                                             </Tooltip>
@@ -416,7 +463,7 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            className="gap-1.5"
+                                                            className="rounded-xl text-stone-700 hover:bg-[#f7ede7]"
                                                             onClick={(event) => {
                                                                 stopRowNavigation(event);
                                                                 router.visit(`/documents/${doc.id}`);
@@ -432,38 +479,41 @@ export default function AdminDocumentsIndex({ documents, filters, sort, directio
                                     )}
                                 </TableBody>
                             </Table>
+
+                            <div className="flex flex-col gap-4 border-t border-[#ead8cd] px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                <p className="text-sm text-stone-500">{currentCountLabel}</p>
+                                {documents.last_page > 1 && (
+                                    <Pagination className="mx-0 w-auto justify-end">
+                                        <PaginationContent>
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    href={documents.prev_page_url ?? '#'}
+                                                    className={!documents.prev_page_url ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                            {documents.links.slice(1, -1).map((link, index) => (
+                                                <PaginationItem key={`${link.label}-${index}`}>
+                                                    {link.label === '...' ? (
+                                                        <PaginationEllipsis />
+                                                    ) : (
+                                                        <PaginationLink href={link.url ?? '#'} isActive={link.active}>
+                                                            {link.label}
+                                                        </PaginationLink>
+                                                    )}
+                                                </PaginationItem>
+                                            ))}
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    href={documents.next_page_url ?? '#'}
+                                                    className={!documents.next_page_url ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
+                                )}
+                            </div>
                         </CardContent>
                     </Card>
-
-                    {documents.last_page > 1 && (
-                        <Pagination>
-                            <PaginationContent>
-                                <PaginationItem>
-                                    <PaginationPrevious
-                                        href={documents.prev_page_url ?? '#'}
-                                        className={!documents.prev_page_url ? 'pointer-events-none opacity-50' : ''}
-                                    />
-                                </PaginationItem>
-                                {documents.links.slice(1, -1).map((link, index) => (
-                                    <PaginationItem key={`${link.label}-${index}`}>
-                                        {link.label === '...' ? (
-                                            <PaginationEllipsis />
-                                        ) : (
-                                            <PaginationLink href={link.url ?? '#'} isActive={link.active}>
-                                                {link.label}
-                                            </PaginationLink>
-                                        )}
-                                    </PaginationItem>
-                                ))}
-                                <PaginationItem>
-                                    <PaginationNext
-                                        href={documents.next_page_url ?? '#'}
-                                        className={!documents.next_page_url ? 'pointer-events-none opacity-50' : ''}
-                                    />
-                                </PaginationItem>
-                            </PaginationContent>
-                        </Pagination>
-                    )}
                 </div>
             </div>
         </AuthenticatedLayout>

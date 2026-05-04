@@ -8,6 +8,7 @@ use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\RecoveryCodeService;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use PragmaRX\Google2FA\Google2FA;
+use RuntimeException;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
@@ -119,6 +121,132 @@ class AccountDeletionTest extends TestCase
             ->assertSessionHasErrors('two_factor_code');
 
         $this->assertNull($user->fresh()->deletion_requested_at);
+    }
+
+    public function test_recovery_code_not_consumed_when_mail_fails(): void
+    {
+        $user = User::factory()->create([
+            'is_active' => true,
+            'two_factor_enabled' => true,
+            'two_factor_secret' => app(Google2FA::class)->generateSecretKey(),
+        ]);
+        $recoveryCode = app(RecoveryCodeService::class)->generate($user)[0];
+
+        DB::table(config('session.table', 'sessions'))->insert([
+            'id' => 'mail-fail-session',
+            'user_id' => $user->id,
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'PHPUnit',
+            'payload' => 'test',
+            'last_activity' => now()->timestamp,
+        ]);
+
+        Mail::shouldReceive('to')->once()->with($user->email)->andReturnSelf();
+        Mail::shouldReceive('send')->once()->andThrow(new RuntimeException('SMTP unavailable'));
+
+        $this->actingAs($user)
+            ->withSession(['2fa_verified' => true])
+            ->from(route('profile.edit', absolute: false))
+            ->post(route('profile.delete-account', absolute: false), [
+                'password' => 'password',
+                'two_factor_code' => $recoveryCode,
+            ])
+            ->assertRedirect(route('profile.edit', absolute: false))
+            ->assertSessionHasErrors('delete');
+
+        $this->assertTrue($user->fresh()->is_active);
+        $this->assertNull($user->fresh()->deletion_requested_at);
+        $this->assertSame(0, $user->twoFactorRecoveryCodes()->whereNotNull('used_at')->count());
+        $this->assertDatabaseHas(config('session.table', 'sessions'), [
+            'id' => 'mail-fail-session',
+        ]);
+    }
+
+    public function test_recovery_code_consumed_only_after_mail_success(): void
+    {
+        Mail::fake();
+
+        $user = User::factory()->create([
+            'is_active' => true,
+            'two_factor_enabled' => true,
+            'two_factor_secret' => app(Google2FA::class)->generateSecretKey(),
+        ]);
+        $recoveryCode = app(RecoveryCodeService::class)->generate($user)[0];
+
+        DB::table(config('session.table', 'sessions'))->insert([
+            'id' => 'mail-success-session',
+            'user_id' => $user->id,
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'PHPUnit',
+            'payload' => 'test',
+            'last_activity' => now()->timestamp,
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['2fa_verified' => true])
+            ->from(route('profile.edit', absolute: false))
+            ->post(route('profile.delete-account', absolute: false), [
+                'password' => 'password',
+                'two_factor_code' => $recoveryCode,
+            ])
+            ->assertRedirect(route('login', absolute: false))
+            ->assertSessionHas('status', 'deletion-scheduled');
+
+        $this->assertFalse($user->fresh()->is_active);
+        $this->assertNotNull($user->fresh()->deletion_requested_at);
+        $this->assertSame(1, $user->twoFactorRecoveryCodes()->whereNotNull('used_at')->count());
+        $this->assertDatabaseMissing(config('session.table', 'sessions'), [
+            'id' => 'mail-success-session',
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'account_deletion_requested',
+            'user_id' => $user->id,
+        ]);
+    }
+
+    public function test_deletion_rolls_back_if_recovery_code_is_consumed_before_transaction_commit(): void
+    {
+        Mail::fake();
+
+        $this->mock(RecoveryCodeService::class, function ($mock): void {
+            $mock->shouldReceive('isValid')->once()->andReturn(true);
+            $mock->shouldReceive('consume')->once()->andReturn(false);
+        });
+
+        $user = User::factory()->create([
+            'is_active' => true,
+            'two_factor_enabled' => true,
+            'two_factor_secret' => app(Google2FA::class)->generateSecretKey(),
+        ]);
+
+        DB::table(config('session.table', 'sessions'))->insert([
+            'id' => 'rollback-session',
+            'user_id' => $user->id,
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'PHPUnit',
+            'payload' => 'test',
+            'last_activity' => now()->timestamp,
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['2fa_verified' => true])
+            ->from(route('profile.edit', absolute: false))
+            ->post(route('profile.delete-account', absolute: false), [
+                'password' => 'password',
+                'two_factor_code' => 'ABCD-EFGH',
+            ])
+            ->assertRedirect(route('profile.edit', absolute: false))
+            ->assertSessionHasErrors('delete');
+
+        $this->assertTrue($user->fresh()->is_active);
+        $this->assertNull($user->fresh()->deletion_requested_at);
+        $this->assertDatabaseHas(config('session.table', 'sessions'), [
+            'id' => 'rollback-session',
+        ]);
+        $this->assertDatabaseMissing('audit_logs', [
+            'action' => 'account_deletion_requested',
+            'user_id' => $user->id,
+        ]);
     }
 
     public function test_super_admin_cannot_request_self_deletion(): void

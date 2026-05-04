@@ -89,6 +89,33 @@ class AuditIntegrityTest extends TestCase
                 ->where('history.0.mode', 'recent'));
     }
 
+    public function test_verification_history_uses_a_twelve_hour_timestamp_format(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $this->actingAs($admin)
+            ->post(route('admin.audit-integrity.verify'), [
+                'scope' => 'recent',
+            ])
+            ->assertRedirect(route('admin.audit-integrity'));
+
+        $log = AuditLog::query()->where('action', 'audit_integrity_check')->latest('id')->firstOrFail();
+
+        DB::table('audit_logs')
+            ->where('id', $log->id)
+            ->update([
+                'created_at' => '2026-05-04 00:21:21',
+            ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.audit-integrity'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Admin/AuditIntegrity')
+                ->where('lastVerified.timestamp', 'May 4, 2026 12:21:21 AM')
+                ->where('history.0.timestamp', 'May 4, 2026 12:21:21 AM'));
+    }
+
     public function test_recent_scope_only_checks_the_last_five_hundred_entries(): void
     {
         $user = User::factory()->create();

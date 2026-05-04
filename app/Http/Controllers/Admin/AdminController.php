@@ -99,12 +99,15 @@ class AdminController extends Controller
      */
     public function users(Request $request): Response
     {
+        $viewerId = $request->user()?->id;
         $sort = in_array($request->input('sort'), ['name', 'last_login_at'], true)
             ? $request->input('sort')
             : 'name';
         $direction = $request->input('direction') === 'desc' ? 'desc' : 'asc';
 
-        $query = User::notSystem()->with('roles');
+        $query = User::notSystem()
+            ->when($viewerId !== null, fn (Builder $query) => $query->whereKeyNot($viewerId))
+            ->with('roles');
 
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
@@ -230,7 +233,12 @@ class AdminController extends Controller
 
     public function exportUsers()
     {
-        $users = User::notSystem()->with('roles')->orderBy('name')->get();
+        $viewerId = auth()->id();
+        $users = User::notSystem()
+            ->when($viewerId !== null, fn (Builder $query) => $query->whereKeyNot($viewerId))
+            ->with('roles')
+            ->orderBy('name')
+            ->get();
         $csv = "Name,Email,Role,Status,Last Login,Registered\n";
 
         foreach ($users as $user) {

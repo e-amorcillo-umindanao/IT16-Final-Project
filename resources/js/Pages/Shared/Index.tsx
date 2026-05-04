@@ -1,12 +1,4 @@
 import { Badge } from '@/components/ui/badge';
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -278,46 +270,40 @@ export default function SharedWithMe({ auth, shares, filters }: Props) {
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-1">
-                        <h2 className="text-xl font-semibold leading-tight text-foreground">Shared with Me</h2>
-                        <Breadcrumb>
-                            <BreadcrumbList>
-                                <BreadcrumbItem>
-                                    <BreadcrumbLink asChild>
-                                        <Link href="/dashboard">Main</Link>
-                                    </BreadcrumbLink>
-                                </BreadcrumbItem>
-                                <BreadcrumbSeparator />
-                                <BreadcrumbItem>
-                                    <BreadcrumbPage>Shared with Me</BreadcrumbPage>
-                                </BreadcrumbItem>
-                            </BreadcrumbList>
-                        </Breadcrumb>
-                    </div>
+                <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                        Secure Sharing
+                    </p>
+                    <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
+                        Shared With Me
+                    </h1>
+                    <p className="max-w-2xl text-sm leading-6 text-stone-600">
+                        Review the documents other users have shared with your account
+                        and keep track of permission and expiry details.
+                    </p>
                 </div>
             }
         >
             <Head title="Shared with Me" />
 
             <TooltipProvider>
-                <div className="py-10">
+                <div className="py-8">
                     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                         {isEmpty ? (
                             <div className="flex min-h-[calc(100vh-18rem)] items-center justify-center">
-                                <Card className="flex w-full max-w-md flex-col items-center justify-center py-20">
+                                <Card className="flex w-full max-w-xl flex-col items-center justify-center rounded-[32px] border-stone-200/80 bg-white py-24 shadow-sm">
                                     <CardContent className="flex flex-col items-center gap-4 pt-6 text-center">
                                         <div className="relative">
-                                            <div className="inline-block rounded-xl bg-muted p-4">
-                                                <FolderOpen className="h-14 w-14 text-muted-foreground" />
+                                            <div className="inline-block rounded-[28px] bg-stone-100 p-5">
+                                                <FolderOpen className="h-16 w-16 text-stone-500" />
                                             </div>
-                                            <div className="absolute -bottom-2 -right-2 rounded-full border border-border bg-card p-1.5">
-                                                <Link2 className="h-5 w-5 text-muted-foreground" />
+                                            <div className="absolute -bottom-2 -right-2 rounded-full border border-stone-200 bg-white p-2 shadow-sm">
+                                                <Link2 className="h-5 w-5 text-stone-500" />
                                             </div>
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-semibold text-foreground">Nothing shared with you yet</h3>
-                                            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                                            <h3 className="text-2xl font-semibold text-stone-950">Nothing shared with you yet</h3>
+                                            <p className="mt-2 max-w-sm text-sm leading-6 text-stone-500">
                                                 Documents shared with you will appear here.
                                             </p>
                                         </div>
@@ -326,7 +312,7 @@ export default function SharedWithMe({ auth, shares, filters }: Props) {
                             </div>
                         ) : (
                             <div className="space-y-6">
-                                <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex flex-col gap-4 rounded-[28px] border border-stone-200/80 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                                     <div className="relative w-full sm:max-w-sm">
                                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         <Input
@@ -334,17 +320,17 @@ export default function SharedWithMe({ auth, shares, filters }: Props) {
                                             onChange={(event) => setSearch(event.target.value)}
                                             placeholder="Search shared documents..."
                                             aria-label="Search shared documents"
-                                            className="bg-background pl-9"
+                                            className="border-stone-200 bg-stone-50 pl-9"
                                         />
                                     </div>
                                     <div className="flex items-center gap-3 self-end sm:self-auto">
                                             <Popover>
                                                 <PopoverTrigger asChild>
-                                                    <Button variant="outline" className="relative gap-2">
+                                                    <Button variant="outline" className="relative gap-2 border-stone-200 bg-white text-stone-700 hover:bg-stone-50">
                                                     <SlidersHorizontal className="h-4 w-4" />
                                                     Filter
                                                     {activeFilterCount > 0 && (
-                                                        <Badge className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary p-0 text-xs text-primary-foreground">
+                                                        <Badge className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-700 p-0 text-xs text-white">
                                                             {activeFilterCount}
                                                         </Badge>
                                                     )}
@@ -363,7 +349,7 @@ export default function SharedWithMe({ auth, shares, filters }: Props) {
                                                 />
                                             </PopoverContent>
                                         </Popover>
-                                        <p className="text-sm text-muted-foreground">{filteredShares.length} shared</p>
+                                        <p className="text-sm text-stone-500">{filteredShares.length} shared</p>
                                         <div aria-live="polite" aria-atomic="true" className="sr-only">
                                             {search.trim().length >= 2
                                                 ? filteredShares.length > 0
@@ -375,9 +361,9 @@ export default function SharedWithMe({ auth, shares, filters }: Props) {
                                 </div>
 
                                 {filteredShares.length === 0 ? (
-                                    <div className="rounded-xl border border-border bg-card p-10 text-center">
-                                        <p className="font-medium text-foreground">No matching shared documents</p>
-                                        <p className="mt-1 text-sm text-muted-foreground">Try adjusting your search or filters.</p>
+                                    <div className="rounded-[28px] border border-stone-200/80 bg-white p-10 text-center shadow-sm">
+                                        <p className="font-medium text-stone-950">No matching shared documents</p>
+                                        <p className="mt-1 text-sm text-stone-500">Try adjusting your search or filters.</p>
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -392,7 +378,7 @@ export default function SharedWithMe({ auth, shares, filters }: Props) {
                                                 <Card
                                                     key={share.id}
                                                     className={cn(
-                                                        'border-border transition-colors duration-150 hover:border-primary/40',
+                                                        'rounded-[28px] border-stone-200/80 bg-white shadow-sm transition-colors duration-150 hover:border-amber-200',
                                                         expired && 'opacity-50',
                                                     )}
                                                 >
@@ -413,7 +399,7 @@ export default function SharedWithMe({ auth, shares, filters }: Props) {
                                                     </CardHeader>
 
                                                     <CardContent className="space-y-3 pt-0">
-                                                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                        <div className="flex items-center gap-1.5 text-sm text-stone-500">
                                                             <UserAvatar
                                                                 user={share.shared_by}
                                                                 size="xs"
@@ -442,13 +428,13 @@ export default function SharedWithMe({ auth, shares, filters }: Props) {
 
                                                     <div className="flex items-end justify-between gap-3">
                                                         <div className="space-y-1">
-                                                            <p className="text-xs text-muted-foreground">
+                                                            <p className="text-xs text-stone-500">
                                                                 Shared {formatDistanceToNow(new Date(share.created_at), { addSuffix: true })}
                                                             </p>
                                                         </div>
 
                                                         {expired ? (
-                                                            <span className="text-xs text-muted-foreground">Expired</span>
+                                                            <span className="text-xs text-stone-500">Expired</span>
                                                         ) : (
                                                             <div className="flex items-center gap-1">
                                                                 <Tooltip>
@@ -528,9 +514,9 @@ export default function SharedWithMe({ auth, shares, filters }: Props) {
                                 )}
 
                                 {shares.total > 12 && (
-                                    <div className="flex items-center justify-between gap-3">
-                                        <p className="text-sm text-muted-foreground">
-                                            Page {shares.current_page} of {shares.last_page}
+                                    <div className="flex items-center justify-between gap-3 rounded-[24px] border border-stone-200/80 bg-white px-5 py-4 shadow-sm">
+                                        <p className="text-sm text-stone-500">
+                                            Showing {shares.from ?? 0} to {shares.to ?? 0} of {shares.total} results
                                         </p>
                                         <Pagination className="mx-0 w-auto justify-end">
                                             <PaginationContent>

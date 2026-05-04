@@ -66,6 +66,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'deletion_cancel_token',
         'two_factor_secret',
         'google_id',
+        'google_avatar',
     ];
 
     /**

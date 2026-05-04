@@ -24,7 +24,7 @@ class AuditDescriptionService
                 ? "Account locked after repeated failures from {$location}"
                 : 'Account locked after repeated failed attempts',
             'logout' => 'Signed out',
-            'email_verified' => 'Verified email address',
+            'email_verified' => 'Email address verified successfully.',
             '2fa_enabled', 'two_factor_enabled' => 'Two-factor authentication enabled',
             '2fa_disabled', 'two_factor_disabled' => 'Two-factor authentication disabled',
             '2fa_verified' => 'Two-factor authentication verified',

@@ -41,6 +41,7 @@ class AuditService
         'session_terminated' => AuditCategory::Security,
         'all_sessions_terminated' => AuditCategory::Security,
         'password_changed' => AuditCategory::Security,
+        'email_verified' => AuditCategory::Security,
         'pwned_password_rejected' => AuditCategory::Security,
         'bot_detected' => AuditCategory::Security,
         'signed_url_generated' => AuditCategory::Security,

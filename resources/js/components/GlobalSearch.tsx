@@ -132,6 +132,16 @@ export default function GlobalSearch({ auth }: GlobalSearchProps) {
     }, []);
 
     useEffect(() => {
+        const handleOpenSearch = () => {
+            setOpen(true);
+        };
+
+        window.addEventListener('securevault:open-search', handleOpenSearch);
+
+        return () => window.removeEventListener('securevault:open-search', handleOpenSearch);
+    }, []);
+
+    useEffect(() => {
         if (!open) {
             setQuery('');
             setResults(emptyResults);

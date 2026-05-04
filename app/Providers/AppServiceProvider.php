@@ -68,12 +68,6 @@ class AppServiceProvider extends ServiceProvider
 
         // --- Rate Limiters ---
 
-        RateLimiter::for('login', function (Request $request) {
-            // Route-level burst protection by IP. Per-account failures are still
-            // tracked separately inside LoginRequest using the email+IP throttle key.
-            return Limit::perMinute(10)->by($request->ip());
-        });
-
         RateLimiter::for('register', function (Request $request) {
             return Limit::perMinute(3)->by($request->ip());
         });
@@ -148,6 +142,11 @@ class AppServiceProvider extends ServiceProvider
         $vaultPath = config('securevault.vault_path', storage_path('app/vault'));
         if (!File::exists($vaultPath)) {
             File::makeDirectory($vaultPath, 0755, true);
+        }
+
+        $scanStagingPath = config('filesystems.disks.scan-staging.root', storage_path('app/scan-staging'));
+        if (! File::exists($scanStagingPath)) {
+            File::makeDirectory($scanStagingPath, 0700, true);
         }
     }
 }

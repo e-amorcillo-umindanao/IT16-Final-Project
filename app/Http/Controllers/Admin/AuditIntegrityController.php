@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Services\AuditIntegrityService;
 use App\Services\AuditService;
+use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -70,7 +71,7 @@ class AuditIntegrityController extends Controller
         ];
 
         $pdf = Pdf::loadView('pdf.integrity-report', [
-            'timestamp' => $lastRun->created_at->format('M j, Y H:i:s'),
+            'timestamp' => $this->formatVerificationTimestamp($lastRun->created_at),
             'verifier' => $lastRun->user?->name ?? 'System',
             'mode' => $results['scope'],
             'checked' => $results['total_checked'],
@@ -132,7 +133,7 @@ class AuditIntegrityController extends Controller
         $mode = (string) ($metadata['mode'] ?? $metadata['scope'] ?? 'unknown');
 
         return [
-            'timestamp' => $log->created_at->format('M j, Y H:i:s'),
+            'timestamp' => $this->formatVerificationTimestamp($log->created_at),
             'passed' => $failCount === 0,
             'mode' => $mode,
             'checked' => $checked,
@@ -165,5 +166,10 @@ class AuditIntegrityController extends Controller
             'chain_intact' => $results['chain_intact'],
             'failures' => array_slice($results['failures'], 0, 50),
         ]);
+    }
+
+    private function formatVerificationTimestamp(?CarbonInterface $timestamp): string
+    {
+        return ($timestamp ?? now())->format('M j, Y h:i:s A');
     }
 }

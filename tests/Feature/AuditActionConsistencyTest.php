@@ -83,6 +83,16 @@ class AuditActionConsistencyTest extends TestCase
         $this->assertSame('Sign-in blocked - account is inactive', $description);
     }
 
+    public function test_email_verified_description_matches_the_spec(): void
+    {
+        $description = app(AuditDescriptionService::class)->generate(new AuditLog([
+            'action' => 'email_verified',
+            'metadata' => [],
+        ]));
+
+        $this->assertSame('Email address verified successfully.', $description);
+    }
+
     public function test_user_role_changed_description_uses_target_name_and_role(): void
     {
         $description = app(AuditDescriptionService::class)->generate(new AuditLog([

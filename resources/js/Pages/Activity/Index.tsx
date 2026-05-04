@@ -2,14 +2,6 @@ import { AuditCategoryTabs } from '@/components/AuditCategoryTabs';
 import { RelativeTime } from '@/components/RelativeTime';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbLink,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,7 +24,7 @@ import { getAuditActionBadge } from '@/lib/auditActionBadge';
 import { detectCluster } from '@/lib/detectCluster';
 import { maskIp } from '@/lib/maskData';
 import { PageProps, PaginatedResponse } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { format } from 'date-fns';
 import {
     Activity,
@@ -41,8 +33,8 @@ import {
     ChevronUp,
     Download,
     FileDown,
-    ShieldCheck,
     ShieldAlert,
+    ShieldCheck,
     SlidersHorizontal,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -138,12 +130,12 @@ function ActivityPagination({
     filters: Props['filters'];
 }) {
     const cleanedFilters = Object.fromEntries(
-        Object.entries(filters).filter(([, value]) => value !== undefined && value !== '')
+        Object.entries(filters).filter(([, value]) => value !== undefined && value !== ''),
     );
 
     return (
-        <div className="flex items-center justify-between border-t border-border px-4 py-3">
-            <p className="text-sm text-muted-foreground">
+        <div className="flex items-center justify-between border-t border-stone-200/80 px-5 py-4">
+            <p className="text-sm text-stone-500">
                 Showing {logs.from ?? 0}-{logs.to ?? 0} of {logs.total} logs
             </p>
             <Pagination className="mx-0 w-auto justify-end">
@@ -154,6 +146,7 @@ function ActivityPagination({
                             className={!logs.prev_page_url ? 'pointer-events-none opacity-50' : ''}
                             onClick={(event) => {
                                 event.preventDefault();
+
                                 if (logs.prev_page_url) {
                                     router.get(logs.prev_page_url, cleanedFilters, {
                                         preserveScroll: true,
@@ -173,6 +166,7 @@ function ActivityPagination({
                                     isActive={link.active}
                                     onClick={(event) => {
                                         event.preventDefault();
+
                                         if (link.url) {
                                             router.get(link.url, cleanedFilters, {
                                                 preserveScroll: true,
@@ -192,6 +186,7 @@ function ActivityPagination({
                             className={!logs.next_page_url ? 'pointer-events-none opacity-50' : ''}
                             onClick={(event) => {
                                 event.preventDefault();
+
                                 if (logs.next_page_url) {
                                     router.get(logs.next_page_url, cleanedFilters, {
                                         preserveScroll: true,
@@ -207,7 +202,13 @@ function ActivityPagination({
     );
 }
 
-export default function ActivityIndex({ auth, logs, filters, securityCount, direction }: Props) {
+export default function ActivityIndex({
+    auth,
+    logs,
+    filters,
+    securityCount,
+    direction,
+}: Props) {
     const canViewFullIps = auth.permissions?.includes('view_audit_logs') ?? false;
     const [localFilters, setLocalFilters] = useState<Props['filters']>({
         category: filters.category ?? 'all',
@@ -215,34 +216,41 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
         from_date: filters.from_date ?? '',
         to_date: filters.to_date ?? '',
     });
-    const [fromDate, setFromDate] = useState<Date | undefined>(parseDateValue(filters.from_date ?? ''));
-    const [toDate, setToDate] = useState<Date | undefined>(parseDateValue(filters.to_date ?? ''));
+    const [fromDate, setFromDate] = useState<Date | undefined>(
+        parseDateValue(filters.from_date ?? ''),
+    );
+    const [toDate, setToDate] = useState<Date | undefined>(
+        parseDateValue(filters.to_date ?? ''),
+    );
     const [fromDateOpen, setFromDateOpen] = useState(false);
     const [toDateOpen, setToDateOpen] = useState(false);
+
     const category = localFilters.category ?? 'all';
-    const title = category === 'security'
-        ? 'Security Events'
-        : category === 'audit'
-          ? 'General Activity'
-          : 'Activity Trail';
-    const subtitle = category === 'security'
-        ? 'Security-relevant account and session events'
-        : category === 'audit'
-          ? 'Document, sharing, and account activity'
-          : 'Combined security and activity history';
+    const title =
+        category === 'security'
+            ? 'Security Events'
+            : category === 'audit'
+              ? 'General Activity'
+              : 'Activity Trail';
+    const subtitle =
+        category === 'security'
+            ? 'Security-relevant account and session events'
+            : category === 'audit'
+              ? 'Document, sharing, and account activity'
+              : 'Combined security and activity history';
 
     const exportQuery = Object.fromEntries(
-        Object.entries(localFilters).filter(([, value]) => value !== undefined && value !== '')
+        Object.entries(localFilters).filter(([, value]) => value !== undefined && value !== ''),
     );
     const activeQuery = {
         ...exportQuery,
         direction,
     };
     const hasActiveFilter = Boolean(
-        (localFilters.category && localFilters.category !== 'all')
-        || localFilters.action
-        || localFilters.from_date
-        || localFilters.to_date
+        (localFilters.category && localFilters.category !== 'all') ||
+            localFilters.action ||
+            localFilters.from_date ||
+            localFilters.to_date,
     );
     const exportLabel = hasActiveFilter ? 'Export filtered results' : 'Export all';
     const cluster = detectCluster(
@@ -276,61 +284,69 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
         };
 
         setLocalFilters(nextFilters);
-        router.get(route('activity.index'), { ...nextFilters, direction }, {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-        });
+        router.get(
+            route('activity.index'),
+            { ...nextFilters, direction },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            },
+        );
     };
 
     const handleTimestampSort = () => {
-        router.get(route('activity.index'), {
-            direction: direction === 'desc' ? 'asc' : 'desc',
-            category: filters.category,
-            action: filters.action,
-            from_date: filters.from_date,
-            to_date: filters.to_date,
-        }, {
-            preserveScroll: true,
-            preserveState: true,
-        });
+        router.get(
+            route('activity.index'),
+            {
+                direction: direction === 'desc' ? 'asc' : 'desc',
+                category: filters.category,
+                action: filters.action,
+                from_date: filters.from_date,
+                to_date: filters.to_date,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+            },
+        );
     };
 
     return (
         <AuthenticatedLayout
             header={
-                <div className="space-y-1">
-                    <h2 className="text-xl font-semibold leading-tight text-foreground">Activity Log</h2>
-                    <Breadcrumb>
-                        <BreadcrumbList>
-                            <BreadcrumbItem>
-                                <BreadcrumbLink asChild>
-                                    <Link href="/dashboard">Main</Link>
-                                </BreadcrumbLink>
-                            </BreadcrumbItem>
-                            <BreadcrumbSeparator />
-                            <BreadcrumbItem>
-                                <BreadcrumbPage>Activity</BreadcrumbPage>
-                            </BreadcrumbItem>
-                        </BreadcrumbList>
-                    </Breadcrumb>
+                <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                        Security and Audit Trail
+                    </p>
+                    <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
+                        Activity Log
+                    </h1>
+                    <p className="max-w-2xl text-sm leading-6 text-stone-600">
+                        Review audit trails, security events, and document actions
+                        with focused filtering and export controls.
+                    </p>
                 </div>
             }
         >
             <Head title="Activity Log" />
 
-            <div className="py-10">
+            <div className="py-8">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <Card>
+                    <Card className="rounded-[28px] border-stone-200/80 bg-white shadow-sm">
                         <CardContent className="pt-5">
                             <AuditCategoryTabs
                                 value={category}
                                 onChange={setCategory}
                                 securityCount={securityCount}
                             />
+
                             <div className="flex flex-wrap items-end gap-6">
                                 <div className="flex flex-col gap-1.5">
-                                    <Label htmlFor="action" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                    <Label
+                                        htmlFor="action"
+                                        className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                                    >
                                         Action Type
                                     </Label>
                                     <Select
@@ -342,12 +358,18 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                             }))
                                         }
                                     >
-                                        <SelectTrigger id="action" className="w-48 bg-background">
+                                        <SelectTrigger
+                                            id="action"
+                                            className="w-48 border-stone-200 bg-stone-50"
+                                        >
                                             <SelectValue placeholder="All Actions" />
                                         </SelectTrigger>
                                         <SelectContent className="max-h-80 overflow-y-auto">
                                             {ACTION_OPTIONS.map((option) => (
-                                                <SelectItem key={option.value} value={option.value}>
+                                                <SelectItem
+                                                    key={option.value}
+                                                    value={option.value}
+                                                >
                                                     {option.label}
                                                 </SelectItem>
                                             ))}
@@ -356,16 +378,26 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">
-                                    <Label htmlFor="from_date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                    <Label
+                                        htmlFor="from_date"
+                                        className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                                    >
                                         From Date
                                     </Label>
-                                    <Popover open={fromDateOpen} onOpenChange={setFromDateOpen}>
+                                    <Popover
+                                        open={fromDateOpen}
+                                        onOpenChange={setFromDateOpen}
+                                    >
                                         <PopoverTrigger asChild>
                                             <Button
                                                 id="from_date"
                                                 type="button"
                                                 variant="outline"
-                                                className={`w-44 justify-start text-left font-normal ${!fromDate ? 'text-muted-foreground' : ''}`}
+                                                className={`w-44 justify-start border-stone-200 bg-stone-50 text-left font-normal ${
+                                                    !fromDate
+                                                        ? 'text-muted-foreground'
+                                                        : ''
+                                                }`}
                                             >
                                                 <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
                                                 {fromDate
@@ -373,7 +405,10 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                                     : 'Start date'}
                                             </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
+                                        <PopoverContent
+                                            className="w-auto p-0"
+                                            align="start"
+                                        >
                                             <Calendar
                                                 mode="single"
                                                 selected={fromDate}
@@ -383,6 +418,7 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                                         ...current,
                                                         from_date: formatDateValue(date),
                                                     }));
+
                                                     if (!date || (toDate && date > toDate)) {
                                                         setToDate(undefined);
                                                         setLocalFilters((current) => ({
@@ -391,6 +427,7 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                                             to_date: '',
                                                         }));
                                                     }
+
                                                     setFromDateOpen(false);
                                                 }}
                                                 initialFocus
@@ -400,7 +437,10 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">
-                                    <Label htmlFor="to_date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                    <Label
+                                        htmlFor="to_date"
+                                        className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                                    >
                                         To Date
                                     </Label>
                                     <Popover open={toDateOpen} onOpenChange={setToDateOpen}>
@@ -409,7 +449,11 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                                 id="to_date"
                                                 type="button"
                                                 variant="outline"
-                                                className={`w-44 justify-start text-left font-normal ${!toDate ? 'text-muted-foreground' : ''}`}
+                                                className={`w-44 justify-start border-stone-200 bg-stone-50 text-left font-normal ${
+                                                    !toDate
+                                                        ? 'text-muted-foreground'
+                                                        : ''
+                                                }`}
                                             >
                                                 <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
                                                 {toDate
@@ -417,7 +461,10 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                                     : 'End date'}
                                             </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
+                                        <PopoverContent
+                                            className="w-auto p-0"
+                                            align="start"
+                                        >
                                             <Calendar
                                                 mode="single"
                                                 selected={toDate}
@@ -429,7 +476,9 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                                     }));
                                                     setToDateOpen(false);
                                                 }}
-                                                disabled={(date) => (fromDate ? date < fromDate : false)}
+                                                disabled={(date) =>
+                                                    fromDate ? date < fromDate : false
+                                                }
                                                 initialFocus
                                             />
                                         </PopoverContent>
@@ -437,11 +486,19 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                 </div>
 
                                 <div className="flex items-end gap-2 pb-0">
-                                    <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90" onClick={applyFilters}>
+                                    <Button
+                                        className="gap-2 bg-amber-700 text-white hover:bg-amber-800"
+                                        onClick={applyFilters}
+                                    >
                                         <SlidersHorizontal className="h-4 w-4" />
                                         Apply Filters
                                     </Button>
-                                    <Button type="button" variant="ghost" className="text-muted-foreground" onClick={resetFilters}>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className="text-stone-600 hover:bg-stone-100 hover:text-stone-950"
+                                        onClick={resetFilters}
+                                    >
                                         Reset
                                     </Button>
                                 </div>
@@ -454,34 +511,51 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                             <ShieldAlert className="h-4 w-4" />
                             <AlertTitle>Rapid failure cluster detected</AlertTitle>
                             <AlertDescription>
-                                {cluster.count} consecutive failures were recorded within{' '}
-                                {cluster.windowSeconds} seconds
-                                {cluster.ip ? ` from ${cluster.ip}` : ''}.
-                                {' '}This may indicate a brute-force attempt. Review the entries below.
+                                {cluster.count} consecutive failures were recorded
+                                within {cluster.windowSeconds} seconds
+                                {cluster.ip ? ` from ${cluster.ip}` : ''}. This
+                                may indicate a brute-force attempt. Review the
+                                entries below.
                             </AlertDescription>
                         </Alert>
                     )}
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-3">
+                    <Card className="rounded-[28px] border-stone-200/80 bg-white shadow-sm">
+                        <CardHeader className="flex flex-row items-center justify-between border-b border-stone-200/80 pb-4">
                             <div className="flex items-center gap-2">
                                 <ShieldCheck className="h-4 w-4 text-primary" />
                                 <div>
-                                    <CardTitle className="font-semibold text-foreground">{title}</CardTitle>
+                                    <CardTitle className="font-semibold text-foreground">
+                                        {title}
+                                    </CardTitle>
                                     <p className="mt-0.5 text-xs uppercase tracking-wide text-muted-foreground">
-                                        {subtitle} · {logs.total} total entries
+                                        {subtitle} / {logs.total} total entries
                                     </p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    asChild
+                                    className="border-stone-200 bg-white text-stone-700 hover:bg-stone-50"
+                                >
                                     <a href={route('activity.export', activeQuery)}>
                                         <Download className="h-4 w-4" />
                                         {exportLabel} (CSV)
                                     </a>
                                 </Button>
-                                <Button variant="outline" size="sm" asChild>
-                                    <a href={route('activity.export-pdf', activeQuery)} target="_blank" rel="noopener noreferrer">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    asChild
+                                    className="border-stone-200 bg-white text-stone-700 hover:bg-stone-50"
+                                >
+                                    <a
+                                        href={route('activity.export-pdf', activeQuery)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
                                         <FileDown className="h-4 w-4" />
                                         {exportLabel} (PDF)
                                     </a>
@@ -490,10 +564,12 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                         </CardHeader>
                         <CardContent className="p-0">
                             {logs.data.length === 0 ? (
-                                <Card className="border-0 shadow-none">
+                                <Card className="border-0 bg-transparent shadow-none">
                                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                                         <Activity className="mb-3 h-10 w-10 text-muted-foreground" />
-                                        <p className="font-medium text-foreground">No activity found</p>
+                                        <p className="font-medium text-foreground">
+                                            No activity found
+                                        </p>
                                         <p className="mt-1 text-sm text-muted-foreground">
                                             Try adjusting your filters or date range.
                                         </p>
@@ -502,8 +578,8 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                             ) : (
                                 <Table>
                                     <TableHeader>
-                                        <TableRow>
-                                            <TableHead>
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                                                 <button
                                                     type="button"
                                                     onClick={handleTimestampSort}
@@ -517,21 +593,38 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                                     )}
                                                 </button>
                                             </TableHead>
-                                            <TableHead>Action</TableHead>
-                                            <TableHead>Target / Details</TableHead>
-                                            <TableHead>IP Address</TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                                Action
+                                            </TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                                Target / Details
+                                            </TableHead>
+                                            <TableHead className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                                IP Address
+                                            </TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {logs.data.map((log) => {
                                             const actionBadge = getAuditActionBadge(log.action);
                                             const ActionIcon = actionBadge.icon;
-                                            const location = (log.metadata as Record<string, any> | null)?.location;
-                                            const locationLabel = typeof location === 'string'
-                                                ? location
-                                                : location && typeof location === 'object'
-                                                  ? [location.city, location.region, location.country].filter(Boolean).join(', ')
-                                                  : null;
+                                            const location = (log.metadata as Record<
+                                                string,
+                                                any
+                                            > | null)?.location;
+                                            const locationLabel =
+                                                typeof location === 'string'
+                                                    ? location
+                                                    : location &&
+                                                        typeof location === 'object'
+                                                      ? [
+                                                            location.city,
+                                                            location.region,
+                                                            location.country,
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(', ')
+                                                      : null;
                                             const displayIp = log.ip_address
                                                 ? canViewFullIps
                                                     ? log.ip_address
@@ -539,11 +632,19 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                                 : '-';
 
                                             return (
-                                                <TableRow key={log.id} className="hover:bg-muted/50">
-                                                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                                                <TableRow
+                                                    key={log.id}
+                                                    className="hover:bg-stone-50/80"
+                                                >
+                                                    <TableCell className="whitespace-nowrap text-xs text-stone-500">
                                                         <RelativeTime
                                                             datetime={log.created_at}
-                                                            formatted={format(new Date(log.created_at), 'MMM dd, yyyy HH:mm:ss')}
+                                                            formatted={format(
+                                                                new Date(
+                                                                    log.created_at,
+                                                                ),
+                                                                'MMM dd, yyyy HH:mm:ss',
+                                                            )}
                                                         />
                                                     </TableCell>
                                                     <TableCell>
@@ -551,12 +652,16 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                                             {category === 'all' && (
                                                                 <span
                                                                     className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                                                                        log.category === 'security'
+                                                                        log.category ===
+                                                                        'security'
                                                                             ? 'bg-destructive/10 text-destructive'
                                                                             : 'bg-muted text-muted-foreground'
                                                                     }`}
                                                                 >
-                                                                    {log.category === 'security' ? 'Security' : 'Activity'}
+                                                                    {log.category ===
+                                                                    'security'
+                                                                        ? 'Security'
+                                                                        : 'Activity'}
                                                                 </span>
                                                             )}
                                                             <Badge
@@ -569,7 +674,9 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                                         </div>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <span className="text-sm text-foreground">{log.description}</span>
+                                                        <span className="text-sm text-foreground">
+                                                            {log.description}
+                                                        </span>
                                                     </TableCell>
                                                     <TableCell>
                                                         <TooltipProvider>
@@ -594,7 +701,9 @@ export default function ActivityIndex({ auth, logs, filters, securityCount, dire
                                 </Table>
                             )}
                         </CardContent>
-                        {logs.last_page > 1 && <ActivityPagination logs={logs} filters={filters} />}
+                        {logs.last_page > 1 && (
+                            <ActivityPagination logs={logs} filters={filters} />
+                        )}
                     </Card>
                 </div>
             </div>

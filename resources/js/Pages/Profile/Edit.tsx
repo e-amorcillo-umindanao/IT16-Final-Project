@@ -135,6 +135,11 @@ export default function Edit({
     const hasCustomAvatar = Boolean(currentAvatarUrl);
     const isAvatarBusy = isAvatarUploading || isAvatarRemoving;
     const isSuperAdmin = auth.roles?.includes('super-admin') ?? false;
+    const roleLabel = isSuperAdmin
+        ? 'Super Admin'
+        : auth.roles?.includes('admin')
+          ? 'Admin'
+          : 'User';
     const exportRequestError = (exportRequestForm.errors as Record<string, string | undefined>).export;
     const deleteAccountError = (deleteAccountForm.errors as Record<string, string | undefined>).delete;
     const googleError = pageErrors.google;
@@ -380,8 +385,84 @@ export default function Edit({
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.6fr)_360px] xl:items-start">
+                    <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1.75fr)_380px] xl:items-start">
                         <div className="space-y-6">
+                            <Card className="overflow-hidden">
+                                <CardContent className="flex flex-col gap-5 p-6 lg:flex-row lg:items-start lg:justify-between">
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-4">
+                                            <UserAvatar
+                                                user={auth.user}
+                                                avatarUrl={displayedAvatarUrl}
+                                                size="lg"
+                                            />
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-medium uppercase tracking-[0.22em] text-muted-foreground">
+                                                    Account Overview
+                                                </p>
+                                                <h3 className="text-2xl font-semibold text-foreground">
+                                                    {auth.user.name}
+                                                </h3>
+                                                <p className="text-sm text-muted-foreground">{auth.user.email}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-2">
+                                            <Badge variant="outline" className="border-primary/20 bg-primary/10 text-primary">
+                                                {roleLabel}
+                                            </Badge>
+                                            <Badge
+                                                variant="outline"
+                                                className={
+                                                    two_factor_enabled
+                                                        ? 'border-green-500/30 bg-green-500/15 text-green-700 dark:text-green-400'
+                                                        : 'border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                                                }
+                                            >
+                                                {two_factor_enabled ? '2FA enabled' : '2FA disabled'}
+                                            </Badge>
+                                            <Badge
+                                                variant="outline"
+                                                className={
+                                                    googleLinked
+                                                        ? 'border-green-500/30 bg-green-500/15 text-green-700 dark:text-green-400'
+                                                        : 'border-border bg-muted text-muted-foreground'
+                                                }
+                                            >
+                                                {googleLinked ? 'Google linked' : 'Google not linked'}
+                                            </Badge>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[22rem]">
+                                        <div className="rounded-lg border border-border bg-muted/40 p-4">
+                                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                                Sessions
+                                            </p>
+                                            <p className="mt-2 text-2xl font-semibold text-foreground">{session_count}</p>
+                                        </div>
+                                        <div className="rounded-lg border border-border bg-muted/40 p-4">
+                                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                                Recovery Codes
+                                            </p>
+                                            <p className="mt-2 text-2xl font-semibold text-foreground">{recovery_codes_remaining}</p>
+                                        </div>
+                                        <div className="rounded-lg border border-border bg-muted/40 p-4">
+                                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                                Export
+                                            </p>
+                                            <p className="mt-2 text-sm font-semibold text-foreground">
+                                                {latestExportReady
+                                                    ? 'Ready'
+                                                    : has_pending_export
+                                                      ? 'Pending'
+                                                      : 'Not requested'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
                             <Card>
                                 <CardHeader className="flex flex-row items-center gap-2 border-b border-border pb-4">
                                     <User className="h-4 w-4 text-primary" />
@@ -516,6 +597,102 @@ export default function Edit({
                                             </Button>
                                         </div>
                                     </form>
+                                </CardContent>
+                            </Card>
+
+                            <Card>
+                                <CardHeader className="border-b border-border pb-4">
+                                    <CardTitle className="text-sm font-semibold text-foreground">
+                                        Your Data
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-5">
+                                    <p className="text-sm text-muted-foreground">
+                                        Download a copy of your personal data including your profile, document metadata, and activity history.
+                                    </p>
+
+                                    <Button
+                                        type="button"
+                                        className="w-full gap-2 bg-primary text-primary-foreground"
+                                        disabled={exportRequestForm.processing || has_pending_export}
+                                        onClick={requestDataExport}
+                                    >
+                                        {exportRequestForm.processing ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Download className="h-4 w-4" />
+                                        )}
+                                        {latestExportReady
+                                            ? 'Export Ready'
+                                            : has_pending_export
+                                              ? 'Export Requested'
+                                              : 'Request Data Export'}
+                                    </Button>
+
+                                    <InputError message={exportRequestError} />
+
+                                    {latestExportPending && (
+                                        <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <AlertDescription>
+                                                Your export is being prepared. Refresh this page in a moment and the download button will appear here.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+
+                                    {latestExportReady && latest_export?.download_url && (
+                                        <Alert className="border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400 [&>svg]:text-green-600 dark:[&>svg]:text-green-400">
+                                            <ShieldCheck className="h-4 w-4" />
+                                            <AlertDescription className="space-y-3">
+                                                <p>Your latest data export is ready to download.</p>
+                                                <Button asChild variant="outline" className="w-full sm:w-auto">
+                                                    <a href={latest_export.download_url}>
+                                                        <Download className="h-4 w-4" />
+                                                        Download Latest Export
+                                                    </a>
+                                                </Button>
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+
+                                    <p className="text-xs leading-relaxed text-muted-foreground">
+                                        Exports include profile information, document metadata, and your activity log. Document file contents are not included. The download link expires after 24 hours and will appear here when ready.
+                                    </p>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-destructive/30 border-l-4">
+                                <CardHeader className="border-b border-border pb-4">
+                                    <CardTitle className="text-sm font-semibold text-foreground">
+                                        Danger Zone
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4 pt-5">
+                                    <p className="text-sm text-muted-foreground">
+                                        Permanently delete your account and all associated data. This action cannot be undone.
+                                    </p>
+
+                                    {isSuperAdmin ? (
+                                        <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
+                                            <ShieldAlert className="h-4 w-4" />
+                                            <AlertDescription>
+                                                Super Admin accounts cannot be self-deleted. Another Super Admin must demote this account first.
+                                            </AlertDescription>
+                                        </Alert>
+                                    ) : (
+                                        <>
+                                            <Button
+                                                type="button"
+                                                variant="destructive"
+                                                className="w-full sm:w-auto"
+                                                onClick={() => setDeletionDialogOpen(true)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                                Delete My Account
+                                            </Button>
+                                            <InputError message={deleteAccountError} />
+                                        </>
+                                    )}
                                 </CardContent>
                             </Card>
                         </div>
@@ -973,107 +1150,6 @@ export default function Edit({
 
                     </div>
 
-                    <div className="mt-6 space-y-6">
-                        <Card>
-                            <CardHeader className="border-b border-border pb-4">
-                                <CardTitle className="text-sm font-semibold text-foreground">
-                                    Your Data
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4 pt-5">
-                                <p className="text-sm text-muted-foreground">
-                                    Download a copy of your personal data including your profile, document metadata, and activity history.
-                                </p>
-
-                                <Button
-                                    type="button"
-                                    className="w-full gap-2 bg-primary text-primary-foreground"
-                                    disabled={exportRequestForm.processing || has_pending_export}
-                                    onClick={requestDataExport}
-                                >
-                                    {exportRequestForm.processing ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Download className="h-4 w-4" />
-                                    )}
-                                    {latestExportReady
-                                        ? 'Export Ready'
-                                        : has_pending_export
-                                          ? 'Export Requested'
-                                          : 'Request Data Export'}
-                                </Button>
-
-                                <InputError message={exportRequestError} />
-
-                                {latestExportPending && (
-                                    <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        <AlertDescription>
-                                            Your export is being prepared. Refresh this page in a moment and the download button will appear here.
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
-
-                                {latestExportReady && latest_export?.download_url && (
-                                    <Alert className="border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400 [&>svg]:text-green-600 dark:[&>svg]:text-green-400">
-                                        <ShieldCheck className="h-4 w-4" />
-                                        <AlertDescription className="space-y-3">
-                                            <p>
-                                                Your latest data export is ready to download.
-                                            </p>
-                                            <Button asChild variant="outline" className="w-full">
-                                                <a href={latest_export.download_url}>
-                                                    <Download className="h-4 w-4" />
-                                                    Download Latest Export
-                                                </a>
-                                            </Button>
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
-
-                                <p className="text-xs leading-relaxed text-muted-foreground">
-                                    Exports include profile information, document metadata, and your activity log. Document file contents are not included. The download link expires after 24 hours and will appear here when ready.
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Separator />
-
-                        <Card className="border-destructive/30 border-l-4">
-                            <CardHeader className="border-b border-border pb-4">
-                                <CardTitle className="text-sm font-semibold text-foreground">
-                                    Danger Zone
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4 pt-5">
-                                <p className="text-sm text-muted-foreground">
-                                    Permanently delete your account and all associated data. This action cannot be undone.
-                                </p>
-
-                                {isSuperAdmin ? (
-                                    <Alert className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400">
-                                        <ShieldAlert className="h-4 w-4" />
-                                        <AlertDescription>
-                                            Super Admin accounts cannot be self-deleted. Another Super Admin must demote this account first.
-                                        </AlertDescription>
-                                    </Alert>
-                                ) : (
-                                    <>
-                                        <Button
-                                            type="button"
-                                            variant="destructive"
-                                            className="w-full"
-                                            onClick={() => setDeletionDialogOpen(true)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                            Delete My Account
-                                        </Button>
-                                        <InputError message={deleteAccountError} />
-                                    </>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
                 </div>
             </div>
 

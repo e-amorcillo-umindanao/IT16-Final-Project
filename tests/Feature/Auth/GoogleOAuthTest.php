@@ -91,8 +91,39 @@ class GoogleOAuthTest extends TestCase
 
         $this->assertGuest();
         $this->assertDatabaseHas('audit_logs', [
-            'user_id' => $user->id,
             'action' => 'google_oauth_login_failed',
+            'user_id' => null,
+        ]);
+    }
+
+    public function test_google_sign_in_fails_when_google_id_does_not_match_an_existing_account(): void
+    {
+        $this->enableGoogleOAuth();
+
+        $user = User::factory()->create([
+            'email' => 'linked.user@gmail.com',
+            'google_id' => 'original-google-id',
+        ]);
+
+        $this->mockGoogleCallbackUser(
+            $this->fakeGoogleUser(
+                id: 'different-google-id',
+                email: $user->email,
+            ),
+        );
+
+        $response = $this
+            ->withSession(['oauth_intent' => 'login'])
+            ->get(route('auth.google.callback'));
+
+        $response
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('google');
+
+        $this->assertGuest();
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'google_oauth_login_failed',
+            'user_id' => null,
         ]);
     }
 

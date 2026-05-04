@@ -8,10 +8,13 @@ export interface User {
     avatar_url?: string | null;
     google_linked?: boolean;
     email_verified_at?: string;
+    two_factor_enabled?: boolean;
     two_factor_secret?: string;
     two_factor_recovery_codes?: string;
     two_factor_confirmed_at?: string;
     two_factor_deadline?: string | null;
+    last_login_at?: string | null;
+    last_login_ip?: string | null;
     is_active: boolean;
     is_system_account?: boolean;
     created_at: string;

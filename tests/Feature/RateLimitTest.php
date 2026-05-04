@@ -38,6 +38,39 @@ class RateLimitTest extends TestCase
         $this->assertContains('throttle:general', $middleware);
     }
 
+    public function test_login_route_uses_a_five_per_minute_throttle(): void
+    {
+        $route = collect(Route::getRoutes()->getRoutes())
+            ->first(fn ($route) => $route->uri() === 'login' && in_array('POST', $route->methods(), true));
+
+        $this->assertNotNull($route);
+
+        $middleware = $route->gatherMiddleware();
+
+        $this->assertIsArray($middleware);
+        $this->assertContains('throttle:5,1', $middleware);
+    }
+
+    public function test_password_reset_form_route_has_a_light_get_throttle(): void
+    {
+        $middleware = Route::getRoutes()
+            ->getByName('password.reset')
+            ?->gatherMiddleware();
+
+        $this->assertIsArray($middleware);
+        $this->assertContains('throttle:10,1', $middleware);
+    }
+
+    public function test_two_factor_recovery_form_route_has_a_light_get_throttle(): void
+    {
+        $middleware = Route::getRoutes()
+            ->getByName('two-factor.recovery')
+            ?->gatherMiddleware();
+
+        $this->assertIsArray($middleware);
+        $this->assertContains('throttle:10,1', $middleware);
+    }
+
     public function test_sensitive_routes_have_dedicated_rate_limiters(): void
     {
         $shareLinkMiddleware = Route::getRoutes()
