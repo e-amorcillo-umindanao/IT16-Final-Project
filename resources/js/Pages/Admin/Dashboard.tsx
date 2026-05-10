@@ -26,6 +26,29 @@ import {
 } from 'lucide-react';
 import { ReactNode } from 'react';
 
+function getGreeting() {
+    const hour = new Date().getHours();
+
+    if (hour < 12) {
+        return 'Good morning';
+    }
+
+    if (hour < 17) {
+        return 'Good afternoon';
+    }
+
+    return 'Good evening';
+}
+
+function getGreetingName(name: string) {
+    const trimmedName = name.trim();
+    const firstName = trimmedName.split(/\s+/)[0] ?? trimmedName;
+
+    return ['super', 'admin', 'system'].includes(firstName.toLowerCase())
+        ? trimmedName
+        : firstName;
+}
+
 interface Stats {
     total_users: number;
     active_users: number;
@@ -121,7 +144,7 @@ export default function AdminDashboard({
     recent_activity,
     login_chart,
 }: Props & PageProps) {
-    const firstName = auth.user.name.split(/\s+/)[0] ?? auth.user.name;
+    const firstName = getGreetingName(auth.user.name);
     const permissions = new Set(auth.permissions ?? []);
     const canManageUsers = permissions.has('manage_users');
     const canViewDocuments = permissions.has('view_all_documents');
@@ -155,8 +178,8 @@ export default function AdminDashboard({
                             Admin Dashboard
                         </h1>
                         <p className="text-sm text-stone-500">
-                            Good morning, {firstName}. Monitor system usage, review security events,
-                            and keep the document platform running smoothly.
+                            Monitor system usage, review security events, and keep the
+                            document platform running smoothly.
                         </p>
                     </div>
                 </div>
@@ -167,12 +190,15 @@ export default function AdminDashboard({
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
                     <div className="rounded-[30px] border border-[#ecd8ce] bg-[#fdf8f4] p-6 shadow-sm">
-                        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                        <div className="space-y-5">
                             <div className="space-y-3">
-                                <Badge className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
+                                <Badge className="rounded-full border-transparent bg-amber-500/15 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-500/15 dark:text-amber-400">
                                     Admin overview
                                 </Badge>
-                                <div className="space-y-2">
+                                <div className="space-y-3">
+                                    <p className="text-sm text-stone-500">
+                                        {getGreeting()}, {firstName}.
+                                    </p>
                                     <h2 className="text-4xl font-semibold tracking-tight text-stone-950">
                                         Keep the vault healthy and accountable
                                     </h2>

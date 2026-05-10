@@ -55,7 +55,7 @@ export const AUDIT_ACTION_BADGES: Record<string, AuditBadge> = {
     user_activated: { icon: Activity, label: 'User activated', className: 'border-transparent bg-muted text-muted-foreground' },
     user_deactivated: { icon: Activity, label: 'User deactivated', className: 'border-transparent bg-muted text-muted-foreground' },
     user_role_changed: { icon: Activity, label: 'Role changed', className: 'border-transparent bg-muted text-muted-foreground' },
-    two_factor_deadline_set: { icon: ShieldAlert, label: '2FA deadline set', className: 'border-transparent bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+    two_factor_deadline_set: { icon: ShieldCheck, label: '2FA deadline set', className: 'border-transparent bg-green-500/15 text-green-700 dark:text-green-400' },
     password_changed: { icon: KeyRound, label: 'Password changed', className: 'border-transparent bg-amber-500/15 text-amber-600 dark:text-amber-400' },
     google_oauth_login: { icon: LogIn, label: 'Google Sign-In', className: 'border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400' },
     google_oauth_linked: { icon: ShieldCheck, label: 'Google Linked', className: 'border-transparent bg-green-500/15 text-green-700 dark:text-green-400' },

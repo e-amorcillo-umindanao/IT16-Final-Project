@@ -15,6 +15,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AuditLogController extends Controller
 {
+    private const LEGACY_SECURITY_ACTIONS = [
+        'two_factor_deadline_set',
+    ];
+
     public function __construct(
         private readonly AuditDescriptionService $auditDescriptionService,
     ) {
@@ -36,7 +40,7 @@ class AuditLogController extends Controller
                 ->through(fn (AuditLog $log) => [
                     'id' => $log->id,
                     'action' => $log->action,
-                    'category' => $log->category,
+                    'category' => $this->effectiveCategory($log)->value,
                     'description' => $this->auditDescriptionService->generate($log),
                     'metadata' => $log->metadata,
                     'ip_address' => $log->ip_address,
@@ -49,8 +53,12 @@ class AuditLogController extends Controller
                 'category' => $this->categoryFilter($request),
                 ...$request->only(['action', 'from_date', 'to_date']),
             ],
-            'securityCount' => $user->auditLogs()->security()->count(),
-            'auditCount' => $user->auditLogs()->audit()->count(),
+            'securityCount' => $this->effectiveSecurityCount(
+                AuditLog::query()->where('user_id', $user->id),
+            ),
+            'auditCount' => $this->effectiveAuditCount(
+                AuditLog::query()->where('user_id', $user->id),
+            ),
             'direction' => $direction,
         ]);
     }
@@ -111,7 +119,7 @@ class AuditLogController extends Controller
             ->orderBy('created_at', $this->direction($request));
 
         if (($category = $this->categoryFilter($request)) !== 'all') {
-            $query->where('category', $category);
+            $this->applyEffectiveCategoryFilter($query, $category);
         }
 
         if ($request->filled('action')) {
@@ -136,6 +144,49 @@ class AuditLogController extends Controller
         return in_array($category, ['all', AuditCategory::Security->value, AuditCategory::Audit->value], true)
             ? $category
             : 'all';
+    }
+
+    private function applyEffectiveCategoryFilter(Builder $query, string $category): void
+    {
+        if ($category === AuditCategory::Security->value) {
+            $query->where(function (Builder $builder): void {
+                $builder
+                    ->where('category', AuditCategory::Security->value)
+                    ->orWhereIn('action', self::LEGACY_SECURITY_ACTIONS);
+            });
+
+            return;
+        }
+
+        if ($category === AuditCategory::Audit->value) {
+            $query->where('category', AuditCategory::Audit->value)
+                ->whereNotIn('action', self::LEGACY_SECURITY_ACTIONS);
+        }
+    }
+
+    private function effectiveCategory(AuditLog $log): AuditCategory
+    {
+        if (in_array($log->action, self::LEGACY_SECURITY_ACTIONS, true)) {
+            return AuditCategory::Security;
+        }
+
+        return $log->category === AuditCategory::Security->value
+            ? AuditCategory::Security
+            : AuditCategory::Audit;
+    }
+
+    private function effectiveSecurityCount(Builder $query): int
+    {
+        $this->applyEffectiveCategoryFilter($query, AuditCategory::Security->value);
+
+        return $query->count();
+    }
+
+    private function effectiveAuditCount(Builder $query): int
+    {
+        $this->applyEffectiveCategoryFilter($query, AuditCategory::Audit->value);
+
+        return $query->count();
     }
 
     private function direction(Request $request): string

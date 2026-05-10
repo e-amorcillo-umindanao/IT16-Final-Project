@@ -216,7 +216,7 @@ export default function AuditIntegrity({ totalEntries, results, lastVerified, hi
                         )}
                     </div>
 
-                    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)]">
+                    <div className="grid gap-6 xl:items-start xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)]">
                         <Card className="rounded-[30px] border border-[#ead8cd] bg-white/95 shadow-sm">
                             <CardContent className="space-y-6 p-6">
                                 <div className="flex flex-col gap-4 border-b border-[#ead8cd] pb-6 sm:flex-row sm:items-start sm:justify-between">
@@ -227,12 +227,6 @@ export default function AuditIntegrity({ totalEntries, results, lastVerified, hi
                                             recalculates the SHA-256 hash for every entry and confirms continuity
                                             across the full chain.
                                         </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-4xl font-semibold text-[#b24b23]">
-                                            {totalEntries.toLocaleString()}
-                                        </p>
-                                        <p className="text-sm text-stone-500">entries</p>
                                     </div>
                                 </div>
 

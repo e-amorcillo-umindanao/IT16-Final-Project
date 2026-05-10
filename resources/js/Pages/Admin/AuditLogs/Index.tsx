@@ -496,7 +496,7 @@ export default function AdminAuditLogsIndex({
                     <div className="rounded-[24px] border border-[#ecd8ce] bg-[#fdf8f4] p-5 shadow-sm">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                             <div className="space-y-2">
-                                <Badge className="rounded-full border border-[#efcdbf] bg-[#fff4ee] px-3 py-1 text-sm font-medium text-[#a64824] hover:bg-[#fff4ee]">
+                                <Badge className="rounded-full border-transparent bg-amber-500/15 px-3 py-1 text-sm font-medium text-amber-700 hover:bg-amber-500/15 dark:text-amber-400">
                                     Audit review
                                 </Badge>
                                 <div className="space-y-1.5">

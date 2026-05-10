@@ -71,13 +71,13 @@ export default function SessionsIndex({ sessions, currentSessionId }: Props) {
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <Alert className="rounded-[28px] border border-[#efc7b8] bg-[#fdf0ea] px-5 py-4 text-[#8a3b1f] shadow-sm">
-                        <Info className="h-4 w-4 text-[#c65e38]" />
+                    <Alert className="rounded-[28px] border border-amber-200/70 bg-amber-50/80 px-5 py-4 text-amber-900 shadow-sm">
+                        <Info className="h-4 w-4 text-amber-600" />
                         <div className="space-y-1">
-                            <AlertTitle className="text-base font-semibold text-[#6d2c15]">
+                            <AlertTitle className="text-base font-semibold text-amber-900">
                                 Session Security
                             </AlertTitle>
-                            <AlertDescription className="text-sm leading-7 text-[#8c4d35]">
+                            <AlertDescription className="text-sm leading-7 text-amber-800">
                                 Revoking a session will immediately log out the associated device.
                                 If you notice unrecognized activity, revoke the session and change your
                                 password immediately.
@@ -156,13 +156,12 @@ export default function SessionsIndex({ sessions, currentSessionId }: Props) {
 
                                                 <div className="flex items-center justify-start md:justify-end">
                                                     {isCurrentSession ? (
-                                                        <Button
+                                                        <Badge
                                                             variant="outline"
-                                                            disabled
-                                                            className="h-11 rounded-2xl border-[#efd8cf] bg-white px-6 text-base text-[#d2aaa0] disabled:opacity-100"
+                                                            className="rounded-full border-stone-200 bg-stone-50 px-3 py-1 text-sm font-medium text-stone-600"
                                                         >
-                                                            Current
-                                                        </Button>
+                                                            This device
+                                                        </Badge>
                                                     ) : (
                                                         <AlertDialog>
                                                             <AlertDialogTrigger asChild>

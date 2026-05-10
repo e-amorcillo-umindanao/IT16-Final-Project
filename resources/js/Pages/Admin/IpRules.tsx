@@ -164,10 +164,10 @@ export default function IpRules({ currentIp, rules }: Props) {
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <Alert className="rounded-[28px] border border-[#efc7b8] bg-[#fdf0ea] px-5 py-4 text-[#8a3b1f] shadow-sm">
-                        <Monitor className="h-4 w-4 text-[#c65e38]" />
-                        <AlertDescription className="text-sm leading-7 text-[#8c4d35]">
-                            Your current IP address is <code className="font-mono font-semibold text-[#6d2c15]">{currentIp}</code>.
+                    <Alert className="rounded-[28px] border border-stone-200/80 bg-stone-50 px-5 py-4 text-stone-700 shadow-sm">
+                        <Monitor className="h-4 w-4 text-stone-500" />
+                        <AlertDescription className="text-sm leading-7 text-stone-600">
+                            Your current IP address is <code className="font-mono font-semibold text-stone-900">{currentIp}</code>.
                             Make sure you do not block yourself.
                         </AlertDescription>
                     </Alert>

@@ -519,7 +519,7 @@ export default function Index({ documents, flash, sort, direction }: Props) {
                         </p>
                     </div>
                     <Link href={route('documents.create')} className="shrink-0">
-                        <Button className="bg-amber-700 text-white hover:bg-amber-800">
+                        <Button>
                             <Plus className="mr-2 h-4 w-4" />
                             Upload Document
                         </Button>
@@ -538,7 +538,7 @@ export default function Index({ documents, flash, sort, direction }: Props) {
                                     <CardContent className="flex flex-col items-center gap-4 text-center">
                                         <div className="relative rounded-[28px] bg-stone-100 p-6">
                                             <LockKeyhole className="h-16 w-16 text-stone-500" />
-                                            <div className="absolute -bottom-2 -right-2 rounded-full bg-amber-700 p-1.5 text-white">
+                                            <div className="absolute -bottom-2 -right-2 rounded-full bg-amber-700 p-1.5 text-white ring-2 ring-white">
                                                 <ShieldCheck className="h-5 w-5" />
                                             </div>
                                         </div>
@@ -549,7 +549,7 @@ export default function Index({ documents, flash, sort, direction }: Props) {
                                             </p>
                                         </div>
                                         <Link href={route('documents.create')}>
-                                            <Button className="bg-amber-700 text-white hover:bg-amber-800">
+                                            <Button>
                                                 <Upload className="mr-2 h-4 w-4" />
                                                 Upload Document
                                             </Button>
@@ -802,9 +802,18 @@ export default function Index({ documents, flash, sort, direction }: Props) {
                                                             {formatBytes(document.file_size)}
                                                         </TableCell>
                                                         <TableCell className="text-sm text-muted-foreground">
-                                                            {formatDistanceToNow(new Date(document.created_at), {
-                                                                addSuffix: true,
-                                                            })}
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span className="cursor-help">
+                                                                        {formatDistanceToNow(new Date(document.created_at), {
+                                                                            addSuffix: true,
+                                                                        })}
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>{format(new Date(document.created_at), 'MMM d, yyyy h:mm a')}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
                                                         </TableCell>
                                                         <TableCell className="hidden md:table-cell">
                                                             <ScanBadge result={document.scan_result} />

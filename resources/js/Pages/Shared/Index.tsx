@@ -293,12 +293,12 @@ export default function SharedWithMe({ auth, shares, filters }: Props) {
                             <div className="flex min-h-[calc(100vh-18rem)] items-center justify-center">
                                 <Card className="flex w-full max-w-xl flex-col items-center justify-center rounded-[32px] border-stone-200/80 bg-white py-24 shadow-sm">
                                     <CardContent className="flex flex-col items-center gap-4 pt-6 text-center">
-                                        <div className="relative">
-                                            <div className="inline-block rounded-[28px] bg-stone-100 p-5">
-                                                <FolderOpen className="h-16 w-16 text-stone-500" />
+                                        <div className="relative h-20 w-20">
+                                            <div className="flex h-full w-full items-center justify-center rounded-[28px] bg-stone-100">
+                                                <FolderOpen className="h-12 w-12 text-stone-500" />
                                             </div>
-                                            <div className="absolute -bottom-2 -right-2 rounded-full border border-stone-200 bg-white p-2 shadow-sm">
-                                                <Link2 className="h-5 w-5 text-stone-500" />
+                                            <div className="absolute -bottom-1 -right-1 rounded-full border border-stone-200 bg-white p-2 shadow-sm">
+                                                <Link2 className="h-4 w-4 text-stone-500" />
                                             </div>
                                         </div>
                                         <div>

@@ -172,30 +172,27 @@ export default function AdminDocumentsIndex({
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <Alert className="rounded-[28px] border border-[#efc7b8] bg-[#fdf0ea] px-5 py-4 text-[#8a3b1f] shadow-sm">
-                        <ShieldAlert className="h-4 w-4 text-[#c65e38]" />
-                        <AlertDescription className="text-sm leading-7 text-[#8c4d35]">
+                    <Alert className="rounded-[28px] border border-stone-200/80 bg-stone-50 px-5 py-4 text-stone-700 shadow-sm">
+                        <ShieldAlert className="h-4 w-4 text-stone-500" />
+                        <AlertDescription className="text-sm leading-7 text-stone-600">
                             You are viewing all system documents in read-only mode. Download,
                             delete, and share controls are hidden.
                         </AlertDescription>
                     </Alert>
 
                     <div className="rounded-[30px] border border-[#ecd8ce] bg-[#fdf8f4] p-6 shadow-sm">
-                        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-                            <div className="space-y-3">
-                                <Badge className="rounded-full border border-[#efcdbf] bg-[#fff4ee] px-3 py-1 text-sm font-medium text-[#a64824] hover:bg-[#fff4ee]">
-                                    Document oversight
-                                </Badge>
-                                <div className="space-y-1">
-                                    <h2 className="text-4xl font-semibold tracking-tight text-stone-950">
-                                        Search the full enterprise document inventory
-                                    </h2>
-                                    <p className="max-w-3xl text-sm leading-7 text-stone-500">
-                                        This view favors review and auditability over editing. Keep
-                                        filters broad, inspect ownership, and move into document details
-                                        only when something needs closer attention.
-                                    </p>
-                                </div>
+                        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                                    Document Oversight
+                                </p>
+                                <h2 className="text-2xl font-semibold tracking-tight text-stone-950">
+                                    System-wide document inventory
+                                </h2>
+                                <p className="max-w-3xl text-sm leading-7 text-stone-500">
+                                    Review ownership, scan results, encryption details, and integrity
+                                    signals across every stored document without exposing edit actions.
+                                </p>
                             </div>
                             <div className="flex flex-wrap items-center gap-3">
                                 <Button

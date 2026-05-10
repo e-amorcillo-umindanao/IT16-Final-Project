@@ -322,12 +322,12 @@ export default function TrashIndex({ documents, search }: Props) {
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                    <Alert className="rounded-[28px] border border-[#efc7b8] bg-[#fdf0ea] px-5 py-4 text-[#8a3b1f] shadow-sm">
-                        <Info className="h-4 w-4 text-[#c65e38]" />
-                        <AlertTitle className="text-base font-semibold text-[#6d2c15]">
+                    <Alert className="rounded-[28px] border border-amber-200/70 bg-amber-50/80 px-5 py-4 text-amber-900 shadow-sm">
+                        <Info className="h-4 w-4 text-amber-600" />
+                        <AlertTitle className="text-base font-semibold text-amber-900">
                             Items in trash will be deleted forever after 30 days
                         </AlertTitle>
-                        <AlertDescription className="mt-1 text-sm leading-7 text-[#8c4d35]">
+                        <AlertDescription className="mt-1 text-sm leading-7 text-amber-800">
                             You can manually empty the trash to permanently delete these items
                             immediately, or restore them if they were moved here by mistake.
                         </AlertDescription>

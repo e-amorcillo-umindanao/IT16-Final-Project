@@ -81,7 +81,7 @@ class AuditService
         'user_activated' => AuditCategory::Audit,
         'user_deactivated' => AuditCategory::Audit,
         'user_role_changed' => AuditCategory::Audit,
-        'two_factor_deadline_set' => AuditCategory::Audit,
+        'two_factor_deadline_set' => AuditCategory::Security,
     ];
 
     /**

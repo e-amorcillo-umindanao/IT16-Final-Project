@@ -96,6 +96,15 @@ function getGreeting() {
     return 'Good evening';
 }
 
+function getGreetingName(name: string) {
+    const trimmedName = name.trim();
+    const firstName = trimmedName.split(/\s+/)[0] ?? trimmedName;
+
+    return ['super', 'admin', 'system'].includes(firstName.toLowerCase())
+        ? trimmedName
+        : firstName;
+}
+
 function getActivityLabel(action: string) {
     switch (action) {
         case 'login':
@@ -221,6 +230,7 @@ export default function Dashboard({
     recent_activity,
 }: DashboardProps) {
     const user = auth.user as DashboardUser;
+    const roles = auth.roles ?? [];
     const permissions = auth.permissions ?? [];
     const canViewAdminDashboard = permissions.includes('view_admin_dashboard');
     const hasFailedLogins = stats.failed_logins_24h > 0;
@@ -228,7 +238,11 @@ export default function Dashboard({
     const twoFactorDeadline = user.two_factor_deadline
         ? new Date(user.two_factor_deadline)
         : null;
-    const firstName = user.name.split(/\s+/)[0] ?? user.name;
+    const firstName = getGreetingName(user.name);
+    const workspaceEyebrow =
+        roles.includes('super-admin') || roles.includes('admin')
+          ? 'Personal Workspace'
+          : 'Secure Document Workspace';
 
     const securityState = hasFailedLogins
         ? {
@@ -293,7 +307,7 @@ export default function Dashboard({
             header={
                 <div className="space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
-                        Super Admin Workspace
+                        {workspaceEyebrow}
                     </p>
                     <h1 className="text-3xl font-semibold tracking-tight text-stone-950">
                         Dashboard
@@ -363,20 +377,31 @@ export default function Dashboard({
                     })()}
 
                     <div className="space-y-6">
-                        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.75fr)_minmax(340px,1fr)]">
+                        <div className="grid gap-6 xl:items-start xl:grid-cols-[minmax(0,1.75fr)_minmax(340px,1fr)]">
                             <Card className="rounded-[28px] border-stone-200/80 bg-white shadow-sm">
                                 <CardContent className="p-6 sm:p-7">
-                                    <div className="flex h-full flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-                                        <div className="space-y-4">
+                                    <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                                        <div className="space-y-5">
                                             <div className="space-y-2">
                                                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
                                                     Overview
                                                 </p>
-                                                <div className="space-y-1">
-                                                    <h2 className="text-4xl font-semibold tracking-tight text-stone-950">
-                                                        {getGreeting()}, {firstName}!
-                                                    </h2>
-                                                    <p className="max-w-2xl text-sm leading-6 text-stone-600">
+                                                <div className="space-y-3">
+                                                    <div className="flex flex-wrap items-center gap-3">
+                                                        <h2 className="text-4xl font-semibold tracking-tight text-stone-950">
+                                                            {getGreeting()}, {firstName}!
+                                                        </h2>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={cn(
+                                                                'w-fit rounded-full px-3 py-1 text-sm font-semibold',
+                                                                securityState.badgeClassName,
+                                                            )}
+                                                        >
+                                                            {securityState.label}
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="max-w-3xl text-sm leading-6 text-stone-600">
                                                         Your vault security status is{' '}
                                                         <span
                                                             className={cn(
@@ -397,16 +422,6 @@ export default function Dashboard({
                                                     </p>
                                                 </div>
                                             </div>
-
-                                            <Badge
-                                                variant="outline"
-                                                className={cn(
-                                                    'w-fit rounded-full px-3 py-1 text-sm font-semibold',
-                                                    securityState.badgeClassName,
-                                                )}
-                                            >
-                                                {securityState.label}
-                                            </Badge>
                                         </div>
 
                                         <div className="flex flex-wrap gap-3">

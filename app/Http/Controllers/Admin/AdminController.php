@@ -24,6 +24,10 @@ use Inertia\Response;
 
 class AdminController extends Controller
 {
+    private const LEGACY_SECURITY_ACTIONS = [
+        'two_factor_deadline_set',
+    ];
+
     protected $auditService;
 
     public function __construct(AuditService $auditService)
@@ -266,7 +270,7 @@ class AdminController extends Controller
         $direction = $this->direction($request);
         $query = $this->auditLogsQuery($request);
         $todayLogs = AuditLog::where('created_at', '>=', Carbon::today())
-            ->get(['created_at', 'category']);
+            ->get(['action', 'created_at', 'category']);
         $hourlyChart = collect();
 
         for ($hour = 0; $hour < 24; $hour++) {
@@ -279,7 +283,7 @@ class AdminController extends Controller
 
         $todayLogs->each(function (AuditLog $log) use ($hourlyChart): void {
             $hour = (int) $log->created_at->format('G');
-            $key = $log->category === AuditCategory::Security->value ? 'security' : 'audit';
+            $key = $this->effectiveCategory($log) === AuditCategory::Security ? 'security' : 'audit';
             $slot = $hourlyChart->get($hour);
 
             if (is_array($slot)) {
@@ -296,7 +300,7 @@ class AdminController extends Controller
                     'id' => $log->id,
                     'user_id' => $log->user_id,
                     'action' => $log->action,
-                    'category' => $log->category,
+                    'category' => $this->effectiveCategory($log)->value,
                     'description' => $this->auditDescriptionService()->generate($log),
                     'metadata' => $log->metadata,
                     'ip_address' => $log->ip_address,
@@ -314,8 +318,8 @@ class AdminController extends Controller
                 'category' => $this->categoryFilter($request),
                 ...$request->only(['action', 'from_date', 'to_date', 'user_id']),
             ],
-            'securityCount' => AuditLog::security()->count(),
-            'auditCount' => AuditLog::audit()->count(),
+            'securityCount' => $this->effectiveSecurityCount(AuditLog::query()),
+            'auditCount' => $this->effectiveAuditCount(AuditLog::query()),
             'direction' => $direction,
             'users' => User::select(['id', 'name', 'email'])
                 ->orderBy('name')
@@ -386,7 +390,7 @@ class AdminController extends Controller
             ->orderBy('created_at', $this->direction($request));
 
         if (($category = $this->categoryFilter($request)) !== 'all') {
-            $query->where('category', $category);
+            $this->applyEffectiveCategoryFilter($query, $category);
         }
 
         if (! empty($filters['action'])) {
@@ -436,6 +440,49 @@ class AdminController extends Controller
         return in_array($category, ['all', AuditCategory::Security->value, AuditCategory::Audit->value], true)
             ? $category
             : 'all';
+    }
+
+    private function applyEffectiveCategoryFilter(Builder $query, string $category): void
+    {
+        if ($category === AuditCategory::Security->value) {
+            $query->where(function (Builder $builder): void {
+                $builder
+                    ->where('category', AuditCategory::Security->value)
+                    ->orWhereIn('action', self::LEGACY_SECURITY_ACTIONS);
+            });
+
+            return;
+        }
+
+        if ($category === AuditCategory::Audit->value) {
+            $query->where('category', AuditCategory::Audit->value)
+                ->whereNotIn('action', self::LEGACY_SECURITY_ACTIONS);
+        }
+    }
+
+    private function effectiveCategory(AuditLog $log): AuditCategory
+    {
+        if (in_array($log->action, self::LEGACY_SECURITY_ACTIONS, true)) {
+            return AuditCategory::Security;
+        }
+
+        return $log->category === AuditCategory::Security->value
+            ? AuditCategory::Security
+            : AuditCategory::Audit;
+    }
+
+    private function effectiveSecurityCount(Builder $query): int
+    {
+        $this->applyEffectiveCategoryFilter($query, AuditCategory::Security->value);
+
+        return $query->count();
+    }
+
+    private function effectiveAuditCount(Builder $query): int
+    {
+        $this->applyEffectiveCategoryFilter($query, AuditCategory::Audit->value);
+
+        return $query->count();
     }
 
     private function direction(Request $request): string

@@ -249,19 +249,17 @@ export default function AdminUsersIndex({ users, filters, auth, sort, direction 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
                     <div className="flex flex-col gap-4 rounded-[30px] border border-[#ecd8ce] bg-[#fdf8f4] p-6 shadow-sm lg:flex-row lg:items-end lg:justify-between">
-                        <div className="space-y-3">
-                            <Badge className="rounded-full border border-[#efcdbf] bg-[#fff4ee] px-3 py-1 text-sm font-medium text-[#a64824] hover:bg-[#fff4ee]">
-                                Admin directory
-                            </Badge>
-                            <div className="space-y-1">
-                                <h2 className="text-4xl font-semibold tracking-tight text-stone-950">
-                                    Accounts, roles, and verification in one view
-                                </h2>
-                                <p className="max-w-3xl text-sm leading-7 text-stone-500">
-                                    This workspace is optimized for reviewing account posture quickly
-                                    without losing access to deeper actions like audit review and role changes.
-                                </p>
-                            </div>
+                        <div className="space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-stone-400">
+                                Admin Directory
+                            </p>
+                            <h2 className="text-2xl font-semibold tracking-tight text-stone-950">
+                                Account directory
+                            </h2>
+                            <p className="max-w-3xl text-sm leading-7 text-stone-500">
+                                Review account posture quickly while keeping role changes, activation
+                                controls, and audit access close at hand.
+                            </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-3">
                             <Button

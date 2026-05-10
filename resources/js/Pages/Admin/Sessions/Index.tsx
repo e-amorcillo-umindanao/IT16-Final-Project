@@ -254,7 +254,7 @@ export default function AdminSessionsIndex({
                                         <Button
                                             variant="ghost"
                                             disabled={terminableSessionsCount === 0}
-                                            className="rounded-2xl px-0 text-[#cf6c52] hover:bg-transparent hover:text-[#b24b23] disabled:opacity-50"
+                                            className="rounded-2xl px-0 text-destructive hover:bg-transparent hover:text-destructive/80 disabled:opacity-50"
                                             aria-label="Terminate all sessions except your current session"
                                         >
                                             Terminate All
@@ -282,24 +282,23 @@ export default function AdminSessionsIndex({
                             </div>
 
                             {showIdleState ? (
-                                <div className="flex min-h-[420px] flex-col justify-between">
-                                    <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
-                                        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[#f8e9e2] text-[#d8b8a8]">
-                                            <ShieldCheck className="h-10 w-10" />
-                                        </div>
-                                        <p className="text-3xl font-semibold text-stone-950">No other sessions</p>
-                                        <p className="mt-3 max-w-md text-sm leading-7 text-stone-500">
-                                            Only your current session is active.
-                                        </p>
+                                <div className="space-y-0">
+                                    <div className="border-b border-[#ead8cd] bg-[#fff8f4] px-6 py-4 text-sm text-stone-500">
+                                        No other active sessions across the platform.
                                     </div>
 
                                     {currentSession && (
-                                        <div className="border-t border-[#ead8cd] bg-[#fff8f4] px-6 py-5">
+                                        <div className="px-6 py-5">
                                             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#ffd8ca] text-sm font-semibold text-stone-900">
-                                                        ME
-                                                    </div>
+                                                    <UserAvatar
+                                                        user={{
+                                                            name: currentSession.user_name ?? 'Current User',
+                                                            email: currentSession.user_email,
+                                                            avatar_url: currentSession.user_avatar_url,
+                                                        }}
+                                                        size="md"
+                                                    />
                                                     <div>
                                                         <p className="text-lg font-medium text-stone-950">
                                                             Current Session (This device)
