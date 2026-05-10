@@ -290,7 +290,7 @@ class AdminController extends Controller
 
         return Inertia::render('Admin/AuditLogs/Index', [
             'logs' => $query
-                ->paginate(50)
+                ->paginate(10)
                 ->withQueryString()
                 ->through(fn (AuditLog $log) => [
                     'id' => $log->id,

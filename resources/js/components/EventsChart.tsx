@@ -26,6 +26,10 @@ const chartConfig = {
     },
 } satisfies ChartConfig;
 
+function formatHourTick(value: string) {
+    return value.replace(':00', '');
+}
+
 export function EventsChart({ data }: EventsChartProps) {
     const isEmpty = data.every((item) => item.security === 0 && item.audit === 0);
 
@@ -42,8 +46,8 @@ export function EventsChart({ data }: EventsChartProps) {
                 </div>
             </div>
 
-            <ChartContainer config={chartConfig} className="h-44 w-full">
-                <BarChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
+            <ChartContainer config={chartConfig} className="h-48 w-full">
+                <BarChart data={data} margin={{ top: 8, right: 12, bottom: 8, left: 0 }} barCategoryGap="24%">
                     <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.45} />
                     <XAxis
                         dataKey="hour"
@@ -51,7 +55,10 @@ export function EventsChart({ data }: EventsChartProps) {
                         axisLine={false}
                         tick={{ fontSize: 10 }}
                         tickMargin={8}
-                        interval={2}
+                        tickFormatter={formatHourTick}
+                        interval="preserveStartEnd"
+                        minTickGap={24}
+                        padding={{ left: 8, right: 8 }}
                         className="fill-muted-foreground"
                     />
                     <YAxis
